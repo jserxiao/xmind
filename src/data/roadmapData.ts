@@ -135,7 +135,7 @@ function buildTree(
 ): RoadmapNode {
   const root: RoadmapNode = {
     id: 'root',
-    label: rootLabel + '\n(@煎鱼)',
+    label: rootLabel,
     type: 'root',
     children: [],
   };
@@ -190,7 +190,7 @@ export async function loadRoadmapData(): Promise<RoadmapNode> {
     return parseIndexMd(text);
   } catch (err) {
     console.error('[roadmap] load failed:', err);
-    return { id: 'root', label: 'Go 学习路线图\n(@煎鱼)', type: 'root', children: [] };
+    return { id: 'root', label: 'Go 学习路线图', type: 'root', children: [] };
   }
 }
 

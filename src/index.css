@@ -126,15 +126,342 @@ a:hover {
 .graph-container {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   position: relative;
   background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* 画布舞台区域（全屏） */
+.graph-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
 }
 
 .graph-canvas {
-  flex: 1;
   width: 100%;
-  /* G6 会自动管理这个 div 的尺寸 */
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* ===== 左侧配置栏样式 ===== */
+.config-panel {
+  position: relative;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+}
+
+.config-panel-collapsed {
+  width: 32px;
+}
+
+.config-panel-expanded {
+  width: 280px;
+}
+
+/* 折叠/展开按钮 */
+.config-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 30;
+}
+
+.config-toggle-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.config-toggle-collapse {
+  right: -14px;
+}
+
+/* 配置栏头部 */
+.config-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+}
+
+.config-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 工具栏 */
+.config-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.config-tool-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.config-tool-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+/* Tab 切换 */
+.config-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.config-tab {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.config-tab:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-secondary);
+}
+
+.config-tab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+/* Tab 内容区域 */
+.config-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.config-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.config-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+/* 导航面板 */
+.config-nav-panel {
+  padding: 8px 0;
+}
+
+.config-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 配置面板 */
+.config-settings-panel {
+  padding: 12px;
+}
+
+.config-section {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.config-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.config-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 10px;
+}
+
+/* 配置行 */
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.config-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  width: 70px;
+}
+
+/* 颜色输入 */
+.config-color-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.config-color-input {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.config-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.config-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.config-text-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  max-width: 90px;
+}
+
+.config-text-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* 数字输入 */
+.config-number-input {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: right;
+}
+
+.config-number-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* 重置按钮 */
+.config-reset-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(250, 140, 22, 0.1);
+  border: 1px solid rgba(250, 140, 22, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--warning-color);
+  transition: all 0.2s;
+}
+
+.config-reset-btn:hover {
+  background: rgba(250, 140, 22, 0.2);
+  border-color: var(--warning-color);
+}
+
+/* 导出按钮组 */
+.config-export-group {
+  display: flex;
+  gap: 8px;
+}
+
+.config-export-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--primary-light);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--primary-color);
+  transition: all 0.2s;
+}
+
+.config-export-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* 图例 */
+.config-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+/* 底部提示 */
+.config-footer {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border-color);
 }
 
 /* 工具栏 */

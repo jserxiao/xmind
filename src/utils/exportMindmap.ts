@@ -4,7 +4,6 @@
  * 支持 PNG 图片 / PDF 文档 两种格式
  */
 
-import G6 from '@antv/g6';
 import { jsPDF } from 'jspdf';
 
 // ==================== PNG 图片导出 (G6 官方 toFullDataURL API) ====================
@@ -15,7 +14,7 @@ import { jsPDF } from 'jspdf';
 //   - type: 可选，图片类型，默认 image/png
 //   - imageConfig: 可选，{ backgroundColor, padding }
 
-export function exportToJPG(graph: G6.TreeGraph, filename = 'go-roadmap') {
+export function exportToJPG(graph: any, filename = 'go-roadmap') {
   try {
     // 使用 G6 官方 toFullDataURL API 导出完整图片
     // 该方法会异步渲染整张图并返回包含所有节点和边的完整图片
@@ -42,7 +41,7 @@ export function exportToJPG(graph: G6.TreeGraph, filename = 'go-roadmap') {
 
 // ==================== PDF 文档导出 (G6 官方 toFullDataURL API) ====================
 
-export function exportToPDF(graph: G6.TreeGraph, filename = 'go-roadmap') {
+export function exportToPDF(graph: any, filename = 'go-roadmap') {
   try {
     // 使用 G6 官方 toFullDataURL API 获取完整图片
     graph.toFullDataURL(
