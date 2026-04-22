@@ -210,7 +210,14 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
             <label className="form-label">{isSubNode ? '章节标题' : '标题'} *</label>
             <Input
               value={formData.label}
-              onChange={(e) => updateFormData({ label: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ label: e.target.value })}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                // 当输入框失焦时，如果 markdown 内容为空，自动同步添加标题
+                const label = e.target.value.trim();
+                if (!formData.mdContent?.trim() && label) {
+                  setMdContent(`# ${label}\n\n`);
+                }
+              }}
               placeholder={isSubNode ? "请输入章节标题" : "请输入节点标题"}
               size="large"
             />
@@ -228,7 +235,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                     onChange={handleTypeChange}
                     style={{ width: '100%' }}
                     size="large"
-                    getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
+                    getPopupContainer={(triggerNode: HTMLElement) => triggerNode.parentNode as HTMLElement}
                     options={NODE_TYPE_OPTIONS.map(opt => ({
                       value: opt.value,
                       label: (
@@ -238,7 +245,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                         </div>
                       ),
                     }))}
-                    optionRender={(option) => (
+                    optionRender={(option: any) => (
                       <div style={{ padding: '4px 0' }}>
                         <div style={{ fontWeight: 500 }}>{NODE_TYPE_OPTIONS.find(o => o.value === option.value)?.label}</div>
                         <div style={{ fontSize: 12, color: '#999' }}>{NODE_TYPE_OPTIONS.find(o => o.value === option.value)?.desc}</div>
@@ -251,12 +258,12 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                   <label className="form-label">图标</label>
                   <Select
                     value={formData.icon || '📄'}
-                    onChange={(icon) => updateFormData({ icon })}
+                    onChange={(icon: string) => updateFormData({ icon })}
                     style={{ width: '100%' }}
                     size="large"
                     showSearch
                     optionFilterProp="label"
-                    getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
+                    getPopupContainer={(triggerNode: HTMLElement) => triggerNode.parentNode as HTMLElement}
                     options={ICON_LIST}
                   />
                 </div>
@@ -267,7 +274,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                 <label className="form-label">描述</label>
                 <TextArea
                   value={formData.description}
-                  onChange={(e) => updateFormData({ description: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateFormData({ description: e.target.value })}
                   placeholder="请输入节点描述（可选）"
                   rows={2}
                   showCount
@@ -281,7 +288,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                   <label className="form-label">MD 文件路径</label>
                   <Input
                     value={formData.mdPath}
-                    onChange={(e) => updateFormData({ mdPath: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ mdPath: e.target.value })}
                     placeholder="例如: basic-features/defer"
                   />
                   <span className="form-hint">相对于 /md/ 目录的路径，不含 .md 后缀</span>
@@ -294,7 +301,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
                   <label className="form-label">外部链接</label>
                   <Input
                     value={formData.url}
-                    onChange={(e) => updateFormData({ url: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ url: e.target.value })}
                     placeholder="https://example.com"
                   />
                 </div>
@@ -350,7 +357,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
             <div className="md-editor-container" data-color-mode="light">
               <MDEditor
                 value={formData.mdContent}
-                onChange={(value) => setMdContent(value || '')}
+                onChange={(value: string | undefined) => setMdContent(value || '')}
                 preview="edit"
                 height="100%"
                 visibleDragbar={false}
@@ -369,10 +376,10 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
         <div className="editor-header">
           <h2 className="editor-title">
             {mode === 'add' 
-              ? '➕ 添加节点' 
+              ? '添加节点' 
               : isSubNode 
-                ? '📝 编辑章节内容' 
-                : '✏️ 编辑节点'}
+                ? '编辑章节内容' 
+                : '编辑节点'}
           </h2>
           {isSubNode && subNodeMdPath && (
             <span className="editor-subtitle">📄 {subNodeMdPath}</span>
@@ -388,37 +395,39 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
           <div className="editor-left">
             <Tabs
               activeKey={activeTab}
-              onChange={(key) => setActiveTab(key as 'basic' | 'content')}
+              onChange={(key: string) => setActiveTab(key as 'basic' | 'content')}
               items={tabItems}
               size="large"
               style={{ paddingLeft: 16, paddingRight: 16 }}
             />
           </div>
 
-          {/* 右侧：预览区 */}
-          <div className="editor-right">
-            <div className="preview-header">
-              <span className="preview-title">📄 实时预览</span>
-              <Tooltip title="点击预览区下方的模板按钮可快速填充内容">
-                <span className="preview-tip">💡 提示</span>
-              </Tooltip>
+          {/* 右侧：预览区 - 只在内容编辑 tab 时显示 */}
+          {activeTab === 'content' && (
+            <div className="editor-right">
+              <div className="preview-header">
+                <span className="preview-title">📄 实时预览</span>
+                <Tooltip title="点击预览区下方的模板按钮可快速填充内容">
+                  <span className="preview-tip">💡 提示</span>
+                </Tooltip>
+              </div>
+              <div className="preview-content" data-color-mode="light">
+                <MDEditor.Markdown
+                  source={formData.mdContent || '*暂无内容，请在左侧编辑*'}
+                  style={{ backgroundColor: 'transparent' }}
+                />
+              </div>
+              {/* 预览区底部的快捷模板按钮 */}
+              <div className="preview-templates">
+                <span className="templates-label">快速模板：</span>
+                {MD_TEMPLATES.map(t => (
+                  <Button key={t.key} size="small" onClick={() => applyTemplate(t.key)}>
+                    {t.label.replace(/[📋📄📖📚]/g, '').trim()}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="preview-content" data-color-mode="light">
-              <MDEditor.Markdown
-                source={formData.mdContent || '*暂无内容，请在左侧编辑*'}
-                style={{ backgroundColor: 'transparent' }}
-              />
-            </div>
-            {/* 预览区底部的快捷模板按钮 */}
-            <div className="preview-templates">
-              <span className="templates-label">快速模板：</span>
-              {MD_TEMPLATES.map(t => (
-                <Button key={t.key} size="small" onClick={() => applyTemplate(t.key)}>
-                  {t.label.replace(/[📋📄📖📚]/g, '').trim()}
-                </Button>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* 底部按钮 */}

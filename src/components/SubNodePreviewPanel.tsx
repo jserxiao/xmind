@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import { Spin, message } from 'antd';
+import { readFile } from '../utils/fileSystem';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -122,14 +123,17 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
       setError(null);
       
       try {
-        // 添加时间戳参数避免浏览器缓存
-        const res = await fetch(`/md/${mdPath}?t=${Date.now()}`, {
-          cache: 'no-store'
-        });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+        // 构建 MD 文件路径，确保有 .md 后缀
+        const mdPathWithExt = mdPath.endsWith('.md') ? mdPath : `${mdPath}.md`;
+        
+        // 使用 File System API 读取文件
+        const result = await readFile(mdPathWithExt);
+        
+        if (!result.success || !result.content) {
+          throw new Error(result.message || '读取文件失败');
         }
-        const text = await res.text();
+        
+        const text = result.content;
         
         // 如果有章节标题，提取章节内容；否则使用整个文件内容
         if (sectionTitle) {
@@ -142,8 +146,8 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
         } else {
           setContent(text);
         }
-      } catch (err) {
-        setError(`加载失败: ${err}`);
+      } catch (err: any) {
+        setError(`加载失败: ${err.message || err}`);
         message.error('加载内容失败');
       } finally {
         setLoading(false);

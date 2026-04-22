@@ -10,6 +10,7 @@ import {
   deleteRoadmap,
   isFileSystemSupported,
   getDirectoryHandle,
+  clearDirectoryHandle,
 } from '../utils/fileSystem';
 
 const RoadmapListPage: React.FC = () => {
@@ -136,6 +137,7 @@ const RoadmapListPage: React.FC = () => {
   // 更换目录
   const handleChangeDirectory = () => {
     clearDirectory();
+    clearDirectoryHandle(); // 同时清除 IndexedDB 中的句柄
     setAvailableRoadmaps([]);
   };
 
@@ -219,8 +221,8 @@ const RoadmapListPage: React.FC = () => {
                   <Popconfirm
                     title="确认删除"
                     description={`确定要删除思维导图「${roadmap.name}」吗？此操作将删除所有相关文件且不可恢复。`}
-                    onConfirm={(e) => handleDeleteRoadmap(roadmap, e as unknown as React.MouseEvent)}
-                    onCancel={(e) => e?.stopPropagation()}
+                    onConfirm={(e?: React.MouseEvent) => e && handleDeleteRoadmap(roadmap, e)}
+                    onCancel={(e?: React.MouseEvent) => e?.stopPropagation()}
                     okText="删除"
                     cancelText="取消"
                     okButtonProps={{ danger: true, loading: deleting === roadmap.id }}

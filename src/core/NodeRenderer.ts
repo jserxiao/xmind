@@ -116,12 +116,12 @@ export class NodeRenderer {
         // 绘制标题（支持多行，垂直居中）
         const label = cfg.label || '';
         const lines = label.split('\n');
-        const lineHeight = i => i ? textStyles.root.fontSizeSecondary + 6 : textStyles.root.fontSize + 6;
-        const totalTextHeight = lines.reduce((sum, _, i) => sum + lineHeight(i), 0) - 6;
+        const lineHeight = (i: number) => i ? (textStyles.root.fontSizeSecondary || 14) + 6 : textStyles.root.fontSize + 6;
+        const totalTextHeight = lines.reduce((sum: number, _: string, i: number) => sum + lineHeight(i), 0) - 6;
         const startY = -totalTextHeight / 2 + (lines.length > 1 ? 0 : textStyles.root.fontSize / 2);
         
         lines.forEach((line: string, i: number) => {
-          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum, _, j) => sum + lineHeight(j), 0);
+          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum: number, _: string, j: number) => sum + lineHeight(j), 0);
           group.addShape('text', {
             attrs: {
               x: -w / 2 + 45,
@@ -186,13 +186,13 @@ export class NodeRenderer {
         // 更新文本样式和位置（垂直居中）
         const label = cfg.label || '';
         const lines = label.split('\n');
-        const lineHeight = (i: number) => i ? textStyles.root.fontSizeSecondary + 6 : textStyles.root.fontSize + 6;
-        const totalTextHeight = lines.reduce((sum, _, i) => sum + lineHeight(i), 0) - 6;
+        const lineHeight = (i: number) => i ? (textStyles.root.fontSizeSecondary || 14) + 6 : textStyles.root.fontSize + 6;
+        const totalTextHeight = lines.reduce((sum: number, _: string, i: number) => sum + lineHeight(i), 0) - 6;
         const startY = -totalTextHeight / 2 + (lines.length > 1 ? 0 : textStyles.root.fontSize / 2);
         
-        lines.forEach((line: string, i: number) => {
+        lines.forEach((_line: string, i: number) => {
           const textEl = group.find((e: any) => e.get('name') === `root-text-${i}`);
-          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum, _, j) => sum + lineHeight(j), 0);
+          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum: number, _: string, j: number) => sum + lineHeight(j), 0);
           if (textEl) {
             textEl.attr({
               x: -w / 2 + 45,
@@ -212,11 +212,12 @@ export class NodeRenderer {
        * @param value 状态值
        * @param item 节点实例
        */
-      setState(name: string, value: boolean, item: any) {
+      setState(name?: string, value?: boolean | string, item?: any) {
+        if (name !== 'hover' || !item) return;
         const config = getConfig();
         const { nodeStyles, colors } = config;
         const box = item.getContainer().find((e: any) => e.get('name') === 'root-box');
-        if (name === 'hover' && box) {
+        if (box) {
           box.attr('shadowBlur', value ? 30 : nodeStyles.root.shadowBlur);
           box.attr('fill', value ? colors.hoverPrimary : colors.primary);
         }
@@ -348,13 +349,14 @@ export class NodeRenderer {
         }
       },
 
-      setState(name: string, value: boolean, item: any) {
+      setState(name?: string, value?: boolean | string, item?: any) {
+        if (name !== 'hover' || !item) return;
         const config = getConfig();
         const { colors } = config;
         const container = item.getContainer();
         const box = container.find((e: any) => e.get('name') === 'branch-box');
 
-        if (name === 'hover' && box) {
+        if (box) {
           box.attr('fill', value ? colors.hoverPrimaryLight : colors.primaryLight);
         }
       },
@@ -507,11 +509,12 @@ export class NodeRenderer {
         }
       },
 
-      setState(name: string, value: boolean, item: any) {
+      setState(name?: string, value?: boolean | string, item?: any) {
+        if (name !== 'hover' || !item) return;
         const config = getConfig();
         const { colors } = config;
         const box = item.getContainer().find((e: any) => e.get('name') === 'leaf-box');
-        if (name === 'hover' && box) {
+        if (box) {
           box.attr('fill', value ? colors.hoverSuccessLight : colors.successLight);
           box.attr('stroke', value ? colors.success : colors.borderSuccess);
         }
@@ -689,11 +692,12 @@ export class NodeRenderer {
         }
       },
 
-      setState(name: string, value: boolean, item: any) {
+      setState(name?: string, value?: boolean | string, item?: any) {
+        if (name !== 'hover' || !item) return;
         const config = getConfig();
         const { colors } = config;
         const box = item.getContainer().find((e: any) => e.get('name') === 'link-box');
-        if (name === 'hover' && box) {
+        if (box) {
           box.attr('fill', value ? colors.hoverWarningLight : colors.warningLight);
           box.attr('stroke', value ? '#ffc53d' : colors.borderWarning);
         }
@@ -792,11 +796,12 @@ export class NodeRenderer {
         }
       },
 
-      setState(name: string, value: boolean, item: any) {
+      setState(name?: string, value?: boolean | string, item?: any) {
+        if (name !== 'hover' || !item) return;
         const config = getConfig();
         const { colors } = config;
         const box = item.getContainer().find((e: any) => e.get('name') === 'sub-box');
-        if (name === 'hover' && box) {
+        if (box) {
           box.attr('fill', value ? colors.hoverLinkLight : colors.linkLight);
           box.attr('stroke', value ? colors.link : colors.borderLink);
         }

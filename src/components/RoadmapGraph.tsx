@@ -17,10 +17,12 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import { useConfigStore } from '../store/configStore';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
 import { useRoadmapStore } from '../store/roadmapStore';
+import { useHistoryStore } from '../store/historyStore';
+import { useUndoRedoShortcuts } from '../hooks/useKeyboardShortcuts';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
 import type { NodeModel } from '../core/GraphManager';
@@ -162,6 +164,13 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
   const getFullMdPath = useRoadmapStore((state) => state.getFullMdPath);
   
+  // 历史记录 Store
+  const pushHistory = useHistoryStore((state) => state.pushHistory);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
+  
   // 将对象序列化以便监听内部变化
   const colorsJson = JSON.stringify(currentConfig.colors);
   const layoutJson = JSON.stringify(currentConfig.layout);
@@ -262,18 +271,22 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
               const isSubNode = node.type === 'sub';
               if (isSubNode) {
                 const mdPath = findAncestorMdPath(node.id, enriched);
+                // 使用 store 方法获取完整路径
+                const fullMdPath = mdPath ? getFullMdPath(mdPath) : null;
                 setPreviewPanel({
                   visible: true,
                   nodeLabel: node.label,
-                  mdPath,
+                  mdPath: fullMdPath,
                   sectionTitle: node.label,
                   autoFullscreen: true,
                 });
               } else if (node.mdPath) {
+                // 使用 store 方法获取完整路径
+                const fullMdPath = getFullMdPath(node.mdPath);
                 setPreviewPanel({
                   visible: true,
                   nodeLabel: node.label,
-                  mdPath: node.mdPath,
+                  mdPath: fullMdPath,
                   sectionTitle: '',
                   autoFullscreen: true,
                 });
@@ -432,38 +445,64 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   }, [contextMenu.node, rawData, openEditPanel]);
 
   /** 删除节点 */
-  const handleDeleteNode = useCallback(async () => {
+  const handleDeleteNode = useCallback(() => {
     if (!contextMenu.node || !rawData) return;
     
     const nodeLabel = contextMenu.node.label;
-    const confirmed = window.confirm(`确定要删除节点「${nodeLabel}」吗？\n此操作将同时删除该节点的所有子节点。`);
+    const hasChildren = contextMenu.node.children && contextMenu.node.children.length > 0;
     
-    if (confirmed) {
-      const hideLoading = message.loading('正在删除节点...', 0);
-      
-      const newTree = deleteNodeFromTree(rawData, contextMenu.node.id);
-      setRawData(newTree);
-      
-      // 更新画布
-      const treeData = convertToTreeData(newTree);
-      graphManagerRef.current?.setData(treeData);
-      
-      // 更新 index.json
-      const mdBasePath = getMdBasePath();
-      const roadmapPath = mdBasePath.split('/').pop() || '';
-      const result = await updateIndexJson(roadmapPath, newTree);
-      
-      hideLoading();
-      
-      if (result.success) {
-        message.success(`节点「${nodeLabel}」已删除`);
-      } else {
-        message.error(result.message);
-      }
-    }
+    Modal.confirm({
+      title: '确认删除',
+      content: (
+        <div>
+          <p>确定要删除节点「<strong>{nodeLabel}</strong>」吗？</p>
+          {hasChildren && (
+            <p style={{ color: '#ff4d4f', marginTop: 8 }}>
+              ⚠️ 此操作将同时删除该节点的所有子节点（共 {contextMenu.node.children?.length} 个）。
+            </p>
+          )}
+          <p style={{ color: '#999', marginTop: 8, fontSize: 12 }}>可通过 Ctrl+Z 撤销此操作</p>
+        </div>
+      ),
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        const hideLoading = message.loading('正在删除节点...', 0);
+        
+        try {
+          // 1. 记录历史（撤销时可恢复）
+          pushHistory(rawData, `删除节点「${nodeLabel}」`);
+          
+          // 2. 执行删除
+          const newTree = deleteNodeFromTree(rawData, contextMenu.node!.id);
+          setRawData(newTree);
+          
+          // 更新画布
+          const treeData = convertToTreeData(newTree);
+          graphManagerRef.current?.setData(treeData);
+          
+          // 更新 index.json
+          const mdBasePath = getMdBasePath();
+          const roadmapPath = mdBasePath.split('/').pop() || '';
+          const result = await updateIndexJson(roadmapPath, newTree);
+          
+          hideLoading();
+          
+          if (result.success) {
+            message.success(`节点「${nodeLabel}」已删除（可撤销）`);
+          } else {
+            message.error(result.message);
+          }
+        } catch (error) {
+          hideLoading();
+          message.error('删除节点失败');
+        }
+      },
+    });
     
     setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, [contextMenu.node, rawData, getMdBasePath]);
+  }, [contextMenu.node, rawData, getMdBasePath, pushHistory]);
 
   /** 关闭右键菜单 */
   const handleCloseContextMenu = useCallback(() => {
@@ -548,6 +587,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 
     try {
       if (editorMode === 'add' && parentNodeId) {
+        // 记录历史
+        pushHistory(rawData, `添加节点「${formData.label}」`);
+        
         // 添加新节点
         const newNode = createNodeFromFormData(formData, parentNodeId);
         newNodeId = newNode.id;
@@ -617,6 +659,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           message.error(result.message);
         }
       } else if (editorMode === 'edit' && editingNode) {
+        // 记录历史
+        pushHistory(rawData, `编辑节点「${formData.label}」`);
+        
         // 编辑现有节点
         newNodeId = editingNode.id;
         const isSubNode = editingNode.type === 'sub';
@@ -697,7 +742,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         eventHandlerRef.current?.focusNode(newNodeId!);
       }, 300);
     }
-  }, [rawData, editorMode, parentNodeId, editingNode, formData, subNodeMdPath, closePanel]);
+  }, [rawData, editorMode, parentNodeId, editingNode, formData, subNodeMdPath, closePanel, pushHistory]);
 
   /** 添加子节点（从导航面板） */
   const handleAddNodeFromNav = useCallback((parentId: string, parentNode: RoadmapNode | null) => {
@@ -717,37 +762,131 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     }
   }, [rawData, openEditPanel]);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // 撤销/重做功能
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** 处理撤销操作 */
+  const handleUndo = useCallback(async () => {
+    if (!canUndo() || !rawData) return;
+    
+    const hideLoading = message.loading('正在撤销...', 0);
+    
+    try {
+      const previousTree = await undo();
+      
+      if (previousTree) {
+        setRawData(previousTree);
+        
+        // 更新画布
+        const treeData = convertToTreeData(previousTree);
+        graphManagerRef.current?.setData(treeData);
+        
+        hideLoading();
+        message.success('已撤销操作');
+      } else {
+        hideLoading();
+      }
+    } catch (error) {
+      hideLoading();
+      message.error('撤销失败');
+      console.error('[RoadmapGraph] 撤销失败:', error);
+    }
+  }, [canUndo, undo, rawData]);
+
+  /** 处理重做操作 */
+  const handleRedo = useCallback(async () => {
+    if (!canRedo() || !rawData) return;
+    
+    const hideLoading = message.loading('正在重做...', 0);
+    
+    try {
+      const nextTree = await redo();
+      
+      if (nextTree) {
+        setRawData(nextTree);
+        
+        // 更新画布
+        const treeData = convertToTreeData(nextTree);
+        graphManagerRef.current?.setData(treeData);
+        
+        hideLoading();
+        message.success('已重做操作');
+      } else {
+        hideLoading();
+      }
+    } catch (error) {
+      hideLoading();
+      message.error('重做失败');
+      console.error('[RoadmapGraph] 重做失败:', error);
+    }
+  }, [canRedo, redo, rawData]);
+
+  // 绑定撤销/重做快捷键
+  useUndoRedoShortcuts({
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    canUndo: canUndo(),
+    canRedo: canRedo(),
+    enabled: !isEditorOpen, // 编辑面板打开时不触发
+  });
+
   /** 删除节点（从导航面板） */
   const handleDeleteNodeFromNav = useCallback(async (node: RoadmapNode) => {
     if (!rawData || node.type === 'root') return;
     
     const nodeLabel = node.label;
-    const confirmed = window.confirm(`确定要删除节点「${nodeLabel}」吗？\n此操作将同时删除该节点的所有子节点。`);
+    const hasChildren = node.children && node.children.length > 0;
     
-    if (confirmed) {
-      const hideLoading = message.loading('正在删除节点...', 0);
-      
-      const newTree = deleteNodeFromTree(rawData, node.id);
-      setRawData(newTree);
-      
-      // 更新画布
-      const treeData = convertToTreeData(newTree);
-      graphManagerRef.current?.setData(treeData);
-      
-      // 更新 index.json
-      const mdBasePath = getMdBasePath();
-      const roadmapPath = mdBasePath.split('/').pop() || '';
-      const result = await updateIndexJson(roadmapPath, newTree);
-      
-      hideLoading();
-      
-      if (result.success) {
-        message.success(`节点「${nodeLabel}」已删除`);
-      } else {
-        message.error(result.message);
-      }
-    }
-  }, [rawData, getMdBasePath]);
+    Modal.confirm({
+      title: '确认删除',
+      content: (
+        <div>
+          <p>确定要删除节点「<strong>{nodeLabel}</strong>」吗？</p>
+          {hasChildren && (
+            <p style={{ color: '#ff4d4f', marginTop: 8 }}>
+              ⚠️ 此操作将同时删除该节点的所有子节点（共 {node.children?.length} 个）。
+            </p>
+          )}
+          <p style={{ color: '#999', marginTop: 8, fontSize: 12 }}>可通过 Ctrl+Z 撤销此操作</p>
+        </div>
+      ),
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        const hideLoading = message.loading('正在删除节点...', 0);
+        
+        try {
+          // 记录历史
+          pushHistory(rawData, `删除节点「${nodeLabel}」`);
+          
+          const newTree = deleteNodeFromTree(rawData, node.id);
+          setRawData(newTree);
+          
+          // 更新画布
+          const treeData = convertToTreeData(newTree);
+          graphManagerRef.current?.setData(treeData);
+          
+          // 更新 index.json
+          const mdBasePath = getMdBasePath();
+          const roadmapPath = mdBasePath.split('/').pop() || '';
+          const result = await updateIndexJson(roadmapPath, newTree);
+          
+          hideLoading();
+          
+          if (result.success) {
+            message.success(`节点「${nodeLabel}」已删除（可撤销）`);
+          } else {
+            message.error(result.message);
+          }
+        } catch (error) {
+          hideLoading();
+          message.error('删除节点失败');
+        }
+      },
+    });
+  }, [rawData, getMdBasePath, pushHistory]);
 
   /** 批量删除节点 */
   const handleBatchDeleteNodes = useCallback(async (nodeIds: string[]) => {

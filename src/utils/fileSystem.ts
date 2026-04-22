@@ -20,6 +20,140 @@ export interface ApiResult {
 // 全局存储的目录句柄
 let directoryHandle: FileSystemDirectoryHandle | null = null;
 
+// IndexedDB 数据库名称和存储名称
+const DB_NAME = 'mindmap-fs';
+const STORE_NAME = 'handles';
+const HANDLE_KEY = 'directoryHandle';
+
+/**
+ * 打开 IndexedDB 数据库
+ */
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+  });
+}
+
+/**
+ * 将句柄保存到 IndexedDB
+ */
+async function saveHandleToIndexedDB(handle: FileSystemDirectoryHandle): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(handle, HANDLE_KEY);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+      
+      db.close();
+    });
+  } catch (error) {
+    console.error('[fileSystem] 保存句柄到 IndexedDB 失败:', error);
+  }
+}
+
+/**
+ * 从 IndexedDB 加载句柄
+ */
+async function loadHandleFromIndexedDB(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(HANDLE_KEY);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result || null);
+      
+      db.close();
+    });
+  } catch (error) {
+    console.error('[fileSystem] 从 IndexedDB 加载句柄失败:', error);
+    return null;
+  }
+}
+
+/**
+ * 从 IndexedDB 删除句柄
+ */
+async function removeHandleFromIndexedDB(): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(HANDLE_KEY);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+      
+      db.close();
+    });
+  } catch (error) {
+    console.error('[fileSystem] 从 IndexedDB 删除句柄失败:', error);
+  }
+}
+
+/**
+ * 验证目录句柄是否仍然有效
+ */
+async function verifyDirectoryHandleInternal(handle: FileSystemDirectoryHandle): Promise<boolean> {
+  try {
+    // @ts-ignore - File System Access API
+    const permission = await handle.queryPermission({ mode: 'readwrite' });
+    if (permission === 'granted') {
+      return true;
+    }
+    // @ts-ignore - File System Access API
+    const requestResult = await handle.requestPermission({ mode: 'readwrite' });
+    return requestResult === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 初始化：从 IndexedDB 恢复句柄（用于 HMR 后恢复）
+ */
+async function initHandleFromIndexedDB(): Promise<void> {
+  if (directoryHandle) return; // 已经有句柄了，不需要恢复
+  
+  try {
+    const handle = await loadHandleFromIndexedDB();
+    if (handle) {
+      // 验证句柄是否仍然有效
+      const isValid = await verifyDirectoryHandleInternal(handle);
+      if (isValid) {
+        directoryHandle = handle;
+        console.log('[fileSystem] 从 IndexedDB 恢复句柄成功');
+      } else {
+        // 句柄无效，删除存储
+        await removeHandleFromIndexedDB();
+        console.log('[fileSystem] 句柄已失效，已清除存储');
+      }
+    }
+  } catch (error) {
+    console.error('[fileSystem] 初始化句柄失败:', error);
+  }
+}
+
+// 立即初始化（模块加载时执行）
+initHandleFromIndexedDB();
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 目录选择与管理
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -47,6 +181,9 @@ export async function selectDirectory(): Promise<ApiResult & { handle?: FileSyst
     });
 
     directoryHandle = handle;
+    
+    // 保存到 IndexedDB，以便 HMR 后恢复
+    await saveHandleToIndexedDB(handle);
 
     return {
       success: true,
@@ -66,6 +203,17 @@ export async function selectDirectory(): Promise<ApiResult & { handle?: FileSyst
  */
 export function setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
   directoryHandle = handle;
+  // 同时保存到 IndexedDB
+  saveHandleToIndexedDB(handle);
+}
+
+/**
+ * 清除目录句柄
+ */
+export function clearDirectoryHandle(): void {
+  directoryHandle = null;
+  // 从 IndexedDB 删除
+  removeHandleFromIndexedDB();
 }
 
 /**

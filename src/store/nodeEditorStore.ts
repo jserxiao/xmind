@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import type { RoadmapNode } from '../data/roadmapData';
 import { extractSectionContent } from '../utils/nodeUtils';
+import { readFile } from '../utils/fileSystem';
 import { useRoadmapStore } from './roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -217,15 +218,14 @@ export const useNodeEditorStore = create<NodeEditorState>((set, get) => ({
     set({ isLoadingMd: true });
     
     try {
-      // 从 public/md 文件夹获取 MD 文件内容
-      const fullPath = mdPath.startsWith('md/') ? `/${mdPath}` : `/md/${mdPath}`;
-      // 添加时间戳参数避免浏览器缓存
-      const response = await fetch(`${fullPath}?t=${Date.now()}`, {
-        cache: 'no-store'
-      });
+      // 构建 MD 文件路径，确保有 .md 后缀
+      const mdPathWithExt = mdPath.endsWith('.md') ? mdPath : `${mdPath}.md`;
       
-      if (response.ok) {
-        const content = await response.text();
+      // 使用 File System API 读取文件
+      const result = await readFile(mdPathWithExt);
+      
+      if (result.success && result.content) {
+        const content = result.content;
         
         // 如果指定了章节标题，只提取该章节的内容
         let finalContent = content;
@@ -242,7 +242,7 @@ export const useNodeEditorStore = create<NodeEditorState>((set, get) => ({
           isLoadingMd: false,
         }));
       } else {
-        // 文件不存在，使用默认模板
+        // 文件不存在或读取失败，使用默认模板
         const defaultContent = sectionTitle 
           ? '<!-- 在这里编写章节内容 -->'
           : `# ${get().formData.label}\n\n## 概述\n\n<!-- 在这里编写内容 -->\n`;

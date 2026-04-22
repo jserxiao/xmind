@@ -126,7 +126,6 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 }) => {
   // ── 状态 ──
   const [activeTab, setActiveTab] = useState<'nav' | 'config'>('nav');
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [mdSearchResults, setMdSearchResults] = useState<MdSearchResult[]>([]);
   const [isSearchingMd, setIsSearchingMd] = useState(false);
@@ -516,7 +515,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 prefix={<SearchOutlined />}
                 suffix={isSearchingMd ? <Spin size="small" /> : null}
                 value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchKeyword(e.target.value)}
                 allowClear
                 size="small"
               />

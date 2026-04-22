@@ -40,7 +40,7 @@ export interface NodeStyleConfig {
 export interface TextStyleConfig {
   fontSize: number;
   fontSizeSecondary?: number;
-  fontWeight: string;
+  fontWeight?: string;
   fontWeightSecondary?: string;
   fill: string;
 }
@@ -84,7 +84,7 @@ export interface EdgeStyleConfig {
     stroke: string;
     lineWidth: number;
     endArrow: {
-      size: [number, number];
+      size: number[];
       fill: string;
     };
   };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { marked } from 'marked';
 import { useRoadmapStore } from '../store/roadmapStore';
+import { readFile } from '../utils/fileSystem';
 
 const KnowledgeDetail: React.FC = () => {
   // 使用通配符路由，从 location.pathname 获取完整路径
@@ -37,14 +38,19 @@ const KnowledgeDetail: React.FC = () => {
       }
       
       try {
-        // 使用思维导图路径构建完整路径
-        const response = await fetch(`/${mdBasePath}/${path}.md`);
-        if (!response.ok) {
-          throw new Error('未找到该知识点的 Markdown 文件');
+        // 构建 MD 文件路径，确保有 .md 后缀
+        const mdPath = path.endsWith('.md') ? path : `${path}.md`;
+        const fullPath = `${mdBasePath}/${mdPath}`;
+        
+        // 使用 File System API 读取文件
+        const result = await readFile(fullPath);
+        
+        if (result.success && result.content) {
+          const htmlContent = await marked(result.content);
+          setContent(htmlContent);
+        } else {
+          throw new Error(result.message || '未找到该知识点的 Markdown 文件');
         }
-        const text = await response.text();
-        const htmlContent = await marked(text);
-        setContent(htmlContent);
       } catch (err) {
         console.error('Failed to load markdown:', err);
         setError(err instanceof Error ? err.message : '加载失败');
@@ -113,7 +119,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
       {/* 面包屑导航 */}
       <nav className="breadcrumb">
         <span onClick={() => navigate('/')}>📘 学习思维导图</span>
-        {path && path.split('/').map((segment, index) => (
+        {path && path.split('/').map((_segment, index) => (
           <span key={index} className="breadcrumb-separator"> / </span>
         ))}
         {path && path.split('/').map((segment, index) => (
