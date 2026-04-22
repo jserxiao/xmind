@@ -132,14 +132,18 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const {
     panelExpanded,
     togglePanel,
-    colors,
+    getCurrentConfig,
     updateColors,
-    layout,
     updateLayout,
-    zoom,
     updateZoom,
-    resetAll,
+    resetCurrentConfig,
   } = useConfigStore();
+  
+  // 获取当前思维导图的配置
+  const currentConfig = getCurrentConfig();
+  const colors = currentConfig.colors;
+  const layout = currentConfig.layout;
+  const zoom = currentConfig.zoom;
   
   // 包装 updateColors 以添加日志
   const handleUpdateColors = useCallback((updates: Partial<typeof colors>) => {
@@ -388,7 +392,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       
       {/* 标题区域 */}
       <div className="config-header">
-        <h2 className="config-title">📘 Go 学习路线图</h2>
+        <h2 className="config-title">📘 Go 学习思维导图</h2>
         <p className="config-subtitle">点击 📖 进入详情 | ± 展开/收起</p>
       </div>
       
@@ -561,7 +565,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             
             {/* 重置按钮 */}
             <div className="config-section">
-              <button onClick={resetAll} className="config-reset-btn">
+              <button onClick={resetCurrentConfig} className="config-reset-btn">
                 🔄 重置所有配置
               </button>
             </div>

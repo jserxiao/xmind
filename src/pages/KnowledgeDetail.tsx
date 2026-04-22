@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { marked } from 'marked';
+import { useRoadmapStore } from '../store/roadmapStore';
 
 const KnowledgeDetail: React.FC = () => {
   // 使用通配符路由，从 location.pathname 获取完整路径
@@ -20,13 +21,24 @@ const KnowledgeDetail: React.FC = () => {
     url?: string;
   } | null;
 
+  // 获取当前思维导图路径
+  const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
+
   useEffect(() => {
     const fetchMarkdown = async () => {
       setLoading(true);
       setError(null);
+      
+      const mdBasePath = getMdBasePath();
+      if (!mdBasePath) {
+        setError('未选择思维导图');
+        setLoading(false);
+        return;
+      }
+      
       try {
-        // 尝试从 public/md 目录加载
-        const response = await fetch(`/md/${path}.md`);
+        // 使用思维导图路径构建完整路径
+        const response = await fetch(`/${mdBasePath}/${path}.md`);
         if (!response.ok) {
           throw new Error('未找到该知识点的 Markdown 文件');
         }
@@ -41,7 +53,7 @@ const KnowledgeDetail: React.FC = () => {
         const defaultContent = `
 # ${state?.label || path}
 
-> ${state?.description || 'Go 语言知识点'}
+> ${state?.description || '知识点'}
 
 ## 📖 简介
 
@@ -59,7 +71,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
 
 ---
 
-*此内容来自 Go 学习路线图项目*
+*此内容来自学习思维导图项目*
 `;
         const htmlContent = await marked(defaultContent);
         setContent(htmlContent);
@@ -71,14 +83,14 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
     if (path) {
       fetchMarkdown();
     }
-  }, [path, state]);
+  }, [path, state, getMdBasePath]);
 
   return (
     <div className="knowledge-detail">
       {/* 头部导航 */}
       <header className="detail-header">
         <button className="back-btn" onClick={() => navigate(-1)}>
-          ← 返回路线图
+          ← 返回思维导图
         </button>
         <div className="header-info">
           <h1>{state?.label || path?.split('/').pop() || '知识点详情'}</h1>
@@ -100,7 +112,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
 
       {/* 面包屑导航 */}
       <nav className="breadcrumb">
-        <span onClick={() => navigate('/')}>📘 Go 学习路线图</span>
+        <span onClick={() => navigate('/')}>📘 学习思维导图</span>
         {path && path.split('/').map((segment, index) => (
           <span key={index} className="breadcrumb-separator"> / </span>
         ))}
@@ -122,7 +134,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
           <div className="error-state">
             <p>⚠️ {error}</p>
             <button onClick={() => navigate(-1)} className="back-btn-inline">
-              返回路线图
+              返回思维导图
             </button>
           </div>
         ) : (
@@ -140,7 +152,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
             ⬆ 回到顶部
           </button>
           <button className="footer-btn" onClick={() => navigate(-1)}>
-            ← 返回路线图
+            ← 返回思维导图
           </button>
         </footer>
       )}

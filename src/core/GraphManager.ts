@@ -42,11 +42,11 @@ export interface NodeModel {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 获取当前配置
+ * 获取当前思维导图的配置
  * 从 zustand store 获取最新状态
  */
 function getConfig() {
-  return useConfigStore.getState();
+  return useConfigStore.getState().getCurrentConfig();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

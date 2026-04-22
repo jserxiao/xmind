@@ -1,0 +1,33 @@
+{
+  "id": "root",
+  "label": "测试学习思维导图",
+  "type": "root",
+  "children": [
+    {
+      "id": "test-section",
+      "label": "测试章节",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "test-node",
+          "label": "测试节点",
+          "type": "leaf",
+          "mdPath": "test.md",
+          "children": [
+            {
+              "id": "test-node__子节点1",
+              "label": "子节点1",
+              "type": "sub"
+            },
+            {
+              "id": "test-node__子节点2",
+              "label": "子节点2",
+              "type": "sub"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

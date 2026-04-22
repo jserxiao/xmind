@@ -9,7 +9,7 @@
 
 import G6 from '@antv/g6';
 import { useConfigStore } from '../store/configStore';
-import type { ConfigState } from '../store/configStore';
+import type { RoadmapConfig } from '../store/configStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -28,11 +28,11 @@ interface NodeConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 获取当前配置
+ * 获取当前思维导图的配置
  * 从 zustand store 获取最新状态
  */
-function getConfig(): ConfigState {
-  return useConfigStore.getState();
+function getConfig(): RoadmapConfig {
+  return useConfigStore.getState().getCurrentConfig();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

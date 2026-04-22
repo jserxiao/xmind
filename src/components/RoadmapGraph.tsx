@@ -1,8 +1,8 @@
 /**
- * RoadmapGraph - 学习路线图组件
+ * RoadmapGraph - 学习思维导图组件
  *
  * 主要功能：
- * 1. 展示树形结构的知识点路线图
+ * 1. 展示树形结构的知识点思维导图
  * 2. 支持节点的展开/收起
  * 3. 支持点击查看知识点详情
  * 4. 提供工具栏操作（缩放、导出等）
@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { useConfigStore } from '../store/configStore';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
+import { useRoadmapStore } from '../store/roadmapStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
 import type { NodeModel } from '../core/GraphManager';
@@ -40,6 +41,7 @@ import {
   updateIndexJson,
   saveMdFile,
   findAncestorMdPath,
+  addSectionToMdFile,
 } from '../utils/nodeUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,18 +135,17 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     nodeLabel: string;
     mdPath: string | null;
     sectionTitle: string;
-  }>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '' });
+    autoFullscreen: boolean;
+  }>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '', autoFullscreen: false });
 
   // ── 路由导航 ──
   const navigate = useNavigate();
 
   // ── Store 状态 ──
   // 获取配置状态用于监听变化
-  // 使用 JSON.stringify 来确保能检测到对象内部的变化
-  const colors = useConfigStore((state) => state.colors);
-  const layout = useConfigStore((state) => state.layout);
-  const nodeStyles = useConfigStore((state) => state.nodeStyles);
-  const textStyles = useConfigStore((state) => state.textStyles);
+  // 使用 getCurrentConfig 获取当前思维导图的配置
+  const getCurrentConfig = useConfigStore((state) => state.getCurrentConfig);
+  const currentConfig = getCurrentConfig();
   
   // 节点编辑器 Store
   const { isOpen: isEditorOpen, mode: editorMode, parentNodeId, editingNode, formData, subNodeMdPath } = useNodeEditorStore();
@@ -152,11 +153,23 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const openEditPanel = useNodeEditorStore((state) => state.openEditPanel);
   const closePanel = useNodeEditorStore((state) => state.closePanel);
   
+  // 思维导图 Store
+  const rootPath = useRoadmapStore((state) => state.rootPath);
+  const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
+  const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
+  const getFullMdPath = useRoadmapStore((state) => state.getFullMdPath);
+  
   // 将对象序列化以便监听内部变化
-  const colorsJson = JSON.stringify(colors);
-  const layoutJson = JSON.stringify(layout);
-  const nodeStylesJson = JSON.stringify(nodeStyles);
-  const textStylesJson = JSON.stringify(textStyles);
+  const colorsJson = JSON.stringify(currentConfig.colors);
+  const layoutJson = JSON.stringify(currentConfig.layout);
+  const nodeStylesJson = JSON.stringify(currentConfig.nodeStyles);
+  const textStylesJson = JSON.stringify(currentConfig.textStyles);
+  
+  // 提取常用配置
+  const colors = currentConfig.colors;
+  const layout = currentConfig.layout;
+  const nodeStyles = currentConfig.nodeStyles;
+  const textStyles = currentConfig.textStyles;
 
   // ───────────────────────────────────────────────────────────────────────────
   // 初始化图实例
@@ -174,12 +187,21 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
      */
     const init = async () => {
       try {
-        // 1. 加载数据
-        const root = await loadRoadmapData();
+        // 检查是否有有效的路径
+        if (!rootPath) {
+          setLoading(false);
+          return;
+        }
+        
+        const mdBasePath = getMdBasePath();
+        
+        // 1. 加载数据（使用当前思维导图路径）
+        const roadmapPath = mdBasePath.split('/').pop() || '';
+        const root = await loadRoadmapData(rootPath, roadmapPath);
         if (destroyed) return;
 
         // 2. 丰富数据（添加子节点）
-        const enriched = await enrichWithSubNodes(root);
+        const enriched = await enrichWithSubNodes(root, rootPath, roadmapPath);
         if (destroyed) return;
 
         // 保存原始数据供面板使用
@@ -230,6 +252,31 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
               y: data.y,
               node,
             });
+          },
+          onDoubleClickPreview: (data) => {
+            // 双击预览：打开预览面板并自动进入全屏
+            const node = findNodeInTree(enriched, data.nodeId);
+            if (node) {
+              const isSubNode = node.type === 'sub';
+              if (isSubNode) {
+                const mdPath = findAncestorMdPath(node.id, enriched);
+                setPreviewPanel({
+                  visible: true,
+                  nodeLabel: node.label,
+                  mdPath,
+                  sectionTitle: node.label,
+                  autoFullscreen: true,
+                });
+              } else if (node.mdPath) {
+                setPreviewPanel({
+                  visible: true,
+                  nodeLabel: node.label,
+                  mdPath: node.mdPath,
+                  sectionTitle: '',
+                  autoFullscreen: true,
+                });
+              }
+            }
           },
         });
 
@@ -290,20 +337,20 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         graphManagerRef.current = null;
       }
     };
-  }, [navigate, onNodeClick]);
+  }, [navigate, onNodeClick, rootPath, currentRoadmapId, getMdBasePath]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 配置变化监听 - 刷新图
   // ───────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // 当配置变化时，刷新图
+    // 当配置变化或切换思维导图时，刷新图
     if (graphManagerRef.current && !loading) {
-      console.log('[RoadmapGraph] 配置变化，刷新图', { colors, layout, nodeStyles, textStyles });
+      console.log('[RoadmapGraph] 配置变化或切换思维导图，刷新图', { colors, layout, nodeStyles, textStyles, currentRoadmapId });
       graphManagerRef.current.refresh();
     }
     // 使用序列化后的字符串作为依赖，确保能检测到对象内部的变化
-  }, [colorsJson, layoutJson, nodeStylesJson, textStylesJson, loading]);
+  }, [colorsJson, layoutJson, nodeStylesJson, textStylesJson, loading, currentRoadmapId]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 工具栏操作方法
@@ -342,7 +389,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const handleExportJPG = useCallback(() => {
     const graph = graphManagerRef.current?.getGraph();
     if (graph) {
-      exportToJPG(graph, 'Go学习路线图');
+      exportToJPG(graph, 'Go学习思维导图');
     }
   }, []);
 
@@ -350,7 +397,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const handleExportPDF = useCallback(() => {
     const graph = graphManagerRef.current?.getGraph();
     if (graph) {
-      exportToPDF(graph, 'Go学习路线图');
+      exportToPDF(graph, 'Go学习思维导图');
     }
   }, []);
 
@@ -423,22 +470,36 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
    * 内部函数：打开预览面板
    */
   const openPreviewPanel = useCallback((node: RoadmapNode) => {
-    if (!rawData || node.type !== 'sub') {
-      return;
+    if (!rawData) return;
+    
+    const isSubNode = node.type === 'sub';
+    
+    if (isSubNode) {
+      // sub 节点：查找祖先节点的 mdPath
+      const mdPath = findAncestorMdPath(node.id, rawData);
+      // 使用 store 方法获取完整路径
+      const fullMdPath = mdPath ? getFullMdPath(mdPath) : null;
+      setPreviewPanel({
+        visible: true,
+        nodeLabel: node.label,
+        mdPath: fullMdPath,
+        sectionTitle: node.label,
+        autoFullscreen: false,
+      });
+    } else if (node.mdPath) {
+      // 有 mdPath 的节点（leaf/link）：直接预览整个文件
+      const fullMdPath = getFullMdPath(node.mdPath);
+      setPreviewPanel({
+        visible: true,
+        nodeLabel: node.label,
+        mdPath: fullMdPath,
+        sectionTitle: '', // 空字符串表示预览整个文件
+        autoFullscreen: false,
+      });
     }
     
-    // 查找祖先节点的 mdPath
-    const mdPath = findAncestorMdPath(node.id, rawData);
-    
-    setPreviewPanel({
-      visible: true,
-      nodeLabel: node.label,
-      mdPath,
-      sectionTitle: node.label,
-    });
-    
     setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, [rawData]);
+  }, [rawData, getFullMdPath]);
 
   /** 从右键菜单预览 sub 节点内容 */
   const handlePreviewSubNode = useCallback(() => {
@@ -456,6 +517,18 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   /** 关闭预览面板 */
   const handleClosePreview = useCallback(() => {
     setPreviewPanel((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  /** 全屏退出后重新调整画布 */
+  const handleExitFullscreen = useCallback(() => {
+    // 重新调整画布大小并适应视口
+    if (containerRef.current && graphManagerRef.current) {
+      graphManagerRef.current.resize(
+        containerRef.current.clientWidth,
+        containerRef.current.clientHeight || window.innerHeight
+      );
+      graphManagerRef.current.fitView(15);
+    }
   }, []);
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -481,16 +554,50 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         const treeData = convertToTreeData(newTree);
         graphManagerRef.current?.setData(treeData);
         
-        // 如果有 MD 内容，保存 MD 文件
-        if (formData.mdContent && formData.mdPath) {
-          const mdResult = await saveMdFile(formData.mdPath, formData.mdContent);
+        // 处理 MD 文件同步
+        if (formData.type === 'sub') {
+          // sub 类型节点：在父节点的 MD 文件中添加新章节
+          const parentNode = findNodeInTree(rawData, parentNodeId);
+          const parentMdPath = parentNode?.mdPath;
+          
+          if (parentMdPath) {
+            // 在 MD 文件中添加新章节
+            const sectionResult = await addSectionToMdFile(
+              parentMdPath,
+              formData.label,
+              formData.mdContent || undefined,
+              getMdBasePath()
+            );
+            if (!sectionResult.success) {
+              message.warning(sectionResult.message);
+            }
+          } else {
+            // 父节点没有 mdPath，尝试向上查找祖先节点
+            const ancestorMdPath = findAncestorMdPath(parentNodeId, rawData);
+            if (ancestorMdPath) {
+              const sectionResult = await addSectionToMdFile(
+                ancestorMdPath,
+                formData.label,
+                formData.mdContent || undefined,
+                getMdBasePath()
+              );
+              if (!sectionResult.success) {
+                message.warning(sectionResult.message);
+              }
+            }
+          }
+        } else if (formData.mdContent && formData.mdPath) {
+          // 非 sub 节点，有 MD 内容：保存 MD 文件（需要添加完整路径）
+          const fullMdPath = getFullMdPath(formData.mdPath);
+          const mdResult = await saveMdFile(fullMdPath, formData.mdContent);
           if (!mdResult.success) {
             message.warning(mdResult.message);
           }
         } else if (formData.mdPath) {
-          // 如果没有内容但有路径，创建默认模板
+          // 非 sub 节点，没有内容但有路径：创建默认模板
+          const fullMdPath = getFullMdPath(formData.mdPath);
           const template = `# ${formData.label}\n\n${formData.description ? `> ${formData.description}` : ''}\n\n## 概述\n\n<!-- 在这里编写内容 -->\n`;
-          await saveMdFile(formData.mdPath, template);
+          await saveMdFile(fullMdPath, template);
         }
         
         // 更新 index.json
@@ -538,20 +645,21 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           
           if (titleChanged) {
             // 标题改变，需要更新 MD 文件中的章节标题
-            const mdResult = await saveSubNodeSection(formData.mdPath, newTitle, formData.mdContent, true, oldTitle);
+            const mdResult = await saveSubNodeSection(formData.mdPath, newTitle, formData.mdContent, true, oldTitle, getMdBasePath());
             if (!mdResult.success) {
               message.warning(mdResult.message);
             }
           } else {
             // 只更新内容
-            const mdResult = await saveSubNodeSection(formData.mdPath, formData.sectionTitle, formData.mdContent);
+            const mdResult = await saveSubNodeSection(formData.mdPath, formData.sectionTitle, formData.mdContent, false, undefined, getMdBasePath());
             if (!mdResult.success) {
               message.warning(mdResult.message);
             }
           }
         } else if (formData.mdContent && formData.mdPath) {
-          // 非 sub 节点：保存整个 MD 文件
-          const mdResult = await saveMdFile(formData.mdPath, formData.mdContent);
+          // 非 sub 节点：保存整个 MD 文件（需要添加完整路径）
+          const fullMdPath = getFullMdPath(formData.mdPath);
+          const mdResult = await saveMdFile(fullMdPath, formData.mdContent);
           if (!mdResult.success) {
             message.warning(mdResult.message);
           }
@@ -689,7 +797,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         nodeLabel={previewPanel.nodeLabel}
         mdPath={previewPanel.mdPath}
         sectionTitle={previewPanel.sectionTitle}
+        autoFullscreen={previewPanel.autoFullscreen}
         onClose={handleClosePreview}
+        onExitFullscreen={handleExitFullscreen}
       />
     </div>
   );

@@ -82,7 +82,7 @@ export function exportToPDF(graph: any, filename = 'go-roadmap') {
           // 添加标题
           pdf.setFontSize(14);
           pdf.setTextColor(24, 144, 255);
-          pdf.text('Go 学习路线图', a4Width / 2, 8, { align: 'center' });
+          pdf.text('Go 学习思维导图', a4Width / 2, 8, { align: 'center' });
 
           pdf.save(`${filename}.pdf`);
         };

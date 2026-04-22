@@ -32,6 +32,14 @@ export type ContextMenuCallback = (data: {
   y: number;
 }) => void;
 
+/** 双击预览回调函数类型 */
+export type DoubleClickPreviewCallback = (data: {
+  nodeId: string;
+  nodeType: string;
+  label: string;
+  mdPath?: string;
+}) => void;
+
 /** 事件处理器配置 */
 export interface EventHandlerConfig {
   /** 图管理器实例 */
@@ -42,6 +50,8 @@ export interface EventHandlerConfig {
   onNavigate?: NavigateCallback;
   /** 右键菜单回调 */
   onContextMenu?: ContextMenuCallback;
+  /** 双击预览回调（全屏预览 MD 内容） */
+  onDoubleClickPreview?: DoubleClickPreviewCallback;
 }
 
 /** 节点类型对应的缩放比例 */
@@ -70,6 +80,9 @@ export class EventHandler {
   /** 右键菜单回调 */
   private onContextMenu?: ContextMenuCallback;
 
+  /** 双击预览回调 */
+  private onDoubleClickPreview?: DoubleClickPreviewCallback;
+
   /** 聚焦队列（用于处理连续的聚焦请求） */
   private focusQueue: string[] = [];
 
@@ -88,6 +101,7 @@ export class EventHandler {
     this.container = config.container;
     this.onNavigate = config.onNavigate;
     this.onContextMenu = config.onContextMenu;
+    this.onDoubleClickPreview = config.onDoubleClickPreview;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -101,6 +115,7 @@ export class EventHandler {
     this.bindNodeClick();
     this.bindNodeHover();
     this.bindNodeContextMenu();
+    this.bindNodeDoubleClick();
     console.log('[EventHandler] 所有事件已绑定');
   }
 
@@ -113,7 +128,9 @@ export class EventHandler {
       graph.off('node:click');
       graph.off('node:mouseenter');
       graph.off('node:mouseleave');
+      graph.off('node:mousemove');
       graph.off('node:contextmenu');
+      graph.off('node:dblclick');
     }
     // 取消未执行的动画帧
     if (this.rafId) {
@@ -239,6 +256,41 @@ export class EventHandler {
           label: model.label,
           x: evt.clientX,
           y: evt.clientY,
+        });
+      }
+    });
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 节点双击事件
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 绑定节点双击事件
+   */
+  private bindNodeDoubleClick(): void {
+    this.graphManager.on('node:dblclick', (evt: any) => {
+      const { item, target } = evt;
+      if (!item || !this.onDoubleClickPreview) return;
+
+      const model = item.getModel();
+      const targetName = target?.get('name') || '';
+
+      // 排除展开/收起按钮的双击
+      if (this.isToggleButton(targetName)) return;
+
+      // 判断是否符合预览条件
+      // 1. sub 类型节点
+      // 2. 有 mdPath 的节点（leaf/link）
+      const isSubNode = model.originalType === 'sub';
+      const hasMdPath = !!model.mdPath;
+
+      if (isSubNode || hasMdPath) {
+        this.onDoubleClickPreview({
+          nodeId: model.id,
+          nodeType: model.originalType || 'leaf',
+          label: model.label,
+          mdPath: model.mdPath,
         });
       }
     });

@@ -3,9 +3,9 @@
  * 
  * 在节点上右键点击时显示，提供：
  * - 添加子节点（非 sub 类型）
- * - 编辑节点（非 sub 类型）
- * - 删除节点（非 sub 类型）
- * - 预览内容（sub 类型）
+ * - 编辑节点
+ * - 删除节点（非 root 类型）
+ * - 预览内容（sub 类型或有 mdPath 的节点）
  */
 
 import { useEffect, useRef } from 'react';
@@ -105,6 +105,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   const position = adjustPosition();
   const isRoot = node.type === 'root';
   const isSubNode = node.type === 'sub';
+  const hasMdPath = !!node.mdPath;
+  const canPreview = isSubNode || hasMdPath;
 
   return (
     <div
@@ -118,18 +120,20 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>
       <div className="context-menu-divider" />
       <div className="context-menu-items">
-        {/* sub 类型节点显示预览和编辑选项 */}
+        {/* sub 类型或有 mdPath 的节点显示预览选项 */}
+        {canPreview && (
+          <button className="context-menu-item" onClick={onPreview}>
+            <span className="menu-icon">👁️</span>
+            <span>预览内容</span>
+          </button>
+        )}
+        
+        {/* sub 类型节点 */}
         {isSubNode ? (
-          <>
-            <button className="context-menu-item" onClick={onPreview}>
-              <span className="menu-icon">👁️</span>
-              <span>预览内容</span>
-            </button>
-            <button className="context-menu-item" onClick={onEdit}>
-              <span className="menu-icon">✏️</span>
-              <span>编辑章节</span>
-            </button>
-          </>
+          <button className="context-menu-item" onClick={onEdit}>
+            <span className="menu-icon">✏️</span>
+            <span>编辑章节</span>
+          </button>
         ) : (
           <>
             <button className="context-menu-item" onClick={onAddChild}>

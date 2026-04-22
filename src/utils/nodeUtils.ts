@@ -491,23 +491,80 @@ export function deleteSection(mdContent: string, sectionTitle: string): string {
 }
 
 /**
+ * 在 MD 文件中添加新章节
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
+ * @param sectionTitle 章节标题
+ * @param content 章节内容（可选）
+ * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
+ */
+export async function addSectionToMdFile(
+  mdPath: string,
+  sectionTitle: string,
+  content?: string,
+  roadmapPath?: string
+): Promise<ApiResult> {
+  try {
+    // 构建完整的 MD 文件路径
+    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    // 先获取 MD 文件内容
+    const response = await fetch(`/md/${fullPath}`);
+    if (!response.ok) {
+      return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
+    }
+    
+    let mdContent = await response.text();
+    
+    // 检查章节是否已存在
+    const sectionPattern = new RegExp(`^#{2,6}\\s+${escapeRegExp(sectionTitle)}\\s*$`, 'm');
+    if (sectionPattern.test(mdContent)) {
+      // 章节已存在，不需要添加
+      return { success: true, message: `章节「${sectionTitle}」已存在` };
+    }
+    
+    // 在文件末尾添加新章节
+    const defaultContent = content || '\n\n<!-- 在这里编写章节内容 -->\n';
+    const newSection = `\n\n## ${sectionTitle}${defaultContent}`;
+    
+    // 清理文件末尾的多余空行
+    mdContent = mdContent.replace(/\n{3,}$/, '\n');
+    mdContent += newSection;
+    
+    // 保存文件（使用完整路径）
+    return await saveMdFile(fullPath, mdContent);
+  } catch (error) {
+    return { success: false, message: `添加章节失败: ${error}` };
+  }
+}
+
+/**
+ * 转义正则表达式特殊字符
+ */
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * 保存 sub 节点的章节内容
- * @param mdPath MD 文件路径
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
  * @param sectionTitle 章节标题
  * @param content 章节内容
  * @param isTitleUpdate 是否只是更新标题
  * @param oldTitle 旧标题（仅当 isTitleUpdate 为 true 时使用）
+ * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  */
 export async function saveSubNodeSection(
   mdPath: string,
   sectionTitle: string,
   content: string,
   isTitleUpdate?: boolean,
-  oldTitle?: string
+  oldTitle?: string,
+  roadmapPath?: string
 ): Promise<ApiResult> {
   try {
+    // 构建完整的 MD 文件路径
+    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
     // 先获取 MD 文件内容
-    const response = await fetch(`/md/${mdPath}`);
+    const response = await fetch(`/md/${fullPath}`);
     if (!response.ok) {
       return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
     }
@@ -521,8 +578,8 @@ export async function saveSubNodeSection(
       mdContent = updateSectionContent(mdContent, sectionTitle, content);
     }
     
-    // 保存文件
-    return await saveMdFile(mdPath, mdContent);
+    // 保存文件（使用完整路径）
+    return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `保存失败: ${error}` };
   }
@@ -569,11 +626,13 @@ export interface MdSearchResult {
  * 搜索 MD 文件内容
  * @param keyword 搜索关键词
  * @param nodesWithMdPath 具有 mdPath 的节点列表
+ * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  * @returns 匹配的搜索结果
  */
 export async function searchMdContent(
   keyword: string,
-  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>
+  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>,
+  roadmapPath?: string
 ): Promise<MdSearchResult[]> {
   if (!keyword.trim()) return [];
   
@@ -582,8 +641,10 @@ export async function searchMdContent(
   // 并行搜索所有 MD 文件
   const searchPromises = nodesWithMdPath.map(async (node) => {
     try {
+      // 构建完整的 MD 文件路径
+      const fullPath = roadmapPath ? `${roadmapPath}/${node.mdPath}` : node.mdPath;
       // 使用时间戳避免缓存
-      const response = await fetch(`/md/${node.mdPath}?t=${Date.now()}`, {
+      const response = await fetch(`/md/${fullPath}?t=${Date.now()}`, {
         cache: 'no-store',
       });
       

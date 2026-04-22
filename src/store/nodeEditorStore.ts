@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import type { RoadmapNode } from '../data/roadmapData';
 import { extractSectionContent } from '../utils/nodeUtils';
+import { useRoadmapStore } from './roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -167,10 +168,13 @@ export const useNodeEditorStore = create<NodeEditorState>((set, get) => ({
     
     // 如果是 sub 节点，需要加载对应章节的内容
     if (isSubNode && mdPath) {
-      get().loadMdContent(mdPath, node.label);
+      // 使用 store 方法获取完整路径
+      const fullMdPath = useRoadmapStore.getState().getFullMdPath(mdPath);
+      get().loadMdContent(fullMdPath, node.label);
     } else if (node.mdPath) {
       // 非 sub 节点，加载整个 MD 文件
-      get().loadMdContent(node.mdPath);
+      const fullMdPath = useRoadmapStore.getState().getFullMdPath(node.mdPath);
+      get().loadMdContent(fullMdPath);
     }
   },
   

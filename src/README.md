@@ -28,12 +28,12 @@
 ### `components/` - React 组件
 存放 UI 组件。
 
-- `RoadmapGraph.tsx` - 学习路线图主组件
+- `RoadmapGraph.tsx` - 学习思维导图主组件
 
 ### `data/` - 数据层
 存放数据加载、解析和转换逻辑。
 
-- `roadmapData.ts` - 路线图数据的加载和解析
+- `roadmapData.ts` - 思维导图数据的加载和解析
 
 ### `types/` - 类型定义
 存放 TypeScript 类型定义。
