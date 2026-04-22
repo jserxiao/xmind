@@ -105,24 +105,32 @@ export class NodeRenderer {
         group.addShape('text', {
           attrs: {
             x: -w / 2 + elementPositions.icon.offsetX,
-            y: -h / 2 + h / 2 + 1,
+            y: 0,
             text: '📘',
             fontSize: 20,
+            textBaseline: 'middle',
           },
           name: 'root-icon',
         });
 
-        // 绘制标题（支持多行）
+        // 绘制标题（支持多行，垂直居中）
         const label = cfg.label || '';
-        label.split('\n').forEach((line: string, i: number) => {
+        const lines = label.split('\n');
+        const lineHeight = i => i ? textStyles.root.fontSizeSecondary + 6 : textStyles.root.fontSize + 6;
+        const totalTextHeight = lines.reduce((sum, _, i) => sum + lineHeight(i), 0) - 6;
+        const startY = -totalTextHeight / 2 + (lines.length > 1 ? 0 : textStyles.root.fontSize / 2);
+        
+        lines.forEach((line: string, i: number) => {
+          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum, _, j) => sum + lineHeight(j), 0);
           group.addShape('text', {
             attrs: {
               x: -w / 2 + 45,
-              y: -h / 2 + 22 + i * 24,
+              y: currentY,
               text: line,
               fontSize: i ? textStyles.root.fontSizeSecondary : textStyles.root.fontSize,
               fontWeight: i ? textStyles.root.fontWeightSecondary : textStyles.root.fontWeight,
               fill: textStyles.root.fill,
+              textBaseline: 'middle',
             },
             name: `root-text-${i}`,
           });
@@ -170,21 +178,29 @@ export class NodeRenderer {
         if (icon) {
           icon.attr({
             x: -w / 2 + elementPositions.icon.offsetX,
-            y: -h / 2 + h / 2 + 1,
+            y: 0,
+            textBaseline: 'middle',
           });
         }
         
-        // 更新文本样式和位置
+        // 更新文本样式和位置（垂直居中）
         const label = cfg.label || '';
-        label.split('\n').forEach((line: string, i: number) => {
+        const lines = label.split('\n');
+        const lineHeight = (i: number) => i ? textStyles.root.fontSizeSecondary + 6 : textStyles.root.fontSize + 6;
+        const totalTextHeight = lines.reduce((sum, _, i) => sum + lineHeight(i), 0) - 6;
+        const startY = -totalTextHeight / 2 + (lines.length > 1 ? 0 : textStyles.root.fontSize / 2);
+        
+        lines.forEach((line: string, i: number) => {
           const textEl = group.find((e: any) => e.get('name') === `root-text-${i}`);
+          const currentY = lines.length === 1 ? 0 : startY + lines.slice(0, i).reduce((sum, _, j) => sum + lineHeight(j), 0);
           if (textEl) {
             textEl.attr({
               x: -w / 2 + 45,
-              y: -h / 2 + 22 + i * 24,
+              y: currentY,
               fontSize: i ? textStyles.root.fontSizeSecondary : textStyles.root.fontSize,
               fontWeight: i ? textStyles.root.fontWeightSecondary : textStyles.root.fontWeight,
               fill: textStyles.root.fill,
+              textBaseline: 'middle',
             });
           }
         });
@@ -308,6 +324,7 @@ export class NodeRenderer {
           toggle.attr({
             x: -w / 2 + elementPositions.toggle.offsetX,
             y: 0,
+            text: cfg.collapsed ? '+' : '−',
             fontSize: textStyles.toggle.fontSize,
             fill: colors.primary,
             fontWeight: textStyles.toggle.fontWeight,
@@ -457,6 +474,7 @@ export class NodeRenderer {
           toggle.attr({
             x: -w / 2 + elementPositions.toggle.offsetX,
             y: 0,
+            text: cfg.collapsed ? '+' : '−',
             fontSize: textStyles.toggle.fontSize,
             fill: colors.success,
             fontWeight: textStyles.toggle.fontWeight,
@@ -628,6 +646,7 @@ export class NodeRenderer {
           toggle.attr({
             x: -w / 2 + elementPositions.toggle.offsetXLink,
             y: 0,
+            text: cfg.collapsed ? '+' : '−',
             fontSize: textStyles.toggle.fontSizeLink,
             fill: colors.warning,
             fontWeight: textStyles.toggle.fontWeight,

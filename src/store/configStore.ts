@@ -16,7 +16,7 @@ import {
   EDGE_STYLES,
   COLORS,
   ELEMENT_POSITIONS,
-} from '../core/constants';
+} from '../constants';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -253,6 +253,59 @@ const initialState = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 辅助函数：颜色处理
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 调整颜色亮度
+ * @param hex 十六进制颜色值
+ * @param percent 调整百分比，正数变亮，负数变暗
+ * @returns 调整后的十六进制颜色值
+ */
+function adjustColorBrightness(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = ((num >> 8) & 0x00ff) + amt;
+  const B = (num & 0x0000ff) + amt;
+  return '#' 
+    + (0x1000000 
+      + (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 
+      + (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 
+      + (B < 255 ? (B < 1 ? 0 : B) : 255))
+      .toString(16)
+      .slice(1);
+}
+
+/**
+ * 根据主色生成浅色背景
+ * @param hex 十六进制颜色值
+ * @returns 浅色背景
+ */
+function generateLightColor(hex: string): string {
+  // 生成非常浅的背景色
+  return adjustColorBrightness(hex, 85);
+}
+
+/**
+ * 根据主色生成边框色
+ * @param hex 十六进制颜色值
+ * @returns 边框色
+ */
+function generateBorderColor(hex: string): string {
+  return adjustColorBrightness(hex, 25);
+}
+
+/**
+ * 根据主色生成深色文本色
+ * @param hex 十六进制颜色值
+ * @returns 深色文本色
+ */
+function generateTextColor(hex: string): string {
+  return adjustColorBrightness(hex, -30);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // 创建 Store
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -312,8 +365,125 @@ export const useConfigStore = create<ConfigState>((set) => ({
         oldColors: state.colors, 
         newConfig: config 
       });
+      
+      const newColors = { ...state.colors, ...config };
+      
+      // 根据新的颜色配置同步更新 nodeStyles 中对应的颜色
+      const newNodeStyles = { ...state.nodeStyles };
+      // 同步更新 textStyles 中对应的颜色
+      const newTextStyles = { ...state.textStyles };
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 主色调变化 - 影响根节点、分支节点、悬停状态等
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (config.primary !== undefined || config.primaryDark !== undefined || config.primaryLight !== undefined) {
+        // 自动生成衍生颜色
+        if (config.primary !== undefined) {
+          newColors.primaryDark = newColors.primaryDark || adjustColorBrightness(config.primary, -15);
+          newColors.primaryLight = newColors.primaryLight || generateLightColor(config.primary);
+          newColors.hoverPrimary = adjustColorBrightness(config.primary, 10);
+          newColors.hoverPrimaryLight = adjustColorBrightness(newColors.primaryLight, 5);
+          newColors.textPrimary = generateTextColor(config.primary);
+        }
+        
+        // 根节点样式 - 使用 primary 色系
+        newNodeStyles.root = {
+          ...newNodeStyles.root,
+          fill: newColors.primary,
+          stroke: newColors.primaryDark,
+          shadowColor: `rgba(${parseInt(newColors.primary.slice(1, 3), 16)}, ${parseInt(newColors.primary.slice(3, 5), 16)}, ${parseInt(newColors.primary.slice(5, 7), 16)}, 0.3)`,
+        };
+        
+        // 分支节点样式
+        newNodeStyles.branch = {
+          ...newNodeStyles.branch,
+          fill: newColors.primaryLight,
+          stroke: newColors.primary,
+        };
+        
+        // 分支节点文本颜色
+        newTextStyles.branch = {
+          ...newTextStyles.branch,
+          fill: newColors.textPrimary,
+        };
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 成功色变化 - 影响叶子节点
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (config.success !== undefined) {
+        // 自动生成衍生颜色
+        newColors.successLight = generateLightColor(config.success);
+        newColors.borderSuccess = generateBorderColor(config.success);
+        newColors.hoverSuccessLight = adjustColorBrightness(newColors.successLight, 5);
+        newColors.textSuccess = generateTextColor(config.success);
+        
+        // 叶子节点样式
+        newNodeStyles.leaf = {
+          ...newNodeStyles.leaf,
+          fill: newColors.successLight,
+          stroke: newColors.borderSuccess,
+        };
+        
+        // 叶子节点文本颜色
+        newTextStyles.leaf = {
+          ...newTextStyles.leaf,
+          fill: newColors.textSuccess,
+        };
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 警告色变化 - 影响链接节点
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (config.warning !== undefined) {
+        // 自动生成衍生颜色
+        newColors.warningLight = generateLightColor(config.warning);
+        newColors.borderWarning = generateBorderColor(config.warning);
+        newColors.hoverWarningLight = adjustColorBrightness(newColors.warningLight, 5);
+        newColors.textWarning = generateTextColor(config.warning);
+        
+        // 链接节点样式
+        newNodeStyles.link = {
+          ...newNodeStyles.link,
+          fill: newColors.warningLight,
+          stroke: newColors.borderWarning,
+        };
+        
+        // 链接节点文本颜色
+        newTextStyles.link = {
+          ...newTextStyles.link,
+          fill: newColors.textWarning,
+        };
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 链接色变化 - 影响子节点
+      // ═══════════════════════════════════════════════════════════════════════════
+      if (config.link !== undefined) {
+        // 自动生成衍生颜色
+        newColors.linkLight = generateLightColor(config.link);
+        newColors.borderLink = generateBorderColor(config.link);
+        newColors.hoverLinkLight = adjustColorBrightness(newColors.linkLight, 5);
+        newColors.textLink = generateTextColor(config.link);
+        
+        // 子节点样式
+        newNodeStyles.sub = {
+          ...newNodeStyles.sub,
+          fill: newColors.linkLight,
+          stroke: newColors.borderLink,
+        };
+        
+        // 子节点文本颜色
+        newTextStyles.sub = {
+          ...newTextStyles.sub,
+          fill: newColors.textLink,
+        };
+      }
+      
       return {
-        colors: { ...state.colors, ...config },
+        colors: newColors,
+        nodeStyles: newNodeStyles,
+        textStyles: newTextStyles,
       };
     }),
   

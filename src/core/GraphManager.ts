@@ -6,7 +6,7 @@
  * 支持动态配置更新
  */
 
-import G6 from '@antv/g6';
+import G6, { TreeGraph } from '@antv/g6';
 import { useConfigStore } from '../store/configStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ function getConfig() {
 
 export class GraphManager {
   /** G6 图实例 */
-  private graph: G6.TreeGraph | null = null;
+  private graph: TreeGraph | null = null;
 
   /** 容器元素引用 */
   private container: HTMLElement;
@@ -88,7 +88,7 @@ export class GraphManager {
    * @param data 树形数据
    * @returns G6.TreeGraph 实例
    */
-  initialize(data: NodeModel): G6.TreeGraph {
+  initialize(data: NodeModel): TreeGraph {
     // 如果已存在实例，先销毁
     if (this.graph) {
       this.graph.destroy();
@@ -111,7 +111,7 @@ export class GraphManager {
           { 
             type: 'drag-canvas', 
             enableOptimize: false, // 禁用优化，保持拖动时显示所有元素
-            direction: 'both', // 允许水平和垂直方向拖拽
+            // direction: 'both' 在 G6 4.x 中需要用两个独立的 behavior 或删除此选项
           },
           // 滚轮缩放画布
           { 
@@ -315,6 +315,17 @@ export class GraphManager {
   }
 
   /**
+   * 更新图数据
+   * @param data 新的树形数据
+   */
+  setData(data: NodeModel): void {
+    if (!this.graph) return;
+    this.graph.changeData(data);
+    this.graph.layout(false);
+    this.graph.fitView(15);
+  }
+
+  /**
    * 切换节点的展开/收起状态
    * @param nodeId 节点 ID
    */
@@ -324,11 +335,11 @@ export class GraphManager {
     const item = this.graph.findById(nodeId);
     if (!item) return;
 
-    const model = item.getModel();
+    const model = item.getModel() as NodeModel;
     if (!model.children?.length) return;
 
     const newCollapsed = !model.collapsed;
-    console.log(`[toggle] ${model.label}: collapsed=${newCollapsed}, children=${model.children.length}`);
+    console.log(`[toggle] ${model.label}: collapsed=${newCollapsed}, children=${model.children?.length}`);
 
     this.graph.updateItem(item, { collapsed: newCollapsed });
     this.graph.layout(false);
@@ -366,7 +377,7 @@ export class GraphManager {
    * 获取图实例
    * @returns G6.TreeGraph 实例
    */
-  getGraph(): G6.TreeGraph | null {
+  getGraph(): TreeGraph | null {
     return this.graph;
   }
 
@@ -388,7 +399,7 @@ export class GraphManager {
   getNodeModel(nodeId: string): NodeModel | null {
     if (!this.graph) return null;
     const item = this.graph.findById(nodeId);
-    return item ? item.getModel() : null;
+    return item ? (item.getModel() as NodeModel) : null;
   }
 
   /**

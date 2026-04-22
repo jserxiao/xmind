@@ -9,7 +9,7 @@
 
 import { GraphManager } from './GraphManager';
 import type { NodeModel } from './GraphManager';
-import { TEXT_TRUNCATE } from './constants';
+import { TEXT_TRUNCATE } from '../constants';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -23,6 +23,15 @@ export type NavigateCallback = (data: {
   description?: string;
 }) => void;
 
+/** 右键菜单回调函数类型 */
+export type ContextMenuCallback = (data: {
+  nodeId: string;
+  nodeType: string;
+  label: string;
+  x: number;
+  y: number;
+}) => void;
+
 /** 事件处理器配置 */
 export interface EventHandlerConfig {
   /** 图管理器实例 */
@@ -31,6 +40,8 @@ export interface EventHandlerConfig {
   container: HTMLElement;
   /** 导航回调（查看详情时触发） */
   onNavigate?: NavigateCallback;
+  /** 右键菜单回调 */
+  onContextMenu?: ContextMenuCallback;
 }
 
 /** 节点类型对应的缩放比例 */
@@ -56,6 +67,9 @@ export class EventHandler {
   /** 导航回调 */
   private onNavigate?: NavigateCallback;
 
+  /** 右键菜单回调 */
+  private onContextMenu?: ContextMenuCallback;
+
   /** 聚焦队列（用于处理连续的聚焦请求） */
   private focusQueue: string[] = [];
 
@@ -73,6 +87,7 @@ export class EventHandler {
     this.graphManager = config.graphManager;
     this.container = config.container;
     this.onNavigate = config.onNavigate;
+    this.onContextMenu = config.onContextMenu;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -85,6 +100,7 @@ export class EventHandler {
   bindAll(): void {
     this.bindNodeClick();
     this.bindNodeHover();
+    this.bindNodeContextMenu();
     console.log('[EventHandler] 所有事件已绑定');
   }
 
@@ -97,6 +113,7 @@ export class EventHandler {
       graph.off('node:click');
       graph.off('node:mouseenter');
       graph.off('node:mouseleave');
+      graph.off('node:contextmenu');
     }
     // 取消未执行的动画帧
     if (this.rafId) {
@@ -196,6 +213,35 @@ export class EventHandler {
    */
   private handleToggleClick(nodeId: string): void {
     this.graphManager.toggleCollapse(nodeId);
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 节点右键菜单事件
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 绑定节点右键菜单事件
+   */
+  private bindNodeContextMenu(): void {
+    this.graphManager.on('node:contextmenu', (evt: any) => {
+      if (!evt.item) return;
+
+      const model = evt.item.getModel();
+      
+      // 阻止默认右键菜单
+      evt.preventDefault?.();
+      
+      // 触发右键菜单回调
+      if (this.onContextMenu) {
+        this.onContextMenu({
+          nodeId: model.id,
+          nodeType: model.originalType || 'leaf',
+          label: model.label,
+          x: evt.clientX,
+          y: evt.clientY,
+        });
+      }
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────────

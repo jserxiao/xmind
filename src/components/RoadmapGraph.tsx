@@ -17,7 +17,9 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { message } from 'antd';
 import { useConfigStore } from '../store/configStore';
+import { useNodeEditorStore } from '../store/nodeEditorStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
 import type { NodeModel } from '../core/GraphManager';
@@ -26,6 +28,19 @@ import { NodeRenderer } from '../core/NodeRenderer';
 import { EventHandler } from '../core/EventHandler';
 import { exportToJPG, exportToPDF } from '../utils/exportMindmap';
 import ConfigPanel from './ConfigPanel';
+import ContextMenu from './ContextMenu';
+import NodeEditorPanel from './NodeEditorPanel';
+import SubNodePreviewPanel from './SubNodePreviewPanel';
+import {
+  findNodeInTree,
+  addChildNode,
+  updateNodeInTree,
+  deleteNodeFromTree,
+  createNodeFromFormData,
+  updateIndexJson,
+  saveMdFile,
+  findAncestorMdPath,
+} from '../utils/nodeUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 组件 Props 定义
@@ -104,6 +119,22 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const [loading, setLoading] = useState(true);
   const [rawData, setRawData] = useState<RoadmapNode | null>(null);
 
+  // ── 右键菜单状态 ──
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    node: RoadmapNode | null;
+  }>({ visible: false, x: 0, y: 0, node: null });
+
+  // ── 子节点预览状态 ──
+  const [previewPanel, setPreviewPanel] = useState<{
+    visible: boolean;
+    nodeLabel: string;
+    mdPath: string | null;
+    sectionTitle: string;
+  }>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '' });
+
   // ── 路由导航 ──
   const navigate = useNavigate();
 
@@ -112,10 +143,20 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   // 使用 JSON.stringify 来确保能检测到对象内部的变化
   const colors = useConfigStore((state) => state.colors);
   const layout = useConfigStore((state) => state.layout);
+  const nodeStyles = useConfigStore((state) => state.nodeStyles);
+  const textStyles = useConfigStore((state) => state.textStyles);
+  
+  // 节点编辑器 Store
+  const { isOpen: isEditorOpen, mode: editorMode, parentNodeId, editingNode, formData, subNodeMdPath } = useNodeEditorStore();
+  const openAddPanel = useNodeEditorStore((state) => state.openAddPanel);
+  const openEditPanel = useNodeEditorStore((state) => state.openEditPanel);
+  const closePanel = useNodeEditorStore((state) => state.closePanel);
   
   // 将对象序列化以便监听内部变化
   const colorsJson = JSON.stringify(colors);
   const layoutJson = JSON.stringify(layout);
+  const nodeStylesJson = JSON.stringify(nodeStyles);
+  const textStylesJson = JSON.stringify(textStyles);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 初始化图实例
@@ -179,6 +220,16 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
             } else if (data.url) {
               window.open(data.url, '_blank');
             }
+          },
+          onContextMenu: (data) => {
+            // 查找节点数据
+            const node = findNodeInTree(enriched, data.nodeId);
+            setContextMenu({
+              visible: true,
+              x: data.x,
+              y: data.y,
+              node,
+            });
           },
         });
 
@@ -248,11 +299,11 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   useEffect(() => {
     // 当配置变化时，刷新图
     if (graphManagerRef.current && !loading) {
-      console.log('[RoadmapGraph] 配置变化，刷新图', { colors, layout });
+      console.log('[RoadmapGraph] 配置变化，刷新图', { colors, layout, nodeStyles, textStyles });
       graphManagerRef.current.refresh();
     }
     // 使用序列化后的字符串作为依赖，确保能检测到对象内部的变化
-  }, [colorsJson, layoutJson, loading]);
+  }, [colorsJson, layoutJson, nodeStylesJson, textStylesJson, loading]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 工具栏操作方法
@@ -304,6 +355,283 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   }, []);
 
   // ───────────────────────────────────────────────────────────────────────────
+  // 右键菜单操作
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** 添加子节点 */
+  const handleAddChild = useCallback(() => {
+    if (!contextMenu.node) return;
+    openAddPanel(contextMenu.node.id, contextMenu.node);
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, [contextMenu.node, openAddPanel]);
+
+  /** 编辑节点 */
+  const handleEditNode = useCallback(() => {
+    if (!contextMenu.node || !rawData) return;
+    
+    const node = contextMenu.node;
+    
+    // 如果是 sub 节点，需要查找父节点的 mdPath
+    if (node.type === 'sub') {
+      const mdPath = findAncestorMdPath(node.id, rawData);
+      openEditPanel(node, mdPath || undefined);
+    } else {
+      openEditPanel(node);
+    }
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, [contextMenu.node, rawData, openEditPanel]);
+
+  /** 删除节点 */
+  const handleDeleteNode = useCallback(async () => {
+    if (!contextMenu.node || !rawData) return;
+    
+    const nodeLabel = contextMenu.node.label;
+    const confirmed = window.confirm(`确定要删除节点「${nodeLabel}」吗？\n此操作将同时删除该节点的所有子节点。`);
+    
+    if (confirmed) {
+      const hideLoading = message.loading('正在删除节点...', 0);
+      
+      const newTree = deleteNodeFromTree(rawData, contextMenu.node.id);
+      setRawData(newTree);
+      
+      // 更新画布
+      const treeData = convertToTreeData(newTree);
+      graphManagerRef.current?.setData(treeData);
+      
+      // 更新 index.json
+      const result = await updateIndexJson(newTree);
+      
+      hideLoading();
+      
+      if (result.success) {
+        message.success(`节点「${nodeLabel}」已删除`);
+      } else {
+        message.error(result.message);
+      }
+    }
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, [contextMenu.node, rawData]);
+
+  /** 关闭右键菜单 */
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  /**
+   * 内部函数：打开预览面板
+   */
+  const openPreviewPanel = useCallback((node: RoadmapNode) => {
+    if (!rawData || node.type !== 'sub') {
+      return;
+    }
+    
+    // 查找祖先节点的 mdPath
+    const mdPath = findAncestorMdPath(node.id, rawData);
+    
+    setPreviewPanel({
+      visible: true,
+      nodeLabel: node.label,
+      mdPath,
+      sectionTitle: node.label,
+    });
+    
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, [rawData]);
+
+  /** 从右键菜单预览 sub 节点内容 */
+  const handlePreviewSubNode = useCallback(() => {
+    const node = contextMenu.node;
+    if (node) {
+      openPreviewPanel(node);
+    }
+  }, [contextMenu.node, openPreviewPanel]);
+
+  /** 从导航栏预览 sub 节点内容 */
+  const handlePreviewSubNodeFromNav = useCallback((node: RoadmapNode) => {
+    openPreviewPanel(node);
+  }, [openPreviewPanel]);
+
+  /** 关闭预览面板 */
+  const handleClosePreview = useCallback(() => {
+    setPreviewPanel((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 节点保存操作
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** 保存节点（添加或编辑） */
+  const handleSaveNode = useCallback(async () => {
+    if (!rawData) return;
+
+    let newNodeId: string | null = null;
+    const hideLoading = message.loading('正在保存...', 0);
+
+    try {
+      if (editorMode === 'add' && parentNodeId) {
+        // 添加新节点
+        const newNode = createNodeFromFormData(formData, parentNodeId);
+        newNodeId = newNode.id;
+        const newTree = addChildNode(rawData, parentNodeId, newNode);
+        setRawData(newTree);
+        
+        // 更新画布
+        const treeData = convertToTreeData(newTree);
+        graphManagerRef.current?.setData(treeData);
+        
+        // 如果有 MD 内容，保存 MD 文件
+        if (formData.mdContent && formData.mdPath) {
+          const mdResult = await saveMdFile(formData.mdPath, formData.mdContent);
+          if (!mdResult.success) {
+            message.warning(mdResult.message);
+          }
+        } else if (formData.mdPath) {
+          // 如果没有内容但有路径，创建默认模板
+          const template = `# ${formData.label}\n\n${formData.description ? `> ${formData.description}` : ''}\n\n## 概述\n\n<!-- 在这里编写内容 -->\n`;
+          await saveMdFile(formData.mdPath, template);
+        }
+        
+        // 更新 index.json
+        const result = await updateIndexJson(newTree);
+        
+        hideLoading();
+        
+        if (result.success) {
+          message.success(`节点「${formData.label}」已添加`);
+        } else {
+          message.error(result.message);
+        }
+      } else if (editorMode === 'edit' && editingNode) {
+        // 编辑现有节点
+        newNodeId = editingNode.id;
+        const isSubNode = editingNode.type === 'sub';
+        
+        const updates: Partial<RoadmapNode> = {
+          label: formData.label,
+          type: formData.type,
+          description: formData.description || undefined,
+        };
+        
+        if (formData.type !== 'link' && formData.mdPath && !isSubNode) {
+          updates.mdPath = formData.mdPath;
+        }
+        if (formData.type === 'link' && formData.url) {
+          updates.url = formData.url;
+        }
+        
+        const newTree = updateNodeInTree(rawData, editingNode.id, updates);
+        setRawData(newTree);
+        
+        // 更新画布
+        const treeData = convertToTreeData(newTree);
+        graphManagerRef.current?.setData(treeData);
+        
+        // 处理 MD 内容保存
+        if (isSubNode && formData.mdPath && subNodeMdPath) {
+          // sub 节点：只更新对应章节的内容
+          const { saveSubNodeSection } = await import('../utils/nodeUtils');
+          const oldTitle = editingNode.label;
+          const newTitle = formData.label;
+          const titleChanged = oldTitle !== newTitle;
+          
+          if (titleChanged) {
+            // 标题改变，需要更新 MD 文件中的章节标题
+            const mdResult = await saveSubNodeSection(formData.mdPath, newTitle, formData.mdContent, true, oldTitle);
+            if (!mdResult.success) {
+              message.warning(mdResult.message);
+            }
+          } else {
+            // 只更新内容
+            const mdResult = await saveSubNodeSection(formData.mdPath, formData.sectionTitle, formData.mdContent);
+            if (!mdResult.success) {
+              message.warning(mdResult.message);
+            }
+          }
+        } else if (formData.mdContent && formData.mdPath) {
+          // 非 sub 节点：保存整个 MD 文件
+          const mdResult = await saveMdFile(formData.mdPath, formData.mdContent);
+          if (!mdResult.success) {
+            message.warning(mdResult.message);
+          }
+        }
+        
+        // 更新 index.json
+        const result = await updateIndexJson(newTree);
+        
+        hideLoading();
+        
+        if (result.success) {
+          message.success(`节点「${formData.label}」已更新`);
+        } else {
+          message.error(result.message);
+        }
+      }
+    } catch (error) {
+      hideLoading();
+      message.error('保存失败，请重试');
+    }
+    
+    closePanel();
+    
+    // 跳转到新节点/修改的节点
+    if (newNodeId) {
+      setTimeout(() => {
+        eventHandlerRef.current?.focusNode(newNodeId!);
+      }, 300);
+    }
+  }, [rawData, editorMode, parentNodeId, editingNode, formData, subNodeMdPath, closePanel]);
+
+  /** 添加子节点（从导航面板） */
+  const handleAddNodeFromNav = useCallback((parentId: string, parentNode: RoadmapNode | null) => {
+    openAddPanel(parentId, parentNode);
+  }, [openAddPanel]);
+
+  /** 编辑节点（从导航面板） */
+  const handleEditNodeFromNav = useCallback((node: RoadmapNode) => {
+    if (!rawData) return;
+    
+    // 如果是 sub 节点，需要查找父节点的 mdPath
+    if (node.type === 'sub') {
+      const mdPath = findAncestorMdPath(node.id, rawData);
+      openEditPanel(node, mdPath || undefined);
+    } else {
+      openEditPanel(node);
+    }
+  }, [rawData, openEditPanel]);
+
+  /** 删除节点（从导航面板） */
+  const handleDeleteNodeFromNav = useCallback(async (node: RoadmapNode) => {
+    if (!rawData || node.type === 'root') return;
+    
+    const nodeLabel = node.label;
+    const confirmed = window.confirm(`确定要删除节点「${nodeLabel}」吗？\n此操作将同时删除该节点的所有子节点。`);
+    
+    if (confirmed) {
+      const hideLoading = message.loading('正在删除节点...', 0);
+      
+      const newTree = deleteNodeFromTree(rawData, node.id);
+      setRawData(newTree);
+      
+      // 更新画布
+      const treeData = convertToTreeData(newTree);
+      graphManagerRef.current?.setData(treeData);
+      
+      // 更新 index.json
+      const result = await updateIndexJson(newTree);
+      
+      hideLoading();
+      
+      if (result.success) {
+        message.success(`节点「${nodeLabel}」已删除`);
+      } else {
+        message.error(result.message);
+      }
+    }
+  }, [rawData]);
+
+  // ───────────────────────────────────────────────────────────────────────────
   // 渲染
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -319,6 +647,10 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onResetZoom={resetZoom}
         onExportJPG={handleExportJPG}
         onExportPDF={handleExportPDF}
+        onAddNode={handleAddNodeFromNav}
+        onEditNode={handleEditNodeFromNav}
+        onDeleteNode={handleDeleteNodeFromNav}
+        onPreviewSubNode={handlePreviewSubNodeFromNav}
       />
 
       {/* 右侧画布区域（全屏） */}
@@ -334,6 +666,31 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         {/* G6 画布容器 */}
         <div ref={containerRef} className="graph-canvas" />
       </div>
+
+      {/* 右键菜单 */}
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        node={contextMenu.node}
+        visible={contextMenu.visible}
+        onAddChild={handleAddChild}
+        onEdit={handleEditNode}
+        onDelete={handleDeleteNode}
+        onPreview={handlePreviewSubNode}
+        onClose={handleCloseContextMenu}
+      />
+
+      {/* 节点编辑面板 */}
+      {isEditorOpen && <NodeEditorPanel onSave={handleSaveNode} />}
+
+      {/* 子节点预览面板 */}
+      <SubNodePreviewPanel
+        isOpen={previewPanel.visible}
+        nodeLabel={previewPanel.nodeLabel}
+        mdPath={previewPanel.mdPath}
+        sectionTitle={previewPanel.sectionTitle}
+        onClose={handleClosePreview}
+      />
     </div>
   );
 };

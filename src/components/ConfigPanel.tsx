@@ -8,9 +8,16 @@
  * - 配置项（颜色、尺寸等）
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Input, Spin, Tag } from 'antd';
+import { SearchOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useConfigStore } from '../store/configStore';
 import type { RoadmapNode } from '../data/roadmapData';
+import {
+  collectNodesWithMdPath,
+  searchMdContent,
+  type MdSearchResult,
+} from '../utils/nodeUtils';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件 Props
@@ -28,6 +35,12 @@ interface ConfigPanelProps {
   onResetZoom: () => void;
   onExportJPG: () => void;
   onExportPDF: () => void;
+  /** 节点编辑操作 */
+  onAddNode?: (parentId: string, parentNode: RoadmapNode | null) => void;
+  onEditNode?: (node: RoadmapNode) => void;
+  onDeleteNode?: (node: RoadmapNode) => void;
+  /** 预览 sub 节点回调 */
+  onPreviewSubNode?: (node: RoadmapNode) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -102,10 +115,18 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onResetZoom,
   onExportJPG,
   onExportPDF,
+  onAddNode,
+  onEditNode,
+  onDeleteNode,
+  onPreviewSubNode,
 }) => {
   // ── 状态 ──
   const [activeTab, setActiveTab] = useState<'nav' | 'config'>('nav');
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [mdSearchResults, setMdSearchResults] = useState<MdSearchResult[]>([]);
+  const [isSearchingMd, setIsSearchingMd] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // ── Store ──
   const {
@@ -126,17 +147,113 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     updateColors(updates);
   }, [updateColors]);
   
+  // ── 搜索过滤 ──
+  const filteredData = useMemo(() => {
+    if (!rawData || !searchKeyword.trim()) return rawData;
+    
+    const keyword = searchKeyword.toLowerCase().trim();
+    
+    function filterNode(node: RoadmapNode): RoadmapNode | null {
+      // 检查当前节点是否匹配
+      const labelMatch = node.label.toLowerCase().includes(keyword);
+      const descMatch = node.description?.toLowerCase().includes(keyword);
+      
+      // 递归过滤子节点
+      const filteredChildren = node.children
+        ?.map(filterNode)
+        .filter((n): n is RoadmapNode => n !== null);
+      
+      // 如果当前节点匹配或有匹配的子节点，保留
+      if (labelMatch || descMatch || (filteredChildren && filteredChildren.length > 0)) {
+        return {
+          ...node,
+          children: filteredChildren,
+        };
+      }
+      
+      return null;
+    }
+    
+    const result = filterNode(rawData);
+    return result;
+  }, [rawData, searchKeyword]);
+  
+  // ── MD 内容搜索 ──
+  // 收集所有有 mdPath 的节点
+  const nodesWithMdPath = useMemo(() => {
+    if (!rawData) return [];
+    return collectNodesWithMdPath(rawData);
+  }, [rawData]);
+  
+  // 异步搜索 MD 内容
+  useEffect(() => {
+    // 清除之前的定时器
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // 如果搜索词为空，清空结果
+    if (!searchKeyword.trim()) {
+      setMdSearchResults([]);
+      return;
+    }
+    
+    // 防抖：延迟 300ms 后执行搜索
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingMd(true);
+      try {
+        const results = await searchMdContent(searchKeyword, nodesWithMdPath);
+        setMdSearchResults(results);
+      } catch (error) {
+        console.error('[ConfigPanel] MD 搜索失败:', error);
+        setMdSearchResults([]);
+      } finally {
+        setIsSearchingMd(false);
+      }
+    }, 300);
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchKeyword, nodesWithMdPath]);
+  
+  // 高亮匹配文本
+  const highlightText = useCallback((text: string, keyword: string) => {
+    if (!keyword.trim()) return text;
+    
+    const lowerText = text.toLowerCase();
+    const lowerKeyword = keyword.toLowerCase();
+    const index = lowerText.indexOf(lowerKeyword);
+    
+    if (index === -1) return text;
+    
+    const before = text.slice(0, index);
+    const match = text.slice(index, index + keyword.length);
+    const after = text.slice(index + keyword.length);
+    
+    return (
+      <>
+        {before}
+        <span className="tree-label-highlight">{match}</span>
+        {after}
+      </>
+    );
+  }, []);
+  
   // ── 渲染树节点 ──
   const renderTree = useCallback((nodes: RoadmapNode[], depth = 0): React.ReactNode => {
     return nodes.map((node) => {
       const hasChildren = !!node.children?.length;
+      const isRoot = node.type === 'root';
+      const isSubNode = node.type === 'sub';
       
       return (
         <div key={node.id}>
           <div
             className="tree-node-content"
             style={{ paddingLeft: `${depth * 16 + 10}px` }}
-            onClick={() => onFocusNode(node.id)}
           >
             <span
               className="tree-icon"
@@ -161,9 +278,87 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                       ? '🔗'
                       : '📝'}
             </span>
-            <span className="tree-label" title={node.label}>
-              {node.label.replace(/\n/g, ' ').slice(0, 25)}
+            <span 
+              className="tree-label" 
+              title={node.label}
+              onClick={() => onFocusNode(node.id)}
+            >
+              {searchKeyword 
+                ? highlightText(node.label.replace(/\n/g, ' ').slice(0, 25), searchKeyword)
+                : node.label.replace(/\n/g, ' ').slice(0, 25)}
             </span>
+            
+            {/* 操作按钮 */}
+            <div className="tree-node-actions">
+              {/* sub 类型节点显示预览和编辑按钮 */}
+              {isSubNode ? (
+                <>
+                  {onPreviewSubNode && (
+                    <button
+                      className="tree-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPreviewSubNode(node);
+                      }}
+                      title="预览内容"
+                    >
+                      👁️
+                    </button>
+                  )}
+                  {onEditNode && (
+                    <button
+                      className="tree-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditNode(node);
+                      }}
+                      title="编辑章节"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {onAddNode && (
+                    <button
+                      className="tree-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddNode(node.id, node);
+                      }}
+                      title="添加子节点"
+                    >
+                      ➕
+                    </button>
+                  )}
+                  {onEditNode && (
+                    <button
+                      className="tree-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditNode(node);
+                      }}
+                      title="编辑节点"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  {onDeleteNode && !isRoot && (
+                    <button
+                      className="tree-action-btn tree-action-btn-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteNode(node);
+                      }}
+                      title="删除节点"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
           {hasChildren && (
             <div className="tree-children">{renderTree(node.children!, depth + 1)}</div>
@@ -171,7 +366,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </div>
       );
     });
-  }, [colors, onFocusNode]);
+  }, [colors, onFocusNode, onAddNode, onEditNode, onDeleteNode, onPreviewSubNode, searchKeyword, highlightText]);
   
   // ── 收起状态只显示展开按钮 ──
   if (!panelExpanded) {
@@ -234,10 +429,50 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         {activeTab === 'nav' ? (
           // 节点导航面板
           <div className="config-nav-panel">
-            {rawData ? (
-              <div className="tree-panel-body">{renderTree([rawData])}</div>
+            {/* 搜索框 */}
+            <div className="tree-search-box">
+              <Input
+                placeholder="搜索节点或文档内容..."
+                prefix={<SearchOutlined />}
+                suffix={isSearchingMd ? <Spin size="small" /> : null}
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                allowClear
+                size="small"
+              />
+            </div>
+            
+            {/* MD 内容搜索结果 */}
+            {searchKeyword.trim() && mdSearchResults.length > 0 && (
+              <div className="md-search-results">
+                <div className="md-search-header">
+                  <FileTextOutlined /> 文档内容匹配 ({mdSearchResults.length})
+                </div>
+                {mdSearchResults.map((result) => (
+                  <div
+                    key={result.nodeId}
+                    className="md-search-item"
+                    onClick={() => onFocusNode(result.nodeId)}
+                  >
+                    <div className="md-search-item-title">
+                      {highlightText(result.nodeLabel, searchKeyword)}
+                    </div>
+                    {result.matches.slice(0, 2).map((match, idx) => (
+                      <div key={idx} className="md-search-item-context">
+                        ...{highlightText(match, searchKeyword)}...
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {filteredData ? (
+              <div className="tree-panel-body">{renderTree([filteredData])}</div>
             ) : (
-              <div className="config-loading">加载中...</div>
+              <div className="config-loading">
+                {searchKeyword ? '未找到匹配的节点' : '加载中...'}
+              </div>
             )}
           </div>
         ) : (
@@ -270,6 +505,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 label="警告色"
                 value={colors.warning}
                 onChange={(v) => handleUpdateColors({ warning: v })}
+              />
+              <ColorInput
+                label="链接色"
+                value={colors.link}
+                onChange={(v) => handleUpdateColors({ link: v })}
               />
             </div>
             

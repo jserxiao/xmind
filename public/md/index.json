@@ -1,0 +1,1784 @@
+{
+  "id": "root",
+  "label": "Go 学习路线图",
+  "type": "root",
+  "children": [
+    {
+      "id": "go-community",
+      "label": "Go 社区站点",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "studygolang",
+          "label": "studygolang.com",
+          "type": "link",
+          "url": "https://studygolang.com",
+          "mdPath": "go-community/studygolang.md",
+          "description": "Go语言中文网",
+          "children": [
+            {
+              "id": "studygolang__主要功能",
+              "label": "主要功能",
+              "type": "sub"
+            },
+            {
+              "id": "studygolang__使用建议",
+              "label": "使用建议",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "tourgo",
+          "label": "tourgo.org",
+          "type": "link",
+          "url": "https://tourgo.org",
+          "mdPath": "go-community/tourlorg.md",
+          "description": "交互式Go教程",
+          "children": [
+            {
+              "id": "tourgo__主要特点",
+              "label": "主要特点",
+              "type": "sub"
+            },
+            {
+              "id": "tourgo__适用人群",
+              "label": "适用人群",
+              "type": "sub"
+            },
+            {
+              "id": "tourgo__学习路径建议",
+              "label": "学习路径建议",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "gocn",
+          "label": "gocn.vip",
+          "type": "link",
+          "url": "https://gocn.vip",
+          "mdPath": "go-community/gocn.md",
+          "description": "GoCN社区",
+          "children": [
+            {
+              "id": "gocn__主要功能",
+              "label": "主要功能",
+              "type": "sub"
+            },
+            {
+              "id": "gocn__特色",
+              "label": "特色",
+              "type": "sub"
+            },
+            {
+              "id": "gocn__参与方式",
+              "label": "参与方式",
+              "type": "sub"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "go-books",
+      "label": "推荐 Go 图书",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "entry-books",
+          "label": "入门图书",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "go-entry-guide",
+              "label": "《Go 入门指南》",
+              "type": "link",
+              "url": "https://github.com/unknwon/the-way-to-go_ZH_CN",
+              "mdPath": "go-books/go-entry.md",
+              "description": "在线免费教程",
+              "children": [
+                {
+                  "id": "go-entry-guide__目录概览",
+                  "label": "目录概览",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-entry-guide__适合人群",
+                  "label": "适合人群",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-entry-guide__学习建议",
+                  "label": "学习建议",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "go-categories",
+              "label": "Go分类教程",
+              "type": "link",
+              "url": "https://geddyj.com/go-categories/",
+              "mdPath": "go-books/go-categories.md",
+              "description": "按类别学习"
+            }
+          ]
+        },
+        {
+          "id": "practice-books",
+          "label": "项目实战类",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "go-programming",
+              "label": "《Go语言编程（第2版）》",
+              "type": "leaf",
+              "mdPath": "go-books/go-entry.md",
+              "children": [
+                {
+                  "id": "go-programming__目录概览",
+                  "label": "目录概览",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-programming__适合人群",
+                  "label": "适合人群",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-programming__学习建议",
+                  "label": "学习建议",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "go-design-pattern",
+              "label": "《Go语言设计模式》",
+              "type": "leaf",
+              "mdPath": "go-books/go-design-pattern.md",
+              "children": [
+                {
+                  "id": "go-design-pattern__涵盖的设计模式",
+                  "label": "涵盖的设计模式",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-design-pattern__go_特有的考量",
+                  "label": "Go 特有的考量",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-design-pattern__学习建议",
+                  "label": "学习建议",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "design-books",
+          "label": "语言设计/理念",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "effective-go",
+              "label": "《Effective Go》",
+              "type": "leaf",
+              "mdPath": "go-books/go-bible.md",
+              "children": [
+                {
+                  "id": "effective-go__目录概览",
+                  "label": "目录概览",
+                  "type": "sub"
+                },
+                {
+                  "id": "effective-go__核心亮点",
+                  "label": "核心亮点",
+                  "type": "sub"
+                },
+                {
+                  "id": "effective-go__学习建议",
+                  "label": "学习建议",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "go-101",
+              "label": "《Go 101》",
+              "type": "link",
+              "url": "https://go101.org",
+              "mdPath": "go-books/go-101.md",
+              "children": [
+                {
+                  "id": "go-101__特色内容",
+                  "label": "特色内容",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-101__与其他书籍的区别",
+                  "label": "与其他书籍的区别",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-101__在线资源",
+                  "label": "在线资源",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "go-design-impl",
+              "label": "《Go语言设计与实现》",
+              "type": "link",
+              "url": "https://draveness.me/golang/",
+              "mdPath": "go-books/go-practice.md",
+              "children": [
+                {
+                  "id": "go-design-impl__实战项目",
+                  "label": "实战项目",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-design-impl__工程实践",
+                  "label": "工程实践",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-design-impl__学习建议",
+                  "label": "学习建议",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basic-features",
+      "label": "基础特性",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "error-handling",
+          "label": "错误处理 (error/panic)",
+          "type": "leaf",
+          "mdPath": "basic-features/error-handling.md",
+          "children": [
+            {
+              "id": "error-handling__error_接口",
+              "label": "error 接口",
+              "type": "sub"
+            },
+            {
+              "id": "error-handling__panic_和_recover",
+              "label": "panic 和 recover",
+              "type": "sub"
+            },
+            {
+              "id": "error-handling__最佳实践",
+              "label": "最佳实践",
+              "type": "sub"
+            },
+            {
+              "id": "error-handling__常见错误处理模式",
+              "label": "常见错误处理模式",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "defer",
+          "label": "延迟调用 (defer)",
+          "type": "leaf",
+          "mdPath": "basic-features/defer.md",
+          "children": [
+            {
+              "id": "defer__基本用法",
+              "label": "基本用法",
+              "type": "sub"
+            },
+            {
+              "id": "defer__执行顺序",
+              "label": "执行顺序",
+              "type": "sub"
+            },
+            {
+              "id": "defer__defer_的参数求值",
+              "label": "defer 的参数求值",
+              "type": "sub"
+            },
+            {
+              "id": "defer__常见使用场景",
+              "label": "常见使用场景",
+              "type": "sub"
+            },
+            {
+              "id": "defer__注意事项",
+              "label": "注意事项",
+              "type": "sub"
+            },
+            {
+              "id": "defer__性能优化",
+              "label": "性能优化",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "slice",
+          "label": "切片 (slice)",
+          "type": "leaf",
+          "mdPath": "basic-features/slice.md",
+          "children": [
+            {
+              "id": "slice__切片的结构",
+              "label": "切片的结构",
+              "type": "sub"
+            },
+            {
+              "id": "slice__创建切片",
+              "label": "创建切片",
+              "type": "sub"
+            },
+            {
+              "id": "slice__切片操作",
+              "label": "切片操作",
+              "type": "sub"
+            },
+            {
+              "id": "slice__扩容机制",
+              "label": "扩容机制",
+              "type": "sub"
+            },
+            {
+              "id": "slice__常见陷阱",
+              "label": "常见陷阱",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "map",
+          "label": "字典 (map)",
+          "type": "leaf",
+          "mdPath": "basic-features/map.md",
+          "children": [
+            {
+              "id": "map__创建_map",
+              "label": "创建 Map",
+              "type": "sub"
+            },
+            {
+              "id": "map__基本操作",
+              "label": "基本操作",
+              "type": "sub"
+            },
+            {
+              "id": "map__map_的特性",
+              "label": "Map 的特性",
+              "type": "sub"
+            },
+            {
+              "id": "map__性能考虑",
+              "label": "性能考虑",
+              "type": "sub"
+            },
+            {
+              "id": "map__常用模式",
+              "label": "常用模式",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "modules",
+          "label": "依赖管理 (Go modules)",
+          "type": "leaf",
+          "mdPath": "basic-features/modules.md",
+          "children": [
+            {
+              "id": "modules__基本命令",
+              "label": "基本命令",
+              "type": "sub"
+            },
+            {
+              "id": "modules__go_mod_文件",
+              "label": "go.mod 文件",
+              "type": "sub"
+            },
+            {
+              "id": "modules__go_sum_文件",
+              "label": "go.sum 文件",
+              "type": "sub"
+            },
+            {
+              "id": "modules__版本选择规则",
+              "label": "版本选择规则",
+              "type": "sub"
+            },
+            {
+              "id": "modules__替换与排除",
+              "label": "替换与排除",
+              "type": "sub"
+            },
+            {
+              "id": "modules__私有仓库___goproxy",
+              "label": "私有仓库 / GOPROXY",
+              "type": "sub"
+            },
+            {
+              "id": "modules__常用代理",
+              "label": "常用代理",
+              "type": "sub"
+            },
+            {
+              "id": "modules__最佳实践",
+              "label": "最佳实践",
+              "type": "sub"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "advanced-features",
+      "label": "高级特性",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "interface",
+          "label": "接口 (interface)",
+          "type": "leaf",
+          "mdPath": "advanced-features/interface.md",
+          "children": [
+            {
+              "id": "interface__基本定义",
+              "label": "基本定义",
+              "type": "sub"
+            },
+            {
+              "id": "interface__隐式实现",
+              "label": "隐式实现",
+              "type": "sub"
+            },
+            {
+              "id": "interface__空接口",
+              "label": "空接口",
+              "type": "sub"
+            },
+            {
+              "id": "interface__类型断言",
+              "label": "类型断言",
+              "type": "sub"
+            },
+            {
+              "id": "interface__接口内部结构",
+              "label": "接口内部结构",
+              "type": "sub"
+            },
+            {
+              "id": "interface__最佳实践",
+              "label": "最佳实践",
+              "type": "sub"
+            },
+            {
+              "id": "interface__常见陷阱",
+              "label": "常见陷阱",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "goroutine",
+          "label": "协程 (goroutine)",
+          "type": "leaf",
+          "mdPath": "advanced-features/goroutine.md",
+          "children": [
+            {
+              "id": "goroutine__基本用法",
+              "label": "基本用法",
+              "type": "sub"
+            },
+            {
+              "id": "goroutine__goroutine_vs_线程",
+              "label": "Goroutine vs 线程",
+              "type": "sub"
+            },
+            {
+              "id": "goroutine__调度模型__gmp",
+              "label": "调度模型: GMP",
+              "type": "sub"
+            },
+            {
+              "id": "goroutine__控制_goroutine_数量",
+              "label": "控制 Goroutine 数量",
+              "type": "sub"
+            },
+            {
+              "id": "goroutine__goroutine_泄漏",
+              "label": "Goroutine 泄漏",
+              "type": "sub"
+            },
+            {
+              "id": "goroutine__最佳实践",
+              "label": "最佳实践",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "channel",
+          "label": "通道 (channel/select)",
+          "type": "leaf",
+          "mdPath": "advanced-features/channel.md",
+          "children": [
+            {
+              "id": "channel__创建与基本操作",
+              "label": "创建与基本操作",
+              "type": "sub"
+            },
+            {
+              "id": "channel__channel_方向",
+              "label": "Channel 方向",
+              "type": "sub"
+            },
+            {
+              "id": "channel__遍历_channel",
+              "label": "遍历 Channel",
+              "type": "sub"
+            },
+            {
+              "id": "channel__select_语句",
+              "label": "Select 语句",
+              "type": "sub"
+            },
+            {
+              "id": "channel__常见模式",
+              "label": "常见模式",
+              "type": "sub"
+            },
+            {
+              "id": "channel__注意事项",
+              "label": "注意事项",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "context",
+          "label": "上下文 (context)",
+          "type": "leaf",
+          "mdPath": "advanced-features/context.md",
+          "children": [
+            {
+              "id": "context__基本用法",
+              "label": "基本用法",
+              "type": "sub"
+            },
+            {
+              "id": "context__取消机制",
+              "label": "取消机制",
+              "type": "sub"
+            },
+            {
+              "id": "context__在_http_请求中使用",
+              "label": "在 HTTP 请求中使用",
+              "type": "sub"
+            },
+            {
+              "id": "context__携带请求值",
+              "label": "携带请求值",
+              "type": "sub"
+            },
+            {
+              "id": "context__最佳实践",
+              "label": "最佳实践",
+              "type": "sub"
+            }
+          ]
+        },
+        {
+          "id": "mutex",
+          "label": "互斥锁 (mutexes)",
+          "type": "leaf",
+          "mdPath": "advanced-features/mutex.md",
+          "children": [
+            {
+              "id": "mutex__sync_mutex__互斥锁_",
+              "label": "sync.Mutex (互斥锁)",
+              "type": "sub"
+            },
+            {
+              "id": "mutex__sync_rwmutex__读写锁_",
+              "label": "sync.RWMutex (读写锁)",
+              "type": "sub"
+            },
+            {
+              "id": "mutex__常见错误",
+              "label": "常见错误",
+              "type": "sub"
+            },
+            {
+              "id": "mutex__替代方案",
+              "label": "替代方案",
+              "type": "sub"
+            },
+            {
+              "id": "mutex__性能建议",
+              "label": "性能建议",
+              "type": "sub"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interview",
+      "label": "面试八股文",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "memory-gc",
+          "label": "内存与GC",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "gmp",
+              "label": "GMP 模型",
+              "type": "leaf",
+              "mdPath": "interview/gmp.md",
+              "children": [
+                {
+                  "id": "gmp__核心概念",
+                  "label": "核心概念",
+                  "type": "sub"
+                },
+                {
+                  "id": "gmp__工作流程",
+                  "label": "工作流程",
+                  "type": "sub"
+                },
+                {
+                  "id": "gmp__关键问题",
+                  "label": "关键问题",
+                  "type": "sub"
+                },
+                {
+                  "id": "gmp__调度时机",
+                  "label": "调度时机",
+                  "type": "sub"
+                },
+                {
+                  "id": "gmp__面试常见问题",
+                  "label": "面试常见问题",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "scheduler",
+              "label": "调度器相关",
+              "type": "leaf",
+              "mdPath": "interview/scheduler.md",
+              "children": [
+                {
+                  "id": "scheduler__go_调度器的演进",
+                  "label": "Go 调度器的演进",
+                  "type": "sub"
+                },
+                {
+                  "id": "scheduler__调度策略",
+                  "label": "调度策略",
+                  "type": "sub"
+                },
+                {
+                  "id": "scheduler__常用调试方法",
+                  "label": "常用调试方法",
+                  "type": "sub"
+                },
+                {
+                  "id": "scheduler__调度相关环境变量",
+                  "label": "调度相关环境变量",
+                  "type": "sub"
+                },
+                {
+                  "id": "scheduler__性能优化建议",
+                  "label": "性能优化建议",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "goroutine-model",
+              "label": "协程调度模型",
+              "type": "leaf",
+              "mdPath": "interview/goroutine-model.md",
+              "children": [
+                {
+                  "id": "goroutine-model__goroutine_vs_线程_vs_协程",
+                  "label": "Goroutine vs 线程 vs 协程",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-model__goroutine_的栈管理",
+                  "label": "Goroutine 的栈管理",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-model__goroutine_的生命周期",
+                  "label": "Goroutine 的生命周期",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-model__常见问题",
+                  "label": "常见问题",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "memory-model",
+              "label": "内存模型",
+              "type": "leaf",
+              "mdPath": "interview/memory-model.md",
+              "children": [
+                {
+                  "id": "memory-model__happens_before_原则",
+                  "label": "Happens-Before 原则",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-model__channel_的_happens_before",
+                  "label": "Channel 的 Happens-Before",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-model__数据竞争__data_race_",
+                  "label": "数据竞争 (Data Race)",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-model__内存顺序保证",
+                  "label": "内存顺序保证",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-model__最佳实践",
+                  "label": "最佳实践",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "memory-allocation",
+              "label": "内存分配",
+              "type": "leaf",
+              "mdPath": "interview/memory-allocation.md",
+              "children": [
+                {
+                  "id": "memory-allocation__go_内存管理概述",
+                  "label": "Go 内存管理概述",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__内存层次结构",
+                  "label": "内存层次结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__分配流程",
+                  "label": "分配流程",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__mcache_结构",
+                  "label": "mcache 结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__逃逸分析__escape_analysis_",
+                  "label": "逃逸分析 (Escape Analysis)",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__减少堆分配的建议",
+                  "label": "减少堆分配的建议",
+                  "type": "sub"
+                },
+                {
+                  "id": "memory-allocation__sync_pool",
+                  "label": "sync.Pool",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "gc",
+              "label": "GC 垃圾回收",
+              "type": "leaf",
+              "mdPath": "interview/gc.md",
+              "children": [
+                {
+                  "id": "gc__gc_算法演进",
+                  "label": "GC 算法演进",
+                  "type": "sub"
+                },
+                {
+                  "id": "gc__三色标记法",
+                  "label": "三色标记法",
+                  "type": "sub"
+                },
+                {
+                  "id": "gc__gc_触发条件",
+                  "label": "GC 触发条件",
+                  "type": "sub"
+                },
+                {
+                  "id": "gc__gc_调优建议",
+                  "label": "GC 调优建议",
+                  "type": "sub"
+                },
+                {
+                  "id": "gc__查看_gc_信息",
+                  "label": "查看 GC 信息",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "basic-types",
+          "label": "基础数据类型",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "map-interview",
+              "label": "Map 原理",
+              "type": "leaf",
+              "mdPath": "interview/map-interview.md",
+              "children": [
+                {
+                  "id": "map-interview__map_的底层实现",
+                  "label": "Map 的底层实现",
+                  "type": "sub"
+                },
+                {
+                  "id": "map-interview__核心问题",
+                  "label": "核心问题",
+                  "type": "sub"
+                },
+                {
+                  "id": "map-interview__性能优化",
+                  "label": "性能优化",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "slice-interview",
+              "label": "Slice 原理",
+              "type": "leaf",
+              "mdPath": "interview/slice-interview.md",
+              "children": [
+                {
+                  "id": "slice-interview__底层结构",
+                  "label": "底层结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "slice-interview__核心问题",
+                  "label": "核心问题",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "interface-interview",
+              "label": "接口原理",
+              "type": "leaf",
+              "mdPath": "interview/interface-interview.md",
+              "children": [
+                {
+                  "id": "interface-interview__底层实现",
+                  "label": "底层实现",
+                  "type": "sub"
+                },
+                {
+                  "id": "interface-interview__核心问题",
+                  "label": "核心问题",
+                  "type": "sub"
+                },
+                {
+                  "id": "interface-interview__接口与泛型的选择",
+                  "label": "接口与泛型的选择",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "concurrency",
+          "label": "并发相关",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "channel-interview",
+              "label": "Channel",
+              "type": "leaf",
+              "mdPath": "advanced-features/channel.md",
+              "children": [
+                {
+                  "id": "channel-interview__创建与基本操作",
+                  "label": "创建与基本操作",
+                  "type": "sub"
+                },
+                {
+                  "id": "channel-interview__channel_方向",
+                  "label": "Channel 方向",
+                  "type": "sub"
+                },
+                {
+                  "id": "channel-interview__遍历_channel",
+                  "label": "遍历 Channel",
+                  "type": "sub"
+                },
+                {
+                  "id": "channel-interview__select_语句",
+                  "label": "Select 语句",
+                  "type": "sub"
+                },
+                {
+                  "id": "channel-interview__常见模式",
+                  "label": "常见模式",
+                  "type": "sub"
+                },
+                {
+                  "id": "channel-interview__注意事项",
+                  "label": "注意事项",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "context-interview",
+              "label": "Context",
+              "type": "leaf",
+              "mdPath": "advanced-features/context.md",
+              "children": [
+                {
+                  "id": "context-interview__基本用法",
+                  "label": "基本用法",
+                  "type": "sub"
+                },
+                {
+                  "id": "context-interview__取消机制",
+                  "label": "取消机制",
+                  "type": "sub"
+                },
+                {
+                  "id": "context-interview__在_http_请求中使用",
+                  "label": "在 HTTP 请求中使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "context-interview__携带请求值",
+                  "label": "携带请求值",
+                  "type": "sub"
+                },
+                {
+                  "id": "context-interview__最佳实践",
+                  "label": "最佳实践",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "mutex-interview",
+              "label": "Sync 互斥锁",
+              "type": "leaf",
+              "mdPath": "advanced-features/mutex.md",
+              "children": [
+                {
+                  "id": "mutex-interview__sync_mutex__互斥锁_",
+                  "label": "sync.Mutex (互斥锁)",
+                  "type": "sub"
+                },
+                {
+                  "id": "mutex-interview__sync_rwmutex__读写锁_",
+                  "label": "sync.RWMutex (读写锁)",
+                  "type": "sub"
+                },
+                {
+                  "id": "mutex-interview__常见错误",
+                  "label": "常见错误",
+                  "type": "sub"
+                },
+                {
+                  "id": "mutex-interview__替代方案",
+                  "label": "替代方案",
+                  "type": "sub"
+                },
+                {
+                  "id": "mutex-interview__性能建议",
+                  "label": "性能建议",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "compound-types",
+          "label": "复合数据类型",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "slice-ops",
+              "label": "Slice 操作",
+              "type": "leaf",
+              "mdPath": "interview/slice-interview.md",
+              "children": [
+                {
+                  "id": "slice-ops__底层结构",
+                  "label": "底层结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "slice-ops__核心问题",
+                  "label": "核心问题",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "map-ops",
+              "label": "Map 操作",
+              "type": "leaf",
+              "mdPath": "interview/map-interview.md",
+              "children": [
+                {
+                  "id": "map-ops__map_的底层实现",
+                  "label": "Map 的底层实现",
+                  "type": "sub"
+                },
+                {
+                  "id": "map-ops__核心问题",
+                  "label": "核心问题",
+                  "type": "sub"
+                },
+                {
+                  "id": "map-ops__性能优化",
+                  "label": "性能优化",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "timer",
+              "label": "Timer 理解",
+              "type": "leaf",
+              "mdPath": "interview/gc.md",
+              "children": [
+                {
+                  "id": "timer__gc_算法演进",
+                  "label": "GC 算法演进",
+                  "type": "sub"
+                },
+                {
+                  "id": "timer__三色标记法",
+                  "label": "三色标记法",
+                  "type": "sub"
+                },
+                {
+                  "id": "timer__gc_触发条件",
+                  "label": "GC 触发条件",
+                  "type": "sub"
+                },
+                {
+                  "id": "timer__gc_调优建议",
+                  "label": "GC 调优建议",
+                  "type": "sub"
+                },
+                {
+                  "id": "timer__查看_gc_信息",
+                  "label": "查看 GC 信息",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "thread-safety",
+          "label": "线程安全",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "goroutine-leak",
+              "label": "Goroutine 泄漏排查",
+              "type": "leaf",
+              "mdPath": "interview/goroutine-model.md",
+              "children": [
+                {
+                  "id": "goroutine-leak__goroutine_vs_线程_vs_协程",
+                  "label": "Goroutine vs 线程 vs 协程",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-leak__goroutine_的栈管理",
+                  "label": "Goroutine 的栈管理",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-leak__goroutine_的生命周期",
+                  "label": "Goroutine 的生命周期",
+                  "type": "sub"
+                },
+                {
+                  "id": "goroutine-leak__常见问题",
+                  "label": "常见问题",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "cpu-memory",
+              "label": "CPU/Memory 异常",
+              "type": "leaf",
+              "mdPath": "interview/memory-allocation.md",
+              "children": [
+                {
+                  "id": "cpu-memory__go_内存管理概述",
+                  "label": "Go 内存管理概述",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__内存层次结构",
+                  "label": "内存层次结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__分配流程",
+                  "label": "分配流程",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__mcache_结构",
+                  "label": "mcache 结构",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__逃逸分析__escape_analysis_",
+                  "label": "逃逸分析 (Escape Analysis)",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__减少堆分配的建议",
+                  "label": "减少堆分配的建议",
+                  "type": "sub"
+                },
+                {
+                  "id": "cpu-memory__sync_pool",
+                  "label": "sync.Pool",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "debug-tools",
+          "label": "排查工具",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "pprof",
+              "label": "PProf 性能分析",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/pprof.md",
+              "children": [
+                {
+                  "id": "pprof__集成_pprof",
+                  "label": "集成 pprof",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof__使用方式",
+                  "label": "使用方式",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof__常用火焰图",
+                  "label": "常用火焰图",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof__性能优化流程",
+                  "label": "性能优化流程",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "golangci-lint",
+              "label": "golangci-lint",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/golangci-lint.md",
+              "children": [
+                {
+                  "id": "golangci-lint__安装与使用",
+                  "label": "安装与使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "golangci-lint__配置___golangci_yml_",
+                  "label": "配置 (.golangci.yml)",
+                  "type": "sub"
+                },
+                {
+                  "id": "golangci-lint__ci_cd_集成",
+                  "label": "CI/CD 集成",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frameworks-tools",
+      "label": "框架和工具",
+      "type": "branch",
+      "headingLevel": 2,
+      "children": [
+        {
+          "id": "rpc-frameworks",
+          "label": "RPC 框架",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "grpc",
+              "label": "gRPC",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/rpc.md",
+              "children": [
+                {
+                  "id": "grpc__grpc",
+                  "label": "gRPC",
+                  "type": "sub"
+                },
+                {
+                  "id": "grpc__其他_rpc_框架",
+                  "label": "其他 RPC 框架",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "go-zero-kratos",
+              "label": "go-zero / kratos",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/rpc.md",
+              "children": [
+                {
+                  "id": "go-zero-kratos__grpc",
+                  "label": "gRPC",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-zero-kratos__其他_rpc_框架",
+                  "label": "其他 RPC 框架",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "http-frameworks",
+          "label": "HTTP 框架",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "gin",
+              "label": "Gin / GoFrame",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/gin.md",
+              "children": [
+                {
+                  "id": "gin__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "gin__中间件",
+                  "label": "中间件",
+                  "type": "sub"
+                },
+                {
+                  "id": "gin__参数绑定",
+                  "label": "参数绑定",
+                  "type": "sub"
+                },
+                {
+                  "id": "gin__性能特点",
+                  "label": "性能特点",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "echo",
+              "label": "Echo",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/echo.md",
+              "children": [
+                {
+                  "id": "echo__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "echo__echo_vs_gin",
+                  "label": "Echo vs Gin",
+                  "type": "sub"
+                },
+                {
+                  "id": "echo__特色功能",
+                  "label": "特色功能",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "fiber",
+              "label": "Fiber",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/fiber.md",
+              "children": [
+                {
+                  "id": "fiber__特点",
+                  "label": "特点",
+                  "type": "sub"
+                },
+                {
+                  "id": "fiber__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "fiber__fiber_vs_gin_vs_echo_性能",
+                  "label": "Fiber vs Gin vs Echo 性能",
+                  "type": "sub"
+                },
+                {
+                  "id": "fiber__注意事项",
+                  "label": "注意事项",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "websocket",
+          "label": "WebSocket",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "golang-websocket",
+              "label": "golang/websocket",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/golangwebsocket.md",
+              "children": [
+                {
+                  "id": "golang-websocket__标准库实现",
+                  "label": "标准库实现",
+                  "type": "sub"
+                },
+                {
+                  "id": "golang-websocket__gorilla_websocket",
+                  "label": "gorilla/websocket",
+                  "type": "sub"
+                },
+                {
+                  "id": "golang-websocket__nhooyr_io_websocket__推荐_",
+                  "label": "nhooyr.io/websocket (推荐)",
+                  "type": "sub"
+                },
+                {
+                  "id": "golang-websocket__常见应用场景",
+                  "label": "常见应用场景",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "gorilla-websocket",
+              "label": "gorilla/websocket",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/golangwebsocket.md",
+              "children": [
+                {
+                  "id": "gorilla-websocket__标准库实现",
+                  "label": "标准库实现",
+                  "type": "sub"
+                },
+                {
+                  "id": "gorilla-websocket__gorilla_websocket",
+                  "label": "gorilla/websocket",
+                  "type": "sub"
+                },
+                {
+                  "id": "gorilla-websocket__nhooyr_io_websocket__推荐_",
+                  "label": "nhooyr.io/websocket (推荐)",
+                  "type": "sub"
+                },
+                {
+                  "id": "gorilla-websocket__常见应用场景",
+                  "label": "常见应用场景",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "orm-frameworks",
+          "label": "ORM 框架",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "gorm",
+              "label": "GORM",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/orm.md",
+              "children": [
+                {
+                  "id": "gorm__gorm",
+                  "label": "GORM",
+                  "type": "sub"
+                },
+                {
+                  "id": "gorm__ent__facebook_出品_",
+                  "label": "ent (Facebook 出品)",
+                  "type": "sub"
+                },
+                {
+                  "id": "gorm__xorm",
+                  "label": "xorm",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "xorm",
+              "label": "XORM",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/xorm.md",
+              "children": [
+                {
+                  "id": "xorm__特点",
+                  "label": "特点",
+                  "type": "sub"
+                },
+                {
+                  "id": "xorm__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "xorm__高级功能",
+                  "label": "高级功能",
+                  "type": "sub"
+                },
+                {
+                  "id": "xorm__xorm_vs_gorm",
+                  "label": "XORM vs GORM",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "other-frameworks",
+          "label": "其他框架",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "go-redis",
+              "label": "go-redis",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/redis.md",
+              "children": [
+                {
+                  "id": "go-redis__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-redis__pipeline__管道_",
+                  "label": "Pipeline (管道)",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-redis__发布_订阅",
+                  "label": "发布/订阅",
+                  "type": "sub"
+                },
+                {
+                  "id": "go-redis__分布式锁__redsync_",
+                  "label": "分布式锁 (RedSync)",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "client-go",
+              "label": "client-go/controller-runtime",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/kubemachinery.md",
+              "children": [
+                {
+                  "id": "client-go__client_go",
+                  "label": "client-go",
+                  "type": "sub"
+                },
+                {
+                  "id": "client-go__controller_runtime",
+                  "label": "controller-runtime",
+                  "type": "sub"
+                },
+                {
+                  "id": "client-go__kubebuilder",
+                  "label": "Kubebuilder",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "cron",
+              "label": "robfig/cron 定时任务",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/robfigcron.md",
+              "children": [
+                {
+                  "id": "cron__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "cron__cron_表达式格式",
+                  "label": "Cron 表达式格式",
+                  "type": "sub"
+                },
+                {
+                  "id": "cron__预定义表达式",
+                  "label": "预定义表达式",
+                  "type": "sub"
+                },
+                {
+                  "id": "cron__高级用法",
+                  "label": "高级用法",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cli-tools",
+          "label": "CLI 工具",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "cobra",
+              "label": "Cobra",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/cobra.md",
+              "children": [
+                {
+                  "id": "cobra__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "cobra__子命令和参数",
+                  "label": "子命令和参数",
+                  "type": "sub"
+                },
+                {
+                  "id": "cobra__使用效果",
+                  "label": "使用效果",
+                  "type": "sub"
+                },
+                {
+                  "id": "cobra__常用组合",
+                  "label": "常用组合",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "logging",
+          "label": "日志库",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "zap",
+              "label": "Zap",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/zap.md",
+              "children": [
+                {
+                  "id": "zap__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "zap__logger_配置",
+                  "label": "Logger 配置",
+                  "type": "sub"
+                },
+                {
+                  "id": "zap__sugaredlogger",
+                  "label": "SugaredLogger",
+                  "type": "sub"
+                },
+                {
+                  "id": "zap__性能对比",
+                  "label": "性能对比",
+                  "type": "sub"
+                },
+                {
+                  "id": "zap__最佳实践",
+                  "label": "最佳实践",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "logrus",
+              "label": "Logrus",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/logrus.md",
+              "children": [
+                {
+                  "id": "logrus__基本使用",
+                  "label": "基本使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "logrus__日志级别",
+                  "label": "日志级别",
+                  "type": "sub"
+                },
+                {
+                  "id": "logrus__hooks_钩子_",
+                  "label": "Hooks（钩子）",
+                  "type": "sub"
+                },
+                {
+                  "id": "logrus__logrus_vs_zap",
+                  "label": "Logrus vs Zap",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "perf-tools",
+          "label": "性能工具",
+          "type": "branch",
+          "headingLevel": 3,
+          "children": [
+            {
+              "id": "pprof-perf",
+              "label": "PProf",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/pprof.md",
+              "children": [
+                {
+                  "id": "pprof-perf__集成_pprof",
+                  "label": "集成 pprof",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof-perf__使用方式",
+                  "label": "使用方式",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof-perf__常用火焰图",
+                  "label": "常用火焰图",
+                  "type": "sub"
+                },
+                {
+                  "id": "pprof-perf__性能优化流程",
+                  "label": "性能优化流程",
+                  "type": "sub"
+                }
+              ]
+            },
+            {
+              "id": "golangci-lint-perf",
+              "label": "golangci-lint",
+              "type": "leaf",
+              "mdPath": "frameworks-tools/golangci-lint.md",
+              "children": [
+                {
+                  "id": "golangci-lint-perf__安装与使用",
+                  "label": "安装与使用",
+                  "type": "sub"
+                },
+                {
+                  "id": "golangci-lint-perf__配置___golangci_yml_",
+                  "label": "配置 (.golangci.yml)",
+                  "type": "sub"
+                },
+                {
+                  "id": "golangci-lint-perf__ci_cd_集成",
+                  "label": "CI/CD 集成",
+                  "type": "sub"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
