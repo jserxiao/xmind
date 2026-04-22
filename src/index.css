@@ -1374,16 +1374,16 @@ a:hover {
 
 /* ===== 节点编辑面板样式 ===== */
 .node-editor-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: rgba(0, 0, 0, 0.5);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 1000;
   animation: overlayFadeIn 0.2s ease-out;
 }
 
@@ -1825,25 +1825,105 @@ a:hover {
 
 /* 预览区域 */
 .preview-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color);
+padding: 12px 16px;
+border-bottom: 1px solid var(--border-color);
+display: flex;
+justify-content: space-between;
+align-items: center;
 }
 
 .preview-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
+font-size: 14px;
+font-weight: 500;
+color: var(--text-primary);
+}
+
+.preview-tip {
+font-size: 12px;
+color: var(--text-hint);
+cursor: help;
 }
 
 .preview-content {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
+flex: 1;
+padding: 16px;
+overflow-y: auto;
 }
 
 .preview-content .wmde-markdown {
-  font-size: 14px;
-  line-height: 1.7;
+font-size: 14px;
+line-height: 1.7;
+}
+
+.preview-templates {
+padding: 12px 16px;
+border-top: 1px solid var(--border-color);
+display: flex;
+align-items: center;
+gap: 8px;
+background: #fff;
+}
+
+.templates-label {
+font-size: 12px;
+color: var(--text-hint);
+}
+
+.preview-templates .ant-btn {
+font-size: 12px;
+padding: 2px 8px;
+height: auto;
+}
+
+/* MD Editor Actions */
+.md-editor-header {
+padding: 12px 16px;
+border-bottom: 1px solid var(--border-color);
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.md-editor-title {
+font-size: 14px;
+font-weight: 500;
+color: var(--text-primary);
+}
+
+.md-editor-hint {
+font-size: 12px;
+color: var(--text-hint);
+}
+
+.md-editor-actions {
+display: flex;
+gap: 8px;
+}
+
+/* Batch Delete Modal */
+.batch-delete-modal-content {
+max-height: 400px;
+overflow-y: auto;
+}
+
+.batch-delete-tree-container {
+max-height: 350px;
+overflow-y: auto;
+border: 1px solid var(--border-color);
+border-radius: 6px;
+padding: 12px;
+background: #fafbfc;
+}
+
+.batch-delete-tree-container .ant-tree {
+background: transparent;
+}
+
+/* Config Toolbar Dropdown */
+.config-tool-btn-dropdown {
+display: flex;
+align-items: center;
+gap: 4px;
 }
 
 /* 底部按钮 */
@@ -2096,17 +2176,45 @@ a:hover {
 }
 
 .roadmap-card {
-  background: white;
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+background: white;
+border-radius: var(--radius-lg);
+padding: 24px;
+cursor: pointer;
+transition: all 0.3s ease;
+box-shadow: var(--shadow-md);
+position: relative;
+overflow: hidden;
+display: flex;
+flex-direction: column;
+gap: 16px;
+}
+
+.roadmap-card .card-delete-btn {
+position: absolute;
+top: 12px;
+right: 12px;
+width: 28px;
+height: 28px;
+border-radius: 50%;
+background: #fff;
+border: 1px solid #ff4d4f;
+color: #ff4d4f;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+opacity: 0;
+transition: all 0.2s ease;
+z-index: 10;
+}
+
+.roadmap-card:hover .card-delete-btn {
+opacity: 1;
+}
+
+.roadmap-card .card-delete-btn:hover {
+background: #ff4d4f;
+color: #fff;
 }
 
 .roadmap-card::before {
@@ -2182,11 +2290,52 @@ a:hover {
   transform: translateX(4px);
 }
 
+/* 新增卡片样式 */
+.roadmap-card.add-card {
+  border: 2px dashed var(--border-color);
+  background: transparent;
+}
+
+.roadmap-card.add-card::before {
+  display: none;
+}
+
+.roadmap-card.add-card:hover {
+  border-color: var(--primary-color);
+  background: rgba(24, 144, 255, 0.05);
+}
+
+.card-icon.add-icon {
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  font-size: 2rem;
+}
+
+.roadmap-card.add-card .card-action {
+  border-top-color: var(--border-color);
+}
+
 .roadmap-list-footer {
-  padding: 24px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+padding: 24px;
+text-align: center;
+color: var(--text-muted);
+font-size: 0.9rem;
+}
+
+.empty-hint {
+text-align: center;
+padding: 24px;
+color: var(--text-muted);
+}
+
+.empty-hint p:first-child {
+font-size: 1rem;
+margin-bottom: 8px;
+}
+
+.empty-hint-sub {
+font-size: 0.85rem;
+color: var(--text-hint);
 }
 
 /* ===== 思维导图详情页面 ===== */
@@ -2362,20 +2511,44 @@ a:hover {
 }
 
 .select-folder-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 14px 32px;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s;
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color: white;
+border: none;
+padding: 14px 32px;
+border-radius: var(--radius-md);
+font-size: 1rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.3s;
 }
 
 .select-folder-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+transform: translateY(-2px);
+box-shadow: var(--shadow-md);
+}
+
+.select-folder-btn.primary {
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.select-folder-btn:not(.primary) {
+background: white;
+color: #667eea;
+border: 2px solid #667eea;
+}
+
+.folder-select-buttons {
+display: flex;
+gap: 12px;
+justify-content: center;
+margin: 16px 0;
+flex-wrap: wrap;
+}
+
+.folder-select-buttons .select-folder-btn {
+display: flex;
+align-items: center;
+gap: 8px;
 }
 
 .folder-example {

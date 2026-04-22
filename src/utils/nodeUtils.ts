@@ -6,6 +6,7 @@
 
 import type { RoadmapNode } from '../data/roadmapData';
 import type { NodeFormData } from '../store/nodeEditorStore';
+import type { RoadmapMeta } from '../store/roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点树遍历工具
@@ -246,24 +247,79 @@ export async function saveMdFile(mdPath: string, content: string): Promise<ApiRe
 }
 
 /**
- * 删除 MD 文件
+ * 创建新的思维导图
  */
-export async function deleteMdFile(mdPath: string): Promise<ApiResult> {
+export async function createRoadmap(options: {
+  folderName: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  rootPath?: string;
+}): Promise<ApiResult & { roadmap?: RoadmapMeta }> {
   try {
-    const response = await fetch('/api/md/delete', {
+    const response = await fetch('/api/roadmap/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mdPath }),
+      body: JSON.stringify(options),
     });
     
     const result = await response.json();
     if (result.success) {
-      return { success: true, message: `MD 文件已删除` };
+      return { 
+        success: true, 
+        message: `思维导图已创建`,
+        roadmap: result.roadmap
+    };
+    } else {
+      return { success: false, message: `创建失败: ${result.error}` };
+    }
+  } catch (error) {
+    return { success: false, message: `创建失败: ${error}` };
+  }
+}
+
+/**
+ * 删除思维导图
+ */
+export async function deleteRoadmap(folderName: string, rootPath?: string): Promise<ApiResult> {
+  try {
+    const response = await fetch('/api/roadmap/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderName, rootPath }),
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      return { success: true, message: `思维导图已删除` };
     } else {
       return { success: false, message: `删除失败: ${result.error}` };
     }
   } catch (error) {
     return { success: false, message: `删除失败: ${error}` };
+  }
+}
+
+/**
+ * 扫描指定路径下的所有思维导图
+ */
+export async function scanRoadmaps(rootPath: string): Promise<ApiResult & { roadmaps?: RoadmapMeta[]; absolutePath?: string }> {
+  try {
+    const response = await fetch('/api/roadmap/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rootPath }),
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      return { success: true, message: '扫描成功', roadmaps: result.roadmaps, absolutePath: result.absolutePath };
+    } else {
+      return { success: false, message: `扫描失败: ${result.error}` };
+    }
+  } catch (error) {
+    return { success: false, message: `扫描失败: ${error}` };
   }
 }
 
@@ -697,4 +753,93 @@ export async function searchMdContent(
   
   // 过滤掉 null 结果
   return searchResults.filter((r): r is MdSearchResult => r !== null);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 批量删除节点
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 批量删除节点
+ * @param root 根节点
+ * @param nodeIds 要删除的节点 ID 列表
+ * @returns 更新后的节点树
+ */
+export function batchDeleteNodes(root: RoadmapNode, nodeIds: string[]): RoadmapNode {
+  let result = deepCloneNode(root);
+  
+  for (const nodeId of nodeIds) {
+    result = deleteNodeFromTree(result, nodeId);
+  }
+  
+  return result;
+}
+
+/**
+ * 收集节点及其子节点的所有 mdPath
+ * @param node 起始节点
+ * @returns mdPath 列表
+ */
+export function collectMdPathsFromNode(node: RoadmapNode): string[] {
+  const mdPaths: string[] = [];
+  
+  function traverse(n: RoadmapNode) {
+    if (n.mdPath) {
+      mdPaths.push(n.mdPath);
+    }
+    if (n.children) {
+      n.children.forEach(traverse);
+    }
+  }
+  
+  traverse(node);
+  return mdPaths;
+}
+
+/**
+ * 查找多个节点并返回它们的完整信息
+ * @param root 根节点
+ * @param nodeIds 节点 ID 列表
+ * @returns 找到的节点列表
+ */
+export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNode[] {
+  const nodes: RoadmapNode[] = [];
+  
+  function traverse(node: RoadmapNode) {
+    if (nodeIds.includes(node.id)) {
+      nodes.push(node);
+    }
+    if (node.children) {
+      node.children.forEach(traverse);
+    }
+  }
+  
+  traverse(root);
+  return nodes;
+}
+
+/**
+ * 删除 MD 文件
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
+ * @param roadmapPath 思维导图路径
+ */
+export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promise<ApiResult> {
+  try {
+    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    
+    const response = await fetch('/api/md/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mdPath: fullPath }),
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      return { success: true, message: `MD 文件已删除` };
+    } else {
+      return { success: false, message: `删除失败: ${result.error}` };
+    }
+  } catch (error) {
+    return { success: false, message: `删除失败: ${error}` };
+  }
 }

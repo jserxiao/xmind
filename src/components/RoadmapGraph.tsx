@@ -42,6 +42,10 @@ import {
   saveMdFile,
   findAncestorMdPath,
   addSectionToMdFile,
+  batchDeleteNodes,
+  findNodesByIds,
+  collectMdPathsFromNode,
+  deleteMdFile,
 } from '../utils/nodeUtils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -739,6 +743,54 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     }
   }, [rawData]);
 
+  /** 批量删除节点 */
+  const handleBatchDeleteNodes = useCallback(async (nodeIds: string[]) => {
+    if (!rawData || nodeIds.length === 0) return;
+    
+    const hideLoading = message.loading(`正在删除 ${nodeIds.length} 个节点...`, 0);
+    
+    try {
+      // 找到所有要删除的节点
+      const nodesToDelete = findNodesByIds(rawData, nodeIds);
+      
+      // 收集所有要删除的 MD 文件路径
+      const mdPathsToDelete: string[] = [];
+      for (const node of nodesToDelete) {
+        const mdPaths = collectMdPathsFromNode(node);
+        mdPathsToDelete.push(...mdPaths);
+      }
+      
+      // 删除 MD 文件
+      const roadmapPath = getMdBasePath().split('/').pop() || '';
+      for (const mdPath of mdPathsToDelete) {
+        await deleteMdFile(mdPath, roadmapPath);
+      }
+      
+      // 批量删除节点
+      const newTree = batchDeleteNodes(rawData, nodeIds);
+      setRawData(newTree);
+      
+      // 更新画布
+      const treeData = convertToTreeData(newTree);
+      graphManagerRef.current?.setData(treeData);
+      
+      // 更新 index.json
+      const result = await updateIndexJson(newTree);
+      
+      hideLoading();
+      
+      if (result.success) {
+        message.success(`成功删除 ${nodeIds.length} 个节点`);
+      } else {
+        message.error(result.message);
+      }
+    } catch (error) {
+      hideLoading();
+      message.error('批量删除失败');
+      console.error('批量删除失败:', error);
+    }
+  }, [rawData, getMdBasePath]);
+
   // ───────────────────────────────────────────────────────────────────────────
   // 渲染
   // ───────────────────────────────────────────────────────────────────────────
@@ -759,6 +811,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onEditNode={handleEditNodeFromNav}
         onDeleteNode={handleDeleteNodeFromNav}
         onPreviewSubNode={handlePreviewSubNodeFromNav}
+        onBatchDeleteNodes={handleBatchDeleteNodes}
       />
 
       {/* 右侧画布区域（全屏） */}

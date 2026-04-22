@@ -2,15 +2,16 @@
  * ConfigPanel - 配置栏组件
  * 
  * 左侧可折叠的配置面板，包含：
- * - 标题和提示信息
  * - 工具栏按钮（缩放、导出等）
  * - 节点导航面板
  * - 配置项（颜色、尺寸等）
+ * - 批量操作
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Input, Spin, Tag } from 'antd';
-import { SearchOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Input, Spin, Dropdown, Modal, Tree, Button, message } from 'antd';
+import type { TreeProps, TreeDataNode } from 'antd';
+import { SearchOutlined, FileTextOutlined, DownOutlined } from '@ant-design/icons';
 import { useConfigStore } from '../store/configStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import {
@@ -41,6 +42,8 @@ interface ConfigPanelProps {
   onDeleteNode?: (node: RoadmapNode) => void;
   /** 预览 sub 节点回调 */
   onPreviewSubNode?: (node: RoadmapNode) => void;
+  /** 批量删除节点回调 */
+  onBatchDeleteNodes?: (nodeIds: string[]) => Promise<void>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -119,6 +122,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onEditNode,
   onDeleteNode,
   onPreviewSubNode,
+  onBatchDeleteNodes,
 }) => {
   // ── 状态 ──
   const [activeTab, setActiveTab] = useState<'nav' | 'config'>('nav');
@@ -127,6 +131,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [mdSearchResults, setMdSearchResults] = useState<MdSearchResult[]>([]);
   const [isSearchingMd, setIsSearchingMd] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // 批量删除相关状态
+  const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   
   // ── Store ──
   const {
@@ -245,6 +254,28 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       </>
     );
   }, []);
+  
+  // ── 将节点数据转换为 Tree 结构（用于批量删除弹窗） ──
+  const treeData = useMemo(() => {
+    if (!rawData) return [];
+    
+    const convertNode = (node: RoadmapNode): TreeDataNode => {
+      const isRoot = node.type === 'root';
+      return {
+        key: node.id,
+        title: (
+          <span>
+            {node.label.replace(/\n/g, ' ').slice(0, 20)}
+            {isRoot && <span style={{ color: '#999', marginLeft: 4 }}>(根节点)</span>}
+          </span>
+        ),
+        disabled: isRoot, // 根节点不可删除
+        children: node.children?.map(convertNode),
+      };
+    };
+    
+    return [convertNode(rawData)];
+  }, [rawData]);
   
   // ── 渲染树节点 ──
   const renderTree = useCallback((nodes: RoadmapNode[], depth = 0): React.ReactNode => {
@@ -372,6 +403,47 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     });
   }, [colors, onFocusNode, onAddNode, onEditNode, onDeleteNode, onPreviewSubNode, searchKeyword, highlightText]);
   
+  // ── 批量操作菜单项 ──
+  const batchMenuItems = [
+    {
+      key: 'batchDelete',
+      label: '批量删除节点',
+      icon: <span>🗑️</span>,
+      onClick: () => {
+        setSelectedNodeIds([]);
+        setBatchDeleteModalOpen(true);
+      },
+    },
+  ];
+  
+  // ── 处理批量删除确认 ──
+  const handleBatchDeleteConfirm = async () => {
+    if (selectedNodeIds.length === 0) {
+      message.warning('请选择要删除的节点');
+      return;
+    }
+    
+    setBatchDeleting(true);
+    try {
+      if (onBatchDeleteNodes) {
+        await onBatchDeleteNodes(selectedNodeIds);
+        message.success(`成功删除 ${selectedNodeIds.length} 个节点`);
+        setBatchDeleteModalOpen(false);
+        setSelectedNodeIds([]);
+      }
+    } catch (error) {
+      message.error('删除失败');
+      console.error('批量删除失败:', error);
+    } finally {
+      setBatchDeleting(false);
+    }
+  };
+  
+  // ── 处理树选择 ──
+  const handleTreeCheck: TreeProps['onCheck'] = (checkedKeys) => {
+    setSelectedNodeIds(checkedKeys as string[]);
+  };
+  
   // ── 收起状态只显示展开按钮 ──
   if (!panelExpanded) {
     return (
@@ -390,12 +462,6 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         ◀
       </button>
       
-      {/* 标题区域 */}
-      <div className="config-header">
-        <h2 className="config-title">📘 Go 学习思维导图</h2>
-        <p className="config-subtitle">点击 📖 进入详情 | ± 展开/收起</p>
-      </div>
-      
       {/* 工具栏 */}
       <div className="config-toolbar">
         <button onClick={onFitView} className="config-tool-btn" title="适应画布">
@@ -410,6 +476,16 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         <button onClick={onResetZoom} className="config-tool-btn" title="实际大小">
           1:1
         </button>
+        
+        {/* 批量操作下拉菜单 */}
+        <Dropdown
+          menu={{ items: batchMenuItems }}
+          trigger={['click']}
+        >
+          <button className="config-tool-btn config-tool-btn-dropdown" title="批量操作">
+            ⚡ 批量 <DownOutlined style={{ fontSize: 10, marginLeft: 2 }} />
+          </button>
+        </Dropdown>
       </div>
       
       {/* Tab 切换 */}
@@ -613,6 +689,51 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       <div className="config-footer">
         拖拽平移 · 滚轮缩放
       </div>
+      
+      {/* 批量删除弹窗 */}
+      <Modal
+        title="批量删除节点"
+        open={batchDeleteModalOpen}
+        onCancel={() => setBatchDeleteModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setBatchDeleteModalOpen(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="delete" 
+            type="primary" 
+            danger 
+            loading={batchDeleting}
+            onClick={handleBatchDeleteConfirm}
+            disabled={selectedNodeIds.length === 0}
+          >
+            删除选中 ({selectedNodeIds.length})
+          </Button>,
+        ]}
+        width={500}
+        centered
+      >
+        <div className="batch-delete-modal-content">
+          <p style={{ marginBottom: 12, color: '#666' }}>
+            勾选要删除的节点，删除操作将同时删除对应的 MD 文件。
+          </p>
+          <div className="batch-delete-tree-container">
+            <Tree
+              checkable
+              checkedKeys={selectedNodeIds}
+              onCheck={handleTreeCheck}
+              treeData={treeData}
+              defaultExpandAll
+              selectable={false}
+            />
+          </div>
+          {selectedNodeIds.length > 0 && (
+            <p style={{ marginTop: 12, color: '#ff4d4f' }}>
+              ⚠️ 将删除 {selectedNodeIds.length} 个节点及其关联文件
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

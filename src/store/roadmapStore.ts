@@ -14,6 +14,8 @@ export type RoadmapMeta = {
 interface RoadmapStore {
   /** 根文件夹路径（如 'md' 或 'public/md'） */
   rootPath: string;
+  /** 根文件夹的绝对路径 */
+  absolutePath: string;
   /** 当前选中的思维导图 ID */
   currentRoadmapId: string | null;
   /** 当前思维导图的元数据 */
@@ -23,6 +25,8 @@ interface RoadmapStore {
   
   /** 设置根文件夹路径 */
   setRootPath: (path: string) => void;
+  /** 设置绝对路径 */
+  setAbsolutePath: (path: string) => void;
   /** 设置当前思维导图 */
   setCurrentRoadmap: (roadmap: RoadmapMeta) => void;
   /** 清除当前思维导图（返回列表页） */
@@ -41,12 +45,17 @@ export const useRoadmapStore = create<RoadmapStore>()(
   persist(
     (set, get) => ({
       rootPath: '',
+      absolutePath: '',
       currentRoadmapId: null,
       currentRoadmap: null,
       availableRoadmaps: [],
 
       setRootPath: (path) => {
         set({ rootPath: path });
+      },
+
+      setAbsolutePath: (path) => {
+        set({ absolutePath: path });
       },
 
       setCurrentRoadmap: (roadmap) => {

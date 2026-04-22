@@ -1,0 +1,9 @@
+{
+  "id": "my-new-mindmap",
+  "label": "我的新思维导图",
+  "type": "root",
+  "description": "这是一个测试创建的新思维导图",
+  "icon": "📚",
+  "color": "#1890ff",
+  "children": []
+}
