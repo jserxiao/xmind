@@ -3,12 +3,13 @@ import { useEffect } from 'react';
 import { Select } from 'antd';
 import RoadmapGraph from '../components/RoadmapGraph';
 import { useRoadmapStore } from '../store/roadmapStore';
+import { getDirectoryHandle } from '../utils/fileSystem';
 
 const RoadmapPage: React.FC = () => {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const navigate = useNavigate();
   
-  const rootPath = useRoadmapStore((state) => state.rootPath);
+  const directoryName = useRoadmapStore((state) => state.directoryName);
   const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
   const currentRoadmap = useRoadmapStore((state) => state.currentRoadmap);
   const setCurrentRoadmap = useRoadmapStore((state) => state.setCurrentRoadmap);
@@ -36,12 +37,12 @@ const RoadmapPage: React.FC = () => {
     }
   }, [roadmapId, currentRoadmapId, availableRoadmaps, setCurrentRoadmap, navigate]);
 
-  // 如果没有选择根文件夹，跳转到主页
+  // 如果没有选择目录，跳转到主页
   useEffect(() => {
-    if (!rootPath) {
+    if (!getDirectoryHandle()) {
       navigate('/');
     }
-  }, [rootPath, navigate]);
+  }, [navigate]);
 
   // 处理返回列表页
   const handleBackToList = () => {
@@ -59,7 +60,7 @@ const RoadmapPage: React.FC = () => {
   };
 
   // 如果没有设置当前思维导图，显示加载状态
-  if (!rootPath || !currentRoadmap) {
+  if (!directoryName || !currentRoadmap) {
     return (
       <div className="roadmap-page">
         <header className="roadmap-page-header">

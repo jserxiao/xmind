@@ -12,10 +12,10 @@ export type RoadmapMeta = {
 }
 
 interface RoadmapStore {
-  /** 根文件夹路径（如 'md' 或 'public/md'） */
-  rootPath: string;
-  /** 根文件夹的绝对路径 */
-  absolutePath: string;
+  /** 目录句柄索引（用于恢复） */
+  directoryHandleIndex: string;
+  /** 目录名称（显示用） */
+  directoryName: string;
   /** 当前选中的思维导图 ID */
   currentRoadmapId: string | null;
   /** 当前思维导图的元数据 */
@@ -23,10 +23,10 @@ interface RoadmapStore {
   /** 所有可用的思维导图列表（从文件夹动态扫描） */
   availableRoadmaps: RoadmapMeta[];
   
-  /** 设置根文件夹路径 */
-  setRootPath: (path: string) => void;
-  /** 设置绝对路径 */
-  setAbsolutePath: (path: string) => void;
+  /** 设置目录信息 */
+  setDirectory: (name: string, handleIndex?: string) => void;
+  /** 清除目录信息 */
+  clearDirectory: () => void;
   /** 设置当前思维导图 */
   setCurrentRoadmap: (roadmap: RoadmapMeta) => void;
   /** 清除当前思维导图（返回列表页） */
@@ -44,18 +44,25 @@ interface RoadmapStore {
 export const useRoadmapStore = create<RoadmapStore>()(
   persist(
     (set, get) => ({
-      rootPath: '',
-      absolutePath: '',
+      directoryHandleIndex: '',
+      directoryName: '',
       currentRoadmapId: null,
       currentRoadmap: null,
       availableRoadmaps: [],
 
-      setRootPath: (path) => {
-        set({ rootPath: path });
+      setDirectory: (name, handleIndex) => {
+        set({ 
+          directoryName: name,
+          directoryHandleIndex: handleIndex || ''
+        });
       },
 
-      setAbsolutePath: (path) => {
-        set({ absolutePath: path });
+      clearDirectory: () => {
+        set({ 
+          directoryHandleIndex: '',
+          directoryName: '',
+          availableRoadmaps: []
+        });
       },
 
       setCurrentRoadmap: (roadmap) => {
@@ -77,33 +84,34 @@ export const useRoadmapStore = create<RoadmapStore>()(
       },
 
       getDataPath: () => {
-        const { rootPath, currentRoadmap } = get();
-        if (!rootPath || !currentRoadmap) {
+        const { currentRoadmap } = get();
+        if (!currentRoadmap) {
           return '';
         }
-        return `/${rootPath}/${currentRoadmap.path}/index.json`;
+        return `${currentRoadmap.path}/index.json`;
       },
 
       getMdBasePath: () => {
-        const { rootPath, currentRoadmap } = get();
-        if (!rootPath || !currentRoadmap) {
+        const { currentRoadmap } = get();
+        if (!currentRoadmap) {
           return '';
         }
-        return `${rootPath}/${currentRoadmap.path}`;
+        return currentRoadmap.path;
       },
 
       getFullMdPath: (mdPath: string) => {
-        const { rootPath, currentRoadmap } = get();
-        if (!rootPath || !currentRoadmap) {
+        const { currentRoadmap } = get();
+        if (!currentRoadmap) {
           return mdPath;
         }
-        return `${rootPath}/${currentRoadmap.path}/${mdPath}`;
+        return `${currentRoadmap.path}/${mdPath}`;
       },
     }),
     {
       name: 'mindmap-storage',
       partialize: (state) => ({
-        rootPath: state.rootPath,
+        directoryHandleIndex: state.directoryHandleIndex,
+        directoryName: state.directoryName,
         currentRoadmapId: state.currentRoadmapId,
         currentRoadmap: state.currentRoadmap,
         availableRoadmaps: state.availableRoadmaps,

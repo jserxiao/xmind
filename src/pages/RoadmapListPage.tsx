@@ -1,9 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Modal, Form, Input, ColorPicker, message, Button, Popconfirm } from 'antd';
+import { Modal, Form, Input, ColorPicker, message, Popconfirm } from 'antd';
 import { FolderAddOutlined, FolderOpenOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRoadmapStore, type RoadmapMeta } from '../store/roadmapStore';
-import { createRoadmap, deleteRoadmap, scanRoadmaps } from '../utils/nodeUtils';
+import {
+  selectDirectory,
+  scanRoadmaps,
+  createRoadmap,
+  deleteRoadmap,
+  isFileSystemSupported,
+  getDirectoryHandle,
+} from '../utils/fileSystem';
 
 const RoadmapListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,37 +19,29 @@ const RoadmapListPage: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [creating, setCreating] = useState(false);
-  
-  // 文件夹选择弹窗状态
-  const [folderModalOpen, setFolderModalOpen] = useState(false);
-  const [folderForm] = Form.useForm();
   const [deleting, setDeleting] = useState<string | null>(null);
-  
-  const rootPath = useRoadmapStore((state) => state.rootPath);
-  const setRootPath = useRoadmapStore((state) => state.setRootPath);
-  const absolutePath = useRoadmapStore((state) => state.absolutePath);
-  const setAbsolutePath = useRoadmapStore((state) => state.setAbsolutePath);
+
+  const directoryName = useRoadmapStore((state) => state.directoryName);
+  const setDirectory = useRoadmapStore((state) => state.setDirectory);
+  const clearDirectory = useRoadmapStore((state) => state.clearDirectory);
   const setCurrentRoadmap = useRoadmapStore((state) => state.setCurrentRoadmap);
   const availableRoadmaps = useRoadmapStore((state) => state.availableRoadmaps);
   const setAvailableRoadmaps = useRoadmapStore((state) => state.setAvailableRoadmaps);
 
   // 扫描文件夹获取思维导图列表
   const scanRoadmapsList = useCallback(async () => {
-    if (!rootPath) {
+    if (!getDirectoryHandle()) {
       setAvailableRoadmaps([]);
       return;
     }
 
     setLoading(true);
     setError(null);
-    
+
     try {
-      const result = await scanRoadmaps(rootPath);
+      const result = await scanRoadmaps();
       if (result.success && result.roadmaps) {
         setAvailableRoadmaps(result.roadmaps);
-        if (result.absolutePath) {
-          setAbsolutePath(result.absolutePath);
-        }
       } else {
         setError(result.message || '扫描失败');
         setAvailableRoadmaps([]);
@@ -53,67 +52,18 @@ const RoadmapListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [rootPath, setAvailableRoadmaps]);
+  }, [setAvailableRoadmaps]);
 
-  // 当 rootPath 变化时扫描
-  useEffect(() => {
-    scanRoadmapsList();
-  }, [scanRoadmapsList]);
-
-  // 打开文件夹选择弹窗
-  const handleOpenFolderModal = () => {
-    folderForm.resetFields();
-    folderForm.setFieldsValue({
-      folderPath: rootPath || '',
-    });
-    setFolderModalOpen(true);
-  };
-
-  // 处理文件夹选择确认
-  const handleFolderConfirm = async (values: { folderPath: string }) => {
-    const path = values.folderPath?.trim();
-    if (!path) {
-      message.warning('请输入文件夹路径');
-      return;
-    }
-    
-    // 标准化路径：移除开头的斜杠
-    const normalizedPath = path.replace(/^\/+/, '');
-    
-    // 验证路径是否存在
-    try {
-      // 即使返回 404，也允许用户设置路径（可能文件夹存在但没有 index.html）
-      setRootPath(normalizedPath);
-      setFolderModalOpen(false);
-      message.success(`已设置根文件夹：${normalizedPath}`);
-    } catch {
-      // 网络错误，仍然允许设置
-      setRootPath(normalizedPath);
-      setFolderModalOpen(false);
-    }
-  };
-
-  // 使用浏览器文件夹选择 API（如果支持）
-  const handleBrowseFolder = async () => {
-    // 检查浏览器是否支持 showDirectoryPicker
-    if ('showDirectoryPicker' in window) {
-      try {
-        const dirHandle = await (window as any).showDirectoryPicker();
-        // 获取文件夹名称
-        const folderName = dirHandle.name;
-        // 这里我们只能获取文件夹名称，无法获取完整路径
-        // 用户需要手动输入完整路径
-        folderForm.setFieldsValue({
-          folderPath: folderName,
-        });
-        message.info(`已选择文件夹：${folderName}，请确认路径是否正确`);
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error('选择文件夹失败:', err);
-        }
-      }
-    } else {
-      message.info('您的浏览器不支持文件夹选择，请手动输入完整路径');
+  // 选择目录
+  const handleSelectDirectory = async () => {
+    const result = await selectDirectory();
+    if (result.success && result.handle) {
+      setDirectory(result.handle.name);
+      // 扫描思维导图
+      scanRoadmapsList();
+      message.success(`已选择目录：${result.handle.name}`);
+    } else if (!result.success) {
+      message.error(result.message);
     }
   };
 
@@ -138,16 +88,15 @@ const RoadmapListPage: React.FC = () => {
     setCreating(true);
     try {
       const folderName = values.folderName || `mindmap-${Date.now()}`;
-      
+
       const result = await createRoadmap({
         folderName,
         name: values.name || folderName,
         description: values.description,
         icon: values.icon || '📚',
         color: typeof values.color === 'string' ? values.color : values.color?.toHexString?.() || '#1890ff',
-        rootPath, // 传递当前根路径
       });
-      
+
       if (result.success && result.roadmap) {
         message.success('思维导图创建成功');
         setCreateModalOpen(false);
@@ -166,10 +115,10 @@ const RoadmapListPage: React.FC = () => {
   // 处理删除思维导图
   const handleDeleteRoadmap = async (roadmap: RoadmapMeta, e: React.MouseEvent) => {
     e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击
-    
+
     setDeleting(roadmap.id);
     try {
-      const result = await deleteRoadmap(roadmap.id, rootPath);
+      const result = await deleteRoadmap(roadmap.id);
       if (result.success) {
         message.success(`思维导图「${roadmap.name}」已删除`);
         // 从列表中移除
@@ -184,8 +133,14 @@ const RoadmapListPage: React.FC = () => {
     }
   };
 
-  // 如果没有选择根文件夹，显示选择界面
-  if (!rootPath) {
+  // 更换目录
+  const handleChangeDirectory = () => {
+    clearDirectory();
+    setAvailableRoadmaps([]);
+  };
+
+  // 如果没有选择目录，显示选择界面
+  if (!directoryName) {
     return (
       <div className="roadmap-list-page">
         <div className="folder-select-container">
@@ -195,49 +150,25 @@ const RoadmapListPage: React.FC = () => {
             <p className="folder-hint">
               请选择包含思维导图的根文件夹
             </p>
+            {!isFileSystemSupported() && (
+              <p className="folder-warning" style={{ color: '#faad14', marginBottom: 16 }}>
+                ⚠️ 您的浏览器不支持文件系统访问，请使用 Chrome 或 Edge 浏览器
+              </p>
+            )}
             <div className="folder-select-buttons">
-              <button className="select-folder-btn primary" onClick={handleBrowseFolder}>
-                <FolderOpenOutlined /> 浏览文件夹
-              </button>
-              <button className="select-folder-btn" onClick={handleOpenFolderModal}>
-                输入完整路径
+              <button
+                className="select-folder-btn primary"
+                onClick={handleSelectDirectory}
+                disabled={!isFileSystemSupported()}
+              >
+                <FolderOpenOutlined /> 选择文件夹
               </button>
             </div>
             <p className="folder-example">
-              示例：<code>md</code> 或 <code>public/md</code> 或 <code>d:/my/project/public/md</code>
+              提示：选择一个本地文件夹作为思维导图的存储位置
             </p>
           </div>
         </div>
-        
-        {/* 文件夹路径输入弹窗 */}
-        <Modal
-          title="📁 设置根文件夹路径"
-          open={folderModalOpen}
-          onCancel={() => setFolderModalOpen(false)}
-          onOk={() => folderForm.submit()}
-          okText="确认"
-          cancelText="取消"
-        >
-          <Form
-            form={folderForm}
-            layout="vertical"
-            onFinish={handleFolderConfirm}
-          >
-            <Form.Item
-              name="folderPath"
-              label="文件夹路径"
-              rules={[{ required: true, message: '请输入文件夹路径' }]}
-            >
-              <Input 
-                placeholder="例如：md 或 public/md 或 d:/my/project/public/md" 
-                size="large"
-              />
-            </Form.Item>
-            <p className="form-hint" style={{ color: '#666', fontSize: 12 }}>
-              支持相对路径（如 md、public/md）或绝对路径（如 d:/my/project/public/md）
-            </p>
-          </Form>
-        </Modal>
       </div>
     );
   }
@@ -252,8 +183,8 @@ const RoadmapListPage: React.FC = () => {
             思维导图中心
           </h1>
           <p className="subtitle">
-            当前文件夹：<code title={absolutePath || rootPath}>{absolutePath || rootPath}</code>
-            <button className="change-folder-btn" onClick={handleOpenFolderModal}>
+            当前文件夹：<code>{directoryName}</code>
+            <button className="change-folder-btn" onClick={handleChangeDirectory}>
               更换
             </button>
           </p>
@@ -294,7 +225,7 @@ const RoadmapListPage: React.FC = () => {
                     cancelText="取消"
                     okButtonProps={{ danger: true, loading: deleting === roadmap.id }}
                   >
-                    <button 
+                    <button
                       className="card-delete-btn"
                       onClick={(e) => e.stopPropagation()}
                       title="删除思维导图"
@@ -302,7 +233,7 @@ const RoadmapListPage: React.FC = () => {
                       <DeleteOutlined />
                     </button>
                   </Popconfirm>
-                  
+
                   <div className="card-icon" style={{ backgroundColor: roadmap.color }}>
                     {roadmap.icon}
                   </div>
@@ -316,9 +247,9 @@ const RoadmapListPage: React.FC = () => {
                   </div>
                 </div>
               ))}
-              
+
               {/* 新增思维导图卡片 - 放在最后 */}
-              <div 
+              <div
                 className="roadmap-card add-card"
                 onClick={handleOpenCreateModal}
               >
@@ -369,7 +300,7 @@ const RoadmapListPage: React.FC = () => {
           >
             <Input placeholder="例如：my-mindmap" />
           </Form.Item>
-          
+
           <Form.Item
             name="name"
             label="显示名称"
@@ -377,62 +308,27 @@ const RoadmapListPage: React.FC = () => {
           >
             <Input placeholder="例如：我的学习计划" />
           </Form.Item>
-          
+
           <Form.Item
             name="description"
             label="描述"
           >
             <Input.TextArea placeholder="思维导图的简要描述" rows={2} />
           </Form.Item>
-          
+
           <Form.Item
             name="icon"
             label="图标"
           >
             <Input placeholder="例如：📚、🧠、💡" />
           </Form.Item>
-          
+
           <Form.Item
             name="color"
             label="颜色"
           >
             <ColorPicker format="hex" />
           </Form.Item>
-        </Form>
-      </Modal>
-      
-      {/* 文件夹路径输入弹窗 */}
-      <Modal
-        title="📁 设置根文件夹路径"
-        open={folderModalOpen}
-        onCancel={() => setFolderModalOpen(false)}
-        onOk={() => folderForm.submit()}
-        okText="确认"
-        cancelText="取消"
-      >
-        <Form
-          form={folderForm}
-          layout="vertical"
-          onFinish={handleFolderConfirm}
-        >
-          <Form.Item
-            name="folderPath"
-            label="文件夹路径"
-            rules={[{ required: true, message: '请输入文件夹路径' }]}
-          >
-            <Input 
-              placeholder="例如：md 或 public/md 或 d:/my/project/public/md" 
-              size="large"
-            />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <Button onClick={handleBrowseFolder} icon={<FolderOpenOutlined />}>
-              浏览文件夹
-            </Button>
-          </div>
-          <p className="form-hint" style={{ color: '#666', fontSize: 12 }}>
-            支持相对路径（如 md、public/md）或绝对路径（如 d:/my/project/public/md）
-          </p>
         </Form>
       </Modal>
     </div>

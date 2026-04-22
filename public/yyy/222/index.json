@@ -5,5 +5,13 @@
   "description": "222",
   "icon": "📚",
   "color": "#1890ff",
-  "children": []
+  "children": [
+    {
+      "id": "222_通天塔_mo9y09sv",
+      "label": "通天塔",
+      "type": "branch",
+      "children": [],
+      "mdPath": "ttt/通天塔"
+    }
+  ]
 }

@@ -158,7 +158,6 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const closePanel = useNodeEditorStore((state) => state.closePanel);
   
   // 思维导图 Store
-  const rootPath = useRoadmapStore((state) => state.rootPath);
   const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
   const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
   const getFullMdPath = useRoadmapStore((state) => state.getFullMdPath);
@@ -192,20 +191,19 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     const init = async () => {
       try {
         // 检查是否有有效的路径
-        if (!rootPath) {
+        const mdBasePath = getMdBasePath();
+        if (!mdBasePath) {
           setLoading(false);
           return;
         }
         
-        const mdBasePath = getMdBasePath();
-        
         // 1. 加载数据（使用当前思维导图路径）
         const roadmapPath = mdBasePath.split('/').pop() || '';
-        const root = await loadRoadmapData(rootPath, roadmapPath);
+        const root = await loadRoadmapData(roadmapPath);
         if (destroyed) return;
 
         // 2. 丰富数据（添加子节点）
-        const enriched = await enrichWithSubNodes(root, rootPath, roadmapPath);
+        const enriched = await enrichWithSubNodes(root, roadmapPath);
         if (destroyed) return;
 
         // 保存原始数据供面板使用
@@ -341,7 +339,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         graphManagerRef.current = null;
       }
     };
-  }, [navigate, onNodeClick, rootPath, currentRoadmapId, getMdBasePath]);
+  }, [navigate, onNodeClick, currentRoadmapId, getMdBasePath]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 配置变化监听 - 刷新图
@@ -451,7 +449,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       graphManagerRef.current?.setData(treeData);
       
       // 更新 index.json
-      const result = await updateIndexJson(newTree);
+      const mdBasePath = getMdBasePath();
+      const roadmapPath = mdBasePath.split('/').pop() || '';
+      const result = await updateIndexJson(roadmapPath, newTree);
       
       hideLoading();
       
@@ -463,7 +463,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     }
     
     setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, [contextMenu.node, rawData]);
+  }, [contextMenu.node, rawData, getMdBasePath]);
 
   /** 关闭右键菜单 */
   const handleCloseContextMenu = useCallback(() => {
@@ -605,7 +605,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         }
         
         // 更新 index.json
-        const result = await updateIndexJson(newTree);
+        const mdBasePath = getMdBasePath();
+        const roadmapPath = mdBasePath.split('/').pop() || '';
+        const result = await updateIndexJson(roadmapPath, newTree);
         
         hideLoading();
         
@@ -670,7 +672,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         }
         
         // 更新 index.json
-        const result = await updateIndexJson(newTree);
+        const mdBasePath = getMdBasePath();
+        const roadmapPath = mdBasePath.split('/').pop() || '';
+        const result = await updateIndexJson(roadmapPath, newTree);
         
         hideLoading();
         
@@ -731,7 +735,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       graphManagerRef.current?.setData(treeData);
       
       // 更新 index.json
-      const result = await updateIndexJson(newTree);
+      const mdBasePath = getMdBasePath();
+      const roadmapPath = mdBasePath.split('/').pop() || '';
+      const result = await updateIndexJson(roadmapPath, newTree);
       
       hideLoading();
       
@@ -741,7 +747,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         message.error(result.message);
       }
     }
-  }, [rawData]);
+  }, [rawData, getMdBasePath]);
 
   /** 批量删除节点 */
   const handleBatchDeleteNodes = useCallback(async (nodeIds: string[]) => {
@@ -775,7 +781,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       graphManagerRef.current?.setData(treeData);
       
       // 更新 index.json
-      const result = await updateIndexJson(newTree);
+      const result = await updateIndexJson(roadmapPath, newTree);
       
       hideLoading();
       

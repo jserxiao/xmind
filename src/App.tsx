@@ -4,27 +4,27 @@ import RoadmapListPage from './pages/RoadmapListPage';
 import RoadmapPage from './pages/RoadmapPage';
 import KnowledgeDetail from './pages/KnowledgeDetail';
 import { useRoadmapStore } from './store/roadmapStore';
+import { getDirectoryHandle } from './utils/fileSystem';
 
 /** 路由守卫组件：根据存储状态决定初始页面 */
 function RouteGuard() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
-  const rootPath = useRoadmapStore((state) => state.rootPath);
   
   // 标记是否是首次加载
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
     // 只在首次加载时根据存储状态跳转
-    if (isFirstLoad.current && location.pathname === '/' && currentRoadmapId) {
+    if (isFirstLoad.current && location.pathname === '/' && currentRoadmapId && getDirectoryHandle()) {
       isFirstLoad.current = false;
       navigate(`/roadmap/${currentRoadmapId}`, { replace: true });
     }
   }, [currentRoadmapId, navigate, location.pathname]);
 
   // 如果有 currentRoadmapId 且在首页，显示加载状态（正在跳转）
-  if (location.pathname === '/' && currentRoadmapId && isFirstLoad.current) {
+  if (location.pathname === '/' && currentRoadmapId && isFirstLoad.current && getDirectoryHandle()) {
     return (
       <div style={{ 
         display: 'flex', 

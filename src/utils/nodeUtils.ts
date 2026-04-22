@@ -6,7 +6,13 @@
 
 import type { RoadmapNode } from '../data/roadmapData';
 import type { NodeFormData } from '../store/nodeEditorStore';
-import type { RoadmapMeta } from '../store/roadmapStore';
+import {
+  readFile,
+  writeFile,
+  readJsonFile,
+  writeJsonFile,
+  deleteFile,
+} from './fileSystem';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点树遍历工具
@@ -199,25 +205,17 @@ export interface ApiResult {
 }
 
 /**
- * 更新 index.json 文件（通过 API）
+ * 更新 index.json 文件
  */
-export async function updateIndexJson(data: RoadmapNode): Promise<ApiResult> {
-  try {
-    const response = await fetch('/api/json/index', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data, null, 2),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { success: true, message: 'index.json 已保存', path: result.path };
-    } else {
-      return { success: false, message: `保存失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `保存失败: ${error}` };
-  }
+export async function updateIndexJson(folderName: string, data: RoadmapNode): Promise<ApiResult> {
+  return writeJsonFile(`${folderName}/index.json`, data);
+}
+
+/**
+ * 读取 index.json 文件
+ */
+export async function readIndexJson(folderName: string): Promise<ApiResult & { data?: RoadmapNode }> {
+  return readJsonFile<RoadmapNode>(`${folderName}/index.json`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -225,102 +223,17 @@ export async function updateIndexJson(data: RoadmapNode): Promise<ApiResult> {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 保存 MD 文件内容到文件系统
+ * 保存 MD 文件内容
  */
 export async function saveMdFile(mdPath: string, content: string): Promise<ApiResult> {
-  try {
-    const response = await fetch('/api/md/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mdPath, content }),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { success: true, message: `MD 文件已保存`, path: result.path };
-    } else {
-      return { success: false, message: `保存失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `保存失败: ${error}` };
-  }
+  return writeFile(`${mdPath}.md`, content);
 }
 
 /**
- * 创建新的思维导图
+ * 读取 MD 文件内容
  */
-export async function createRoadmap(options: {
-  folderName: string;
-  name: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  rootPath?: string;
-}): Promise<ApiResult & { roadmap?: RoadmapMeta }> {
-  try {
-    const response = await fetch('/api/roadmap/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { 
-        success: true, 
-        message: `思维导图已创建`,
-        roadmap: result.roadmap
-    };
-    } else {
-      return { success: false, message: `创建失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `创建失败: ${error}` };
-  }
-}
-
-/**
- * 删除思维导图
- */
-export async function deleteRoadmap(folderName: string, rootPath?: string): Promise<ApiResult> {
-  try {
-    const response = await fetch('/api/roadmap/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folderName, rootPath }),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { success: true, message: `思维导图已删除` };
-    } else {
-      return { success: false, message: `删除失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `删除失败: ${error}` };
-  }
-}
-
-/**
- * 扫描指定路径下的所有思维导图
- */
-export async function scanRoadmaps(rootPath: string): Promise<ApiResult & { roadmaps?: RoadmapMeta[]; absolutePath?: string }> {
-  try {
-    const response = await fetch('/api/roadmap/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rootPath }),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { success: true, message: '扫描成功', roadmaps: result.roadmaps, absolutePath: result.absolutePath };
-    } else {
-      return { success: false, message: `扫描失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `扫描失败: ${error}` };
-  }
+export async function readMdFile(mdPath: string): Promise<ApiResult & { content?: string }> {
+  return readFile(`${mdPath}.md`);
 }
 
 /**
@@ -562,13 +475,14 @@ export async function addSectionToMdFile(
   try {
     // 构建完整的 MD 文件路径
     const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    
     // 先获取 MD 文件内容
-    const response = await fetch(`/md/${fullPath}`);
-    if (!response.ok) {
+    const readResult = await readMdFile(fullPath);
+    if (!readResult.success || !readResult.content) {
       return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
     }
     
-    let mdContent = await response.text();
+    let mdContent = readResult.content;
     
     // 检查章节是否已存在
     const sectionPattern = new RegExp(`^#{2,6}\\s+${escapeRegExp(sectionTitle)}\\s*$`, 'm');
@@ -619,13 +533,14 @@ export async function saveSubNodeSection(
   try {
     // 构建完整的 MD 文件路径
     const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    
     // 先获取 MD 文件内容
-    const response = await fetch(`/md/${fullPath}`);
-    if (!response.ok) {
+    const readResult = await readMdFile(fullPath);
+    if (!readResult.success || !readResult.content) {
       return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
     }
     
-    let mdContent = await response.text();
+    let mdContent = readResult.content;
     
     // 更新内容或标题
     if (isTitleUpdate && oldTitle) {
@@ -699,14 +614,12 @@ export async function searchMdContent(
     try {
       // 构建完整的 MD 文件路径
       const fullPath = roadmapPath ? `${roadmapPath}/${node.mdPath}` : node.mdPath;
-      // 使用时间戳避免缓存
-      const response = await fetch(`/md/${fullPath}?t=${Date.now()}`, {
-        cache: 'no-store',
-      });
       
-      if (!response.ok) return null;
+      // 读取文件内容
+      const readResult = await readMdFile(fullPath);
+      if (!readResult.success || !readResult.content) return null;
       
-      const content = await response.text();
+      const content = readResult.content;
       const lowerContent = content.toLowerCase();
       const matches: string[] = [];
       
@@ -824,22 +737,6 @@ export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNod
  * @param roadmapPath 思维导图路径
  */
 export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promise<ApiResult> {
-  try {
-    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
-    
-    const response = await fetch('/api/md/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mdPath: fullPath }),
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      return { success: true, message: `MD 文件已删除` };
-    } else {
-      return { success: false, message: `删除失败: ${result.error}` };
-    }
-  } catch (error) {
-    return { success: false, message: `删除失败: ${error}` };
-  }
+  const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+  return deleteFile(`${fullPath}.md`);
 }
