@@ -256,6 +256,27 @@ a:hover {
   background: var(--primary-light);
 }
 
+.config-tool-btn:disabled,
+.config-tool-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.config-tool-btn:disabled:hover,
+.config-tool-btn-disabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+.config-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
 /* Tab 切换 */
 .config-tabs {
   display: flex;

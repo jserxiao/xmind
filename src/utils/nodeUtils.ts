@@ -740,3 +740,34 @@ export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promis
   const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
   return deleteFile(`${fullPath}.md`);
 }
+
+/**
+ * 重新排序节点的子节点
+ * @param root 根节点
+ * @param parentId 父节点 ID
+ * @param newChildren 新的子节点顺序
+ * @returns 更新后的节点树
+ */
+export function reorderNodeChildren(
+  root: RoadmapNode,
+  parentId: string,
+  newChildren: RoadmapNode[]
+): RoadmapNode {
+  const clonedRoot = deepCloneNode(root);
+  
+  function updateChildren(node: RoadmapNode): boolean {
+    if (node.id === parentId) {
+      node.children = newChildren;
+      return true;
+    }
+    if (node.children) {
+      for (const child of node.children) {
+        if (updateChildren(child)) return true;
+      }
+    }
+    return false;
+  }
+  
+  updateChildren(clonedRoot);
+  return clonedRoot;
+}

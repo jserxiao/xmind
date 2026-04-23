@@ -9,12 +9,20 @@
 
 import { create } from 'zustand';
 import type { RoadmapNode } from '../data/roadmapData';
-import { saveIndexJson, writeFile, deleteFile } from '../utils/fileSystem';
+import { saveIndexJson, writeFile, deleteFile, readFile } from '../utils/fileSystem';
 import { useRoadmapStore } from './roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/** 被删除的文件信息 */
+export interface DeletedFileInfo {
+  /** 文件路径（相对于思维导图目录） */
+  path: string;
+  /** 文件内容 */
+  content: string;
+}
 
 /** 历史记录项 */
 interface HistoryEntry {
@@ -24,6 +32,8 @@ interface HistoryEntry {
   description: string;
   /** 时间戳 */
   timestamp: number;
+  /** 被删除的文件列表（用于撤销时恢复） */
+  deletedFiles?: DeletedFileInfo[];
 }
 
 /** 历史管理器状态 */
@@ -40,7 +50,7 @@ interface HistoryStore {
   // ── 操作方法 ──
   
   /** 记录操作历史 */
-  pushHistory: (tree: RoadmapNode, description: string) => void;
+  pushHistory: (tree: RoadmapNode, description: string, deletedFiles?: DeletedFileInfo[]) => void;
   
   /** 撤销操作 */
   undo: () => Promise<RoadmapNode | null>;
@@ -80,7 +90,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   isProcessing: false,
 
   // 记录操作历史
-  pushHistory: (tree, description) => {
+  pushHistory: (tree, description, deletedFiles) => {
     set((state) => ({
       past: [
         ...state.past,
@@ -88,6 +98,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
           tree: JSON.parse(JSON.stringify(tree)), // 深拷贝
           description,
           timestamp: Date.now(),
+          deletedFiles,
         },
       ].slice(-state.maxHistory),
       // 记录新操作时清空 future 栈
@@ -113,6 +124,20 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       const mdBasePath = useRoadmapStore.getState().getMdBasePath();
       const roadmapPath = mdBasePath.split('/').pop() || '';
 
+      // 恢复被删除的文件
+      if (lastEntry.deletedFiles && lastEntry.deletedFiles.length > 0) {
+        console.log('[HistoryStore] 恢复被删除的文件:', lastEntry.deletedFiles.length, '个');
+        for (const fileInfo of lastEntry.deletedFiles) {
+          const fullPath = `${mdBasePath}/${fileInfo.path}`;
+          const result = await writeFile(fullPath, fileInfo.content);
+          if (!result.success) {
+            console.error('[HistoryStore] 恢复文件失败:', fileInfo.path, result.message);
+          } else {
+            console.log('[HistoryStore] 恢复文件成功:', fileInfo.path);
+          }
+        }
+      }
+
       // 持久化到文件
       await saveIndexJson(roadmapPath, lastEntry.tree);
 
@@ -124,6 +149,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
             tree: state.past[state.past.length - 1]?.tree || lastEntry.tree,
             description: `重做: ${lastEntry.description}`,
             timestamp: Date.now(),
+            deletedFiles: lastEntry.deletedFiles, // 保存删除文件信息以便重做时使用
           },
           ...state.future,
         ].slice(0, state.maxHistory),
@@ -157,6 +183,20 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       const mdBasePath = useRoadmapStore.getState().getMdBasePath();
       const roadmapPath = mdBasePath.split('/').pop() || '';
 
+      // 如果有删除文件信息，重新删除这些文件（重做删除操作）
+      if (nextEntry.deletedFiles && nextEntry.deletedFiles.length > 0) {
+        console.log('[HistoryStore] 重做时重新删除文件:', nextEntry.deletedFiles.length, '个');
+        for (const fileInfo of nextEntry.deletedFiles) {
+          const fullPath = `${mdBasePath}/${fileInfo.path}`;
+          const result = await deleteFile(fullPath);
+          if (!result.success) {
+            console.error('[HistoryStore] 重做删除文件失败:', fileInfo.path, result.message);
+          } else {
+            console.log('[HistoryStore] 重做删除文件成功:', fileInfo.path);
+          }
+        }
+      }
+
       // 持久化到文件
       await saveIndexJson(roadmapPath, nextEntry.tree);
 
@@ -168,6 +208,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
             tree: nextEntry.tree,
             description: nextEntry.description,
             timestamp: Date.now(),
+            deletedFiles: nextEntry.deletedFiles,
           },
         ].slice(-state.maxHistory),
         future: newFuture,

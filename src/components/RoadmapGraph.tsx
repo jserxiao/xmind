@@ -48,7 +48,10 @@ import {
   findNodesByIds,
   collectMdPathsFromNode,
   deleteMdFile,
+  readMdFile,
+  reorderNodeChildren,
 } from '../utils/nodeUtils';
+import type { DeletedFileInfo } from '../store/historyStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 组件 Props 定义
@@ -126,6 +129,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   // ── 状态管理 ──
   const [loading, setLoading] = useState(true);
   const [rawData, setRawData] = useState<RoadmapNode | null>(null);
+  
+  // ── 数据引用（用于事件回调中获取最新数据） ──
+  const rawDataRef = useRef<RoadmapNode | null>(null);
 
   // ── 右键菜单状态 ──
   const [contextMenu, setContextMenu] = useState<{
@@ -217,6 +223,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 
         // 保存原始数据供面板使用
         setRawData(enriched);
+        rawDataRef.current = enriched;
 
         // 3. 注册自定义节点
         if (!nodeRendererRef.current) {
@@ -255,8 +262,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
             }
           },
           onContextMenu: (data) => {
-            // 查找节点数据
-            const node = findNodeInTree(enriched, data.nodeId);
+            // 查找节点数据（使用 ref 获取最新数据）
+            const currentData = rawDataRef.current;
+            const node = currentData ? findNodeInTree(currentData, data.nodeId) : null;
             setContextMenu({
               visible: true,
               x: data.x,
@@ -266,11 +274,14 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           },
           onDoubleClickPreview: (data) => {
             // 双击预览：打开预览面板并自动进入全屏
-            const node = findNodeInTree(enriched, data.nodeId);
+            const currentData = rawDataRef.current;
+            if (!currentData) return;
+            
+            const node = findNodeInTree(currentData, data.nodeId);
             if (node) {
               const isSubNode = node.type === 'sub';
               if (isSubNode) {
-                const mdPath = findAncestorMdPath(node.id, enriched);
+                const mdPath = findAncestorMdPath(node.id, currentData);
                 // 使用 store 方法获取完整路径
                 const fullMdPath = mdPath ? getFullMdPath(mdPath) : null;
                 setPreviewPanel({
@@ -471,20 +482,42 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         const hideLoading = message.loading('正在删除节点...', 0);
         
         try {
-          // 1. 记录历史（撤销时可恢复）
-          pushHistory(rawData, `删除节点「${nodeLabel}」`);
+          const mdBasePath = getMdBasePath();
+          const roadmapPath = mdBasePath.split('/').pop() || '';
           
-          // 2. 执行删除
+          // 1. 收集要删除的 MD 文件路径
+          const mdPathsToDelete = collectMdPathsFromNode(contextMenu.node!);
+          
+          // 2. 读取并保存 MD 文件内容（用于撤销时恢复）
+          const deletedFiles: DeletedFileInfo[] = [];
+          for (const mdPath of mdPathsToDelete) {
+            const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+            if (readResult.success && readResult.content) {
+              deletedFiles.push({
+                path: `${mdPath}.md`,
+                content: readResult.content,
+              });
+            }
+          }
+          
+          // 3. 记录历史（包含被删除的文件信息）
+          pushHistory(rawData, `删除节点「${nodeLabel}」`, deletedFiles);
+          
+          // 4. 删除 MD 文件
+          for (const mdPath of mdPathsToDelete) {
+            await deleteMdFile(mdPath, roadmapPath);
+          }
+          
+          // 5. 执行删除节点
           const newTree = deleteNodeFromTree(rawData, contextMenu.node!.id);
           setRawData(newTree);
+          rawDataRef.current = newTree;
           
           // 更新画布
           const treeData = convertToTreeData(newTree);
           graphManagerRef.current?.setData(treeData);
           
           // 更新 index.json
-          const mdBasePath = getMdBasePath();
-          const roadmapPath = mdBasePath.split('/').pop() || '';
           const result = await updateIndexJson(roadmapPath, newTree);
           
           hideLoading();
@@ -595,6 +628,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         newNodeId = newNode.id;
         const newTree = addChildNode(rawData, parentNodeId, newNode);
         setRawData(newTree);
+        rawDataRef.current = newTree;
         
         // 更新画布
         const treeData = convertToTreeData(newTree);
@@ -681,6 +715,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         
         const newTree = updateNodeInTree(rawData, editingNode.id, updates);
         setRawData(newTree);
+        rawDataRef.current = newTree;
         
         // 更新画布
         const treeData = convertToTreeData(newTree);
@@ -777,6 +812,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       
       if (previousTree) {
         setRawData(previousTree);
+        rawDataRef.current = previousTree;
         
         // 更新画布
         const treeData = convertToTreeData(previousTree);
@@ -805,6 +841,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       
       if (nextTree) {
         setRawData(nextTree);
+        rawDataRef.current = nextTree;
         
         // 更新画布
         const treeData = convertToTreeData(nextTree);
@@ -858,19 +895,42 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         const hideLoading = message.loading('正在删除节点...', 0);
         
         try {
-          // 记录历史
-          pushHistory(rawData, `删除节点「${nodeLabel}」`);
+          const mdBasePath = getMdBasePath();
+          const roadmapPath = mdBasePath.split('/').pop() || '';
           
+          // 1. 收集要删除的 MD 文件路径
+          const mdPathsToDelete = collectMdPathsFromNode(node);
+          
+          // 2. 读取并保存 MD 文件内容（用于撤销时恢复）
+          const deletedFiles: DeletedFileInfo[] = [];
+          for (const mdPath of mdPathsToDelete) {
+            const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+            if (readResult.success && readResult.content) {
+              deletedFiles.push({
+                path: `${mdPath}.md`,
+                content: readResult.content,
+              });
+            }
+          }
+          
+          // 3. 记录历史（包含被删除的文件信息）
+          pushHistory(rawData, `删除节点「${nodeLabel}」`, deletedFiles);
+          
+          // 4. 删除 MD 文件
+          for (const mdPath of mdPathsToDelete) {
+            await deleteMdFile(mdPath, roadmapPath);
+          }
+          
+          // 5. 执行删除节点
           const newTree = deleteNodeFromTree(rawData, node.id);
           setRawData(newTree);
+          rawDataRef.current = newTree;
           
           // 更新画布
           const treeData = convertToTreeData(newTree);
           graphManagerRef.current?.setData(treeData);
           
           // 更新 index.json
-          const mdBasePath = getMdBasePath();
-          const roadmapPath = mdBasePath.split('/').pop() || '';
           const result = await updateIndexJson(roadmapPath, newTree);
           
           hideLoading();
@@ -895,25 +955,43 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     const hideLoading = message.loading(`正在删除 ${nodeIds.length} 个节点...`, 0);
     
     try {
-      // 找到所有要删除的节点
+      const mdBasePath = getMdBasePath();
+      const roadmapPath = mdBasePath.split('/').pop() || '';
+      
+      // 1. 找到所有要删除的节点
       const nodesToDelete = findNodesByIds(rawData, nodeIds);
       
-      // 收集所有要删除的 MD 文件路径
+      // 2. 收集所有要删除的 MD 文件路径
       const mdPathsToDelete: string[] = [];
       for (const node of nodesToDelete) {
         const mdPaths = collectMdPathsFromNode(node);
         mdPathsToDelete.push(...mdPaths);
       }
       
-      // 删除 MD 文件
-      const roadmapPath = getMdBasePath().split('/').pop() || '';
+      // 3. 读取并保存 MD 文件内容（用于撤销时恢复）
+      const deletedFiles: DeletedFileInfo[] = [];
+      for (const mdPath of mdPathsToDelete) {
+        const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+        if (readResult.success && readResult.content) {
+          deletedFiles.push({
+            path: `${mdPath}.md`,
+            content: readResult.content,
+          });
+        }
+      }
+      
+      // 4. 记录历史（包含被删除的文件信息）
+      pushHistory(rawData, `批量删除 ${nodeIds.length} 个节点`, deletedFiles);
+      
+      // 5. 删除 MD 文件
       for (const mdPath of mdPathsToDelete) {
         await deleteMdFile(mdPath, roadmapPath);
       }
       
-      // 批量删除节点
+      // 6. 批量删除节点
       const newTree = batchDeleteNodes(rawData, nodeIds);
       setRawData(newTree);
+      rawDataRef.current = newTree;
       
       // 更新画布
       const treeData = convertToTreeData(newTree);
@@ -925,7 +1003,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       hideLoading();
       
       if (result.success) {
-        message.success(`成功删除 ${nodeIds.length} 个节点`);
+        message.success(`成功删除 ${nodeIds.length} 个节点（可撤销）`);
       } else {
         message.error(result.message);
       }
@@ -934,7 +1012,45 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       message.error('批量删除失败');
       console.error('批量删除失败:', error);
     }
-  }, [rawData, getMdBasePath]);
+  }, [rawData, getMdBasePath, pushHistory]);
+
+  /** 节点排序 */
+  const handleReorderNodes = useCallback(async (parentId: string, newChildren: RoadmapNode[]) => {
+    if (!rawData) return;
+    
+    const hideLoading = message.loading('正在保存排序...', 0);
+    
+    try {
+      // 记录历史
+      pushHistory(rawData, '节点排序');
+      
+      // 执行排序
+      const newTree = reorderNodeChildren(rawData, parentId, newChildren);
+      setRawData(newTree);
+      rawDataRef.current = newTree;
+      
+      // 更新画布
+      const treeData = convertToTreeData(newTree);
+      graphManagerRef.current?.setData(treeData);
+      
+      // 更新 index.json
+      const mdBasePath = getMdBasePath();
+      const roadmapPath = mdBasePath.split('/').pop() || '';
+      const result = await updateIndexJson(roadmapPath, newTree);
+      
+      hideLoading();
+      
+      if (result.success) {
+        message.success('排序已保存（可撤销）');
+      } else {
+        message.error(result.message);
+      }
+    } catch (error) {
+      hideLoading();
+      message.error('排序保存失败');
+      console.error('排序保存失败:', error);
+    }
+  }, [rawData, getMdBasePath, pushHistory]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 渲染
@@ -952,11 +1068,16 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onResetZoom={resetZoom}
         onExportJPG={handleExportJPG}
         onExportPDF={handleExportPDF}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo()}
+        canRedo={canRedo()}
         onAddNode={handleAddNodeFromNav}
         onEditNode={handleEditNodeFromNav}
         onDeleteNode={handleDeleteNodeFromNav}
         onPreviewSubNode={handlePreviewSubNodeFromNav}
         onBatchDeleteNodes={handleBatchDeleteNodes}
+        onReorderNodes={handleReorderNodes}
       />
 
       {/* 右侧画布区域（全屏） */}

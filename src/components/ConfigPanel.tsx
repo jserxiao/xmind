@@ -9,10 +9,29 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Input, Spin, Dropdown, Modal, Tree, Button, message } from 'antd';
+import { Input, Spin, Dropdown, Modal, Tree, Button, message, Tooltip, Select } from 'antd';
 import type { TreeProps, TreeDataNode } from 'antd';
-import { SearchOutlined, FileTextOutlined, DownOutlined } from '@ant-design/icons';
+import { SearchOutlined, FileTextOutlined, DownOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, HolderOutlined } from '@ant-design/icons';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useConfigStore } from '../store/configStore';
+import type { RoadmapConfig } from '../store/configStore';
+import { useHistoryStore } from '../store/historyStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import {
   collectNodesWithMdPath,
@@ -36,6 +55,11 @@ interface ConfigPanelProps {
   onResetZoom: () => void;
   onExportJPG: () => void;
   onExportPDF: () => void;
+  /** 撤销/恢复操作 */
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   /** 节点编辑操作 */
   onAddNode?: (parentId: string, parentNode: RoadmapNode | null) => void;
   onEditNode?: (node: RoadmapNode) => void;
@@ -44,6 +68,8 @@ interface ConfigPanelProps {
   onPreviewSubNode?: (node: RoadmapNode) => void;
   /** 批量删除节点回调 */
   onBatchDeleteNodes?: (nodeIds: string[]) => Promise<void>;
+  /** 节点排序回调 */
+  onReorderNodes?: (parentId: string, newChildren: RoadmapNode[]) => Promise<void>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,6 +132,96 @@ const NumberInput: React.FC<NumberInputProps> = ({ label, value, onChange, min =
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 子组件：可拖拽排序项
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface SortableItemProps {
+  id: string;
+  node: RoadmapNode;
+  index: number;
+  colors: RoadmapConfig['colors'];
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({ id, node, index, colors }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '10px 12px',
+        borderBottom: '1px solid #f0f0f0',
+        backgroundColor: isDragging ? '#e6f7ff' : '#fafafa',
+        cursor: 'grab',
+      }}
+    >
+      {/* 拖拽手柄 */}
+      <div
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: 'grab',
+          padding: '0 8px',
+          color: '#999',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <HolderOutlined style={{ fontSize: 16 }} />
+      </div>
+      
+      {/* 序号 */}
+      <span style={{
+        width: 24,
+        height: 24,
+        borderRadius: '50%',
+        backgroundColor: colors.primary,
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 12,
+        flexShrink: 0,
+      }}>
+        {index + 1}
+      </span>
+      
+      {/* 图标和名称 */}
+      <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+        <span style={{
+          color: node.type === 'sub' ? colors.link :
+                 node.type === 'leaf' ? colors.success :
+                 node.type === 'link' ? colors.warning : colors.primary
+        }}>
+          {node.type === 'root' ? '📘' :
+           node.type === 'branch' ? '📂' :
+           node.type === 'leaf' ? '🟢' :
+           node.type === 'link' ? '🔗' : '📝'}
+        </span>
+        <span>{node.label}</span>
+      </span>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // 主组件
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -118,11 +234,16 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onResetZoom,
   onExportJPG,
   onExportPDF,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   onAddNode,
   onEditNode,
   onDeleteNode,
   onPreviewSubNode,
   onBatchDeleteNodes,
+  onReorderNodes,
 }) => {
   // ── 状态 ──
   const [activeTab, setActiveTab] = useState<'nav' | 'config'>('nav');
@@ -135,6 +256,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  
+  // 排序相关状态
+  const [reorderModalOpen, setReorderModalOpen] = useState(false);
+  const [reorderParentId, setReorderParentId] = useState<string>('');
+  const [reorderChildren, setReorderChildren] = useState<RoadmapNode[]>([]);
+  const [reordering, setReordering] = useState(false);
   
   // ── Store ──
   const {
@@ -413,7 +540,90 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         setBatchDeleteModalOpen(true);
       },
     },
+    {
+      key: 'reorderNodes',
+      label: '节点排序',
+      icon: <OrderedListOutlined />,
+      onClick: () => {
+        // 默认选择根节点的子节点进行排序
+        if (rawData) {
+          setReorderParentId(rawData.id);
+          setReorderChildren(rawData.children || []);
+          setReorderModalOpen(true);
+        }
+      },
+    },
   ];
+  
+  // ── 排序相关函数 ──
+  
+  // 查找节点
+  const findNodeById = useCallback((node: RoadmapNode, id: string): RoadmapNode | null => {
+    if (node.id === id) return node;
+    if (node.children) {
+      for (const child of node.children) {
+        const found = findNodeById(child, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, []);
+  
+  // 选择要排序的父节点
+  const handleSelectReorderParent = useCallback((nodeId: string) => {
+    if (!rawData) return;
+    const node = findNodeById(rawData, nodeId);
+    if (node && node.children && node.children.length > 0) {
+      setReorderParentId(nodeId);
+      setReorderChildren([...node.children]);
+    } else {
+      message.info('该节点没有子节点可以排序');
+    }
+  }, [rawData, findNodeById]);
+  
+  // dnd-kit 拖拽配置
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 移动 5px 后才开始拖拽，避免误触
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  // 拖拽结束处理
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = reorderChildren.findIndex(child => child.id === active.id);
+      const newIndex = reorderChildren.findIndex(child => child.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newChildren = arrayMove(reorderChildren, oldIndex, newIndex);
+        setReorderChildren(newChildren);
+      }
+    }
+  }, [reorderChildren]);
+  
+  // 确认排序
+  const handleReorderConfirm = async () => {
+    if (!onReorderNodes) return;
+    
+    setReordering(true);
+    try {
+      await onReorderNodes(reorderParentId, reorderChildren);
+      message.success('排序已保存');
+      setReorderModalOpen(false);
+    } catch (error) {
+      message.error('排序保存失败');
+      console.error('排序保存失败:', error);
+    } finally {
+      setReordering(false);
+    }
+  };
   
   // ── 处理批量删除确认 ──
   const handleBatchDeleteConfirm = async () => {
@@ -475,6 +685,27 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         <button onClick={onResetZoom} className="config-tool-btn" title="实际大小">
           1:1
         </button>
+        
+        {/* 撤销/恢复按钮 */}
+        <div className="config-toolbar-divider" />
+        <Tooltip title={canUndo ? '撤销 (Ctrl+Z)' : '没有可撤销的操作'}>
+          <button 
+            onClick={onUndo} 
+            className={`config-tool-btn ${!canUndo ? 'config-tool-btn-disabled' : ''}`}
+            disabled={!canUndo}
+          >
+            <UndoOutlined />
+          </button>
+        </Tooltip>
+        <Tooltip title={canRedo ? '恢复 (Ctrl+Y)' : '没有可恢复的操作'}>
+          <button 
+            onClick={onRedo} 
+            className={`config-tool-btn ${!canRedo ? 'config-tool-btn-disabled' : ''}`}
+            disabled={!canRedo}
+          >
+            <RedoOutlined />
+          </button>
+        </Tooltip>
         
         {/* 批量操作下拉菜单 */}
         <Dropdown
@@ -731,6 +962,111 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               ⚠️ 将删除 {selectedNodeIds.length} 个节点及其关联文件
             </p>
           )}
+        </div>
+      </Modal>
+      
+      {/* 节点排序弹窗 */}
+      <Modal
+        title="节点排序"
+        open={reorderModalOpen}
+        onCancel={() => setReorderModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setReorderModalOpen(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="save" 
+            type="primary" 
+            loading={reordering}
+            onClick={handleReorderConfirm}
+          >
+            保存排序
+          </Button>,
+        ]}
+        width={600}
+        centered
+      >
+        <div className="reorder-modal-content">
+          {/* 选择父节点 */}
+          <div className="reorder-parent-select" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontWeight: 500 }}>选择父节点：</label>
+            <Select
+              value={reorderParentId}
+              onChange={handleSelectReorderParent}
+              style={{ minWidth: 250 }}
+              placeholder="请选择父节点"
+              optionLabelProp="label"
+              getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
+            >
+              {rawData && (
+                <Select.Option value={rawData.id} label={`${rawData.label} (根节点)`}>
+                  <span>📘 {rawData.label} <span style={{ color: '#999' }}>(根节点)</span></span>
+                </Select.Option>
+              )}
+              {/* 递归渲染所有有子节点的节点 */}
+              {rawData && (function renderOptions(node: RoadmapNode, depth = 0): React.ReactNode[] {
+                const options: React.ReactNode[] = [];
+                if (node.children && node.children.length > 0) {
+                  node.children.forEach(child => {
+                    if (child.children && child.children.length > 0) {
+                      const indent = '　'.repeat(depth);
+                      const icon = child.type === 'branch' ? '📂' : child.type === 'leaf' ? '🟢' : child.type === 'link' ? '🔗' : '📝';
+                      options.push(
+                        <Select.Option key={child.id} value={child.id} label={`${indent}${child.label}`}>
+                          <span style={{ color: child.type === 'sub' ? colors.link : 
+                                            child.type === 'leaf' ? colors.success : 
+                                            child.type === 'link' ? colors.warning : colors.primary }}>
+                            {indent}{icon} {child.label}
+                          </span>
+                        </Select.Option>
+                      );
+                      options.push(...renderOptions(child, depth + 1));
+                    }
+                  });
+                }
+                return options;
+              })(rawData)}
+            </Select>
+          </div>
+          
+          {/* 排序列表 */}
+          <div className="reorder-list">
+            <p style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
+              拖拽节点调整顺序：
+            </p>
+            <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 8 }}>
+              {reorderChildren.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#999' }}>
+                  该节点没有子节点
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={reorderChildren.map(child => child.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {reorderChildren.map((child, index) => (
+                      <SortableItem
+                        key={child.id}
+                        id={child.id}
+                        node={child}
+                        index={index}
+                        colors={colors}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          </div>
+          
+          <p style={{ marginTop: 12, color: '#999', fontSize: 12 }}>
+            💡 提示：拖拽节点可调整顺序，排序结果可通过 Ctrl+Z 撤销
+          </p>
         </div>
       </Modal>
     </div>
