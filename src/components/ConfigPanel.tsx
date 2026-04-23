@@ -9,9 +9,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Input, Spin, Dropdown, Modal, Tree, Button, message, Tooltip, Select } from 'antd';
+import { Input, Spin, Dropdown, Modal, Tree, message, Tooltip, Select } from 'antd';
 import type { TreeProps, TreeDataNode } from 'antd';
-import { SearchOutlined, FileTextOutlined, DownOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, HolderOutlined } from '@ant-design/icons';
+import { SearchOutlined, DownOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   DndContext,
   closestCenter,
@@ -25,19 +25,23 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useConfigStore } from '../store/configStore';
-import type { RoadmapConfig } from '../store/configStore';
-import { useHistoryStore } from '../store/historyStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import {
   collectNodesWithMdPath,
   searchMdContent,
   type MdSearchResult,
 } from '../utils/nodeUtils';
+import HistoryPanel from './HistoryPanel';
+import ShortcutConfigModal from './ShortcutConfigModal';
+
+// 子组件
+import SortableItem from './configPanel/SortableItem';
+import MdSearchResults from './configPanel/MdSearchResults';
+import ConfigSettingsPanel from './configPanel/ConfigSettingsPanel';
+import TreeRenderer from './configPanel/TreeRenderer';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件 Props
@@ -70,156 +74,9 @@ interface ConfigPanelProps {
   onBatchDeleteNodes?: (nodeIds: string[]) => Promise<void>;
   /** 节点排序回调 */
   onReorderNodes?: (parentId: string, newChildren: RoadmapNode[]) => Promise<void>;
+  /** 跳转到指定历史状态 */
+  onJumpToHistory?: (tree: RoadmapNode) => void;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 子组件：颜色输入
-// ═══════════════════════════════════════════════════════════════════════════════
-
-interface ColorInputProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}
-
-const ColorInput: React.FC<ColorInputProps> = ({ label, value, onChange }) => (
-  <div className="config-row">
-    <span className="config-label">{label}</span>
-    <div className="config-color-wrapper">
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="config-color-input"
-      />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="config-text-input"
-        placeholder="#000000"
-      />
-    </div>
-  </div>
-);
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 子组件：数字输入
-// ═══════════════════════════════════════════════════════════════════════════════
-
-interface NumberInputProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
-}
-
-const NumberInput: React.FC<NumberInputProps> = ({ label, value, onChange, min = 0, max = 1000, step = 1 }) => (
-  <div className="config-row">
-    <span className="config-label">{label}</span>
-    <input
-      type="number"
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      min={min}
-      max={max}
-      step={step}
-      className="config-number-input"
-    />
-  </div>
-);
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 子组件：可拖拽排序项
-// ═══════════════════════════════════════════════════════════════════════════════
-
-interface SortableItemProps {
-  id: string;
-  node: RoadmapNode;
-  index: number;
-  colors: RoadmapConfig['colors'];
-}
-
-const SortableItem: React.FC<SortableItemProps> = ({ id, node, index, colors }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 1000 : 'auto',
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        ...style,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '10px 12px',
-        borderBottom: '1px solid #f0f0f0',
-        backgroundColor: isDragging ? '#e6f7ff' : '#fafafa',
-        cursor: 'grab',
-      }}
-    >
-      {/* 拖拽手柄 */}
-      <div
-        {...attributes}
-        {...listeners}
-        style={{
-          cursor: 'grab',
-          padding: '0 8px',
-          color: '#999',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <HolderOutlined style={{ fontSize: 16 }} />
-      </div>
-      
-      {/* 序号 */}
-      <span style={{
-        width: 24,
-        height: 24,
-        borderRadius: '50%',
-        backgroundColor: colors.primary,
-        color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 12,
-        flexShrink: 0,
-      }}>
-        {index + 1}
-      </span>
-      
-      {/* 图标和名称 */}
-      <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
-        <span style={{
-          color: node.type === 'sub' ? colors.link :
-                 node.type === 'leaf' ? colors.success :
-                 node.type === 'link' ? colors.warning : colors.primary
-        }}>
-          {node.type === 'root' ? '📘' :
-           node.type === 'branch' ? '📂' :
-           node.type === 'leaf' ? '🟢' :
-           node.type === 'link' ? '🔗' : '📝'}
-        </span>
-        <span>{node.label}</span>
-      </span>
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 主组件
@@ -244,9 +101,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onPreviewSubNode,
   onBatchDeleteNodes,
   onReorderNodes,
+  onJumpToHistory,
 }) => {
   // ── 状态 ──
-  const [activeTab, setActiveTab] = useState<'nav' | 'config'>('nav');
+  const [activeTab, setActiveTab] = useState<'nav' | 'config' | 'history'>('nav');
+  const [shortcutModalOpen, setShortcutModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [mdSearchResults, setMdSearchResults] = useState<MdSearchResult[]>([]);
   const [isSearchingMd, setIsSearchingMd] = useState(false);
@@ -333,7 +192,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     
     // 如果搜索词为空，清空结果
     if (!searchKeyword.trim()) {
-      setMdSearchResults([]);
+      // 使用 setTimeout 避免在 effect 中直接调用 setState
+      searchTimeoutRef.current = setTimeout(() => {
+        setMdSearchResults([]);
+      }, 0);
       return;
     }
     
@@ -381,7 +243,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     );
   }, []);
   
-  // ── 将节点数据转换为 Tree 结构（用于批量删除弹窗） ──
+  // ── 将节点数据转换为 Tree 结构(用于批量删除弹窗) ──
   const treeData = useMemo(() => {
     if (!rawData) return [];
     
@@ -402,132 +264,6 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     
     return [convertNode(rawData)];
   }, [rawData]);
-  
-  // ── 渲染树节点 ──
-  const renderTree = useCallback((nodes: RoadmapNode[], depth = 0): React.ReactNode => {
-    return nodes.map((node) => {
-      const hasChildren = !!node.children?.length;
-      const isRoot = node.type === 'root';
-      const isSubNode = node.type === 'sub';
-      
-      return (
-        <div key={node.id}>
-          <div
-            className="tree-node-content"
-            style={{ paddingLeft: `${depth * 16 + 10}px` }}
-          >
-            <span
-              className="tree-icon"
-              style={{
-                color:
-                  {
-                    root: colors.primary,
-                    branch: colors.primary,
-                    leaf: colors.success,
-                    link: colors.warning,
-                    sub: colors.link,
-                  }[node.type] || '#888',
-              }}
-            >
-              {node.type === 'root'
-                ? '📘'
-                : node.type === 'branch'
-                  ? '📂'
-                  : node.type === 'leaf'
-                    ? '🟢'
-                    : node.type === 'link'
-                      ? '🔗'
-                      : '📝'}
-            </span>
-            <span 
-              className="tree-label" 
-              title={node.label}
-              onClick={() => onFocusNode(node.id)}
-            >
-              {searchKeyword 
-                ? highlightText(node.label.replace(/\n/g, ' ').slice(0, 25), searchKeyword)
-                : node.label.replace(/\n/g, ' ').slice(0, 25)}
-            </span>
-            
-            {/* 操作按钮 */}
-            <div className="tree-node-actions">
-              {/* sub 类型节点显示预览和编辑按钮 */}
-              {isSubNode ? (
-                <>
-                  {onPreviewSubNode && (
-                    <button
-                      className="tree-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPreviewSubNode(node);
-                      }}
-                      title="预览内容"
-                    >
-                      👁️
-                    </button>
-                  )}
-                  {onEditNode && (
-                    <button
-                      className="tree-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditNode(node);
-                      }}
-                      title="编辑章节"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  {onAddNode && (
-                    <button
-                      className="tree-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddNode(node.id, node);
-                      }}
-                      title="添加子节点"
-                    >
-                      ➕
-                    </button>
-                  )}
-                  {onEditNode && (
-                    <button
-                      className="tree-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditNode(node);
-                      }}
-                      title="编辑节点"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                  {onDeleteNode && !isRoot && (
-                    <button
-                      className="tree-action-btn tree-action-btn-danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteNode(node);
-                      }}
-                      title="删除节点"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-          {hasChildren && (
-            <div className="tree-children">{renderTree(node.children!, depth + 1)}</div>
-          )}
-        </div>
-      );
-    });
-  }, [colors, onFocusNode, onAddNode, onEditNode, onDeleteNode, onPreviewSubNode, searchKeyword, highlightText]);
   
   // ── 批量操作菜单项 ──
   const batchMenuItems = [
@@ -716,6 +452,26 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             ⚡ 批量 <DownOutlined style={{ fontSize: 10, marginLeft: 2 }} />
           </button>
         </Dropdown>
+        
+        {/* 导出按钮 */}
+        <div className="config-toolbar-divider" />
+        <button onClick={onExportJPG} className="config-tool-btn" title="导出JPG">
+          📷 JPG
+        </button>
+        <button onClick={onExportPDF} className="config-tool-btn" title="导出PDF">
+          📄 PDF
+        </button>
+        
+        {/* 快捷键设置按钮 */}
+        <Tooltip title="快捷键设置">
+          <button 
+            className="config-tool-btn" 
+            onClick={() => setShortcutModalOpen(true)}
+            style={{ marginLeft: 'auto' }}
+          >
+            <SettingOutlined />
+          </button>
+        </Tooltip>
       </div>
       
       {/* Tab 切换 */}
@@ -732,11 +488,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         >
           ⚙️ 配置
         </button>
+        <button
+          className={`config-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          📜 历史
+        </button>
       </div>
       
       {/* Tab 内容 */}
       <div className="config-content">
-        {activeTab === 'nav' ? (
+        {activeTab === 'history' ? (
+          <HistoryPanel onJumpToHistory={onJumpToHistory} />
+        ) : activeTab === 'nav' ? (
           // 节点导航面板
           <div className="config-nav-panel">
             {/* 搜索框 */}
@@ -753,32 +517,27 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             </div>
             
             {/* MD 内容搜索结果 */}
-            {searchKeyword.trim() && mdSearchResults.length > 0 && (
-              <div className="md-search-results">
-                <div className="md-search-header">
-                  <FileTextOutlined /> 文档内容匹配 ({mdSearchResults.length})
-                </div>
-                {mdSearchResults.map((result) => (
-                  <div
-                    key={result.nodeId}
-                    className="md-search-item"
-                    onClick={() => onFocusNode(result.nodeId)}
-                  >
-                    <div className="md-search-item-title">
-                      {highlightText(result.nodeLabel, searchKeyword)}
-                    </div>
-                    {result.matches.slice(0, 2).map((match, idx) => (
-                      <div key={idx} className="md-search-item-context">
-                        ...{highlightText(match, searchKeyword)}...
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
+            <MdSearchResults
+              results={mdSearchResults}
+              searchKeyword={searchKeyword}
+              onFocusNode={onFocusNode}
+              highlightText={highlightText}
+            />
             
             {filteredData ? (
-              <div className="tree-panel-body">{renderTree([filteredData])}</div>
+              <div className="tree-panel-body">
+                <TreeRenderer
+                  nodes={[filteredData]}
+                  colors={colors}
+                  searchKeyword={searchKeyword}
+                  onFocusNode={onFocusNode}
+                  onAddNode={onAddNode}
+                  onEditNode={onEditNode}
+                  onDeleteNode={onDeleteNode}
+                  onPreviewSubNode={onPreviewSubNode}
+                  highlightText={highlightText}
+                />
+              </div>
             ) : (
               <div className="config-loading">
                 {searchKeyword ? '未找到匹配的节点' : '加载中...'}
@@ -787,287 +546,104 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         ) : (
           // 配置面板
-          <div className="config-settings-panel">
-            {/* 颜色配置 */}
-            <div className="config-section">
-              <h3 className="config-section-title">🎨 颜色配置</h3>
-              <ColorInput
-                label="主色调"
-                value={colors.primary}
-                onChange={(v) => handleUpdateColors({ primary: v })}
-              />
-              <ColorInput
-                label="主色深"
-                value={colors.primaryDark}
-                onChange={(v) => handleUpdateColors({ primaryDark: v })}
-              />
-              <ColorInput
-                label="主色浅"
-                value={colors.primaryLight}
-                onChange={(v) => handleUpdateColors({ primaryLight: v })}
-              />
-              <ColorInput
-                label="成功色"
-                value={colors.success}
-                onChange={(v) => handleUpdateColors({ success: v })}
-              />
-              <ColorInput
-                label="警告色"
-                value={colors.warning}
-                onChange={(v) => handleUpdateColors({ warning: v })}
-              />
-              <ColorInput
-                label="链接色"
-                value={colors.link}
-                onChange={(v) => handleUpdateColors({ link: v })}
-              />
-            </div>
-            
-            {/* 布局配置 */}
-            <div className="config-section">
-              <h3 className="config-section-title">📐 布局配置</h3>
-              <NumberInput
-                label="水平间距"
-                value={layout.hGap}
-                onChange={(v) => updateLayout({ hGap: v })}
-                min={10}
-                max={200}
-              />
-              <NumberInput
-                label="垂直间距"
-                value={layout.vGap}
-                onChange={(v) => updateLayout({ vGap: v })}
-                min={5}
-                max={100}
-              />
-            </div>
-            
-            {/* 缩放配置 */}
-            <div className="config-section">
-              <h3 className="config-section-title">🔍 缩放配置</h3>
-              <NumberInput
-                label="最小缩放"
-                value={zoom.minZoom}
-                onChange={(v) => updateZoom({ minZoom: v })}
-                min={0.01}
-                max={1}
-                step={0.01}
-              />
-              <NumberInput
-                label="最大缩放"
-                value={zoom.maxZoom}
-                onChange={(v) => updateZoom({ maxZoom: v })}
-                min={1}
-                max={50}
-              />
-              <NumberInput
-                label="灵敏度"
-                value={zoom.sensitivity}
-                onChange={(v) => updateZoom({ sensitivity: v })}
-                min={1}
-                max={10}
-              />
-            </div>
-            
-            {/* 重置按钮 */}
-            <div className="config-section">
-              <button onClick={resetCurrentConfig} className="config-reset-btn">
-                🔄 重置所有配置
-              </button>
-            </div>
-            
-            {/* 导出按钮 */}
-            <div className="config-section">
-              <div className="config-export-group">
-                <button onClick={onExportJPG} className="config-export-btn">
-                  🖼️ 导出 PNG
-                </button>
-                <button onClick={onExportPDF} className="config-export-btn">
-                  📄 导出 PDF
-                </button>
-              </div>
-            </div>
-          </div>
+          <ConfigSettingsPanel
+            colors={colors}
+            layout={layout}
+            zoom={zoom}
+            onUpdateColors={handleUpdateColors}
+            onUpdateLayout={updateLayout}
+            onUpdateZoom={updateZoom}
+            onResetConfig={resetCurrentConfig}
+          />
         )}
       </div>
       
-      {/* 图例 */}
-      <div className="config-legend">
-        <div className="legend-item">
-          <span className="legend-color legend-root"></span>
-          <span>根节点</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color legend-branch"></span>
-          <span>分类</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color legend-leaf"></span>
-          <span>知识点</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color legend-link"></span>
-          <span>外部资源</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-color legend-sub"></span>
-          <span>细分知识点</span>
-        </div>
-      </div>
-      
-      {/* 底部提示 */}
-      <div className="config-footer">
-        拖拽平移 · 滚轮缩放
-      </div>
+      {/* 快捷键配置弹窗 */}
+      <ShortcutConfigModal
+        open={shortcutModalOpen}
+        onClose={() => setShortcutModalOpen(false)}
+      />
       
       {/* 批量删除弹窗 */}
       <Modal
         title="批量删除节点"
         open={batchDeleteModalOpen}
+        onOk={handleBatchDeleteConfirm}
         onCancel={() => setBatchDeleteModalOpen(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setBatchDeleteModalOpen(false)}>
-            取消
-          </Button>,
-          <Button 
-            key="delete" 
-            type="primary" 
-            danger 
-            loading={batchDeleting}
-            onClick={handleBatchDeleteConfirm}
-            disabled={selectedNodeIds.length === 0}
-          >
-            删除选中 ({selectedNodeIds.length})
-          </Button>,
-        ]}
+        okText="删除"
+        okButtonProps={{ danger: true, loading: batchDeleting }}
+        cancelText="取消"
         width={500}
-        centered
       >
-        <div className="batch-delete-modal-content">
-          <p style={{ marginBottom: 12, color: '#666' }}>
-            勾选要删除的节点，删除操作将同时删除对应的 MD 文件。
+        <p style={{ marginBottom: 12 }}>请选择要删除的节点（根节点不可删除）：</p>
+        <Tree
+          checkable
+          checkedKeys={selectedNodeIds}
+          onCheck={handleTreeCheck}
+          treeData={treeData}
+          defaultExpandAll
+          style={{ maxHeight: 400, overflow: 'auto' }}
+        />
+        {selectedNodeIds.length > 0 && (
+          <p style={{ marginTop: 12, color: '#ff4d4f' }}>
+            已选择 {selectedNodeIds.length} 个节点
           </p>
-          <div className="batch-delete-tree-container">
-            <Tree
-              checkable
-              checkedKeys={selectedNodeIds}
-              onCheck={handleTreeCheck}
-              treeData={treeData}
-              defaultExpandAll
-              selectable={false}
-            />
-          </div>
-          {selectedNodeIds.length > 0 && (
-            <p style={{ marginTop: 12, color: '#ff4d4f' }}>
-              ⚠️ 将删除 {selectedNodeIds.length} 个节点及其关联文件
-            </p>
-          )}
-        </div>
+        )}
       </Modal>
       
       {/* 节点排序弹窗 */}
       <Modal
         title="节点排序"
         open={reorderModalOpen}
+        onOk={handleReorderConfirm}
         onCancel={() => setReorderModalOpen(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setReorderModalOpen(false)}>
-            取消
-          </Button>,
-          <Button 
-            key="save" 
-            type="primary" 
-            loading={reordering}
-            onClick={handleReorderConfirm}
-          >
-            保存排序
-          </Button>,
-        ]}
-        width={600}
-        centered
+        okText="保存"
+        okButtonProps={{ loading: reordering }}
+        cancelText="取消"
+        width={500}
       >
-        <div className="reorder-modal-content">
-          {/* 选择父节点 */}
-          <div className="reorder-parent-select" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontWeight: 500 }}>选择父节点：</label>
-            <Select
-              value={reorderParentId}
-              onChange={handleSelectReorderParent}
-              style={{ minWidth: 250 }}
-              placeholder="请选择父节点"
-              optionLabelProp="label"
-              getPopupContainer={(triggerNode) => triggerNode.parentNode as HTMLElement}
-            >
-              {rawData && (
-                <Select.Option value={rawData.id} label={`${rawData.label} (根节点)`}>
-                  <span>📘 {rawData.label} <span style={{ color: '#999' }}>(根节点)</span></span>
-                </Select.Option>
-              )}
-              {/* 递归渲染所有有子节点的节点 */}
-              {rawData && (function renderOptions(node: RoadmapNode, depth = 0): React.ReactNode[] {
-                const options: React.ReactNode[] = [];
-                if (node.children && node.children.length > 0) {
-                  node.children.forEach(child => {
-                    if (child.children && child.children.length > 0) {
-                      const indent = '　'.repeat(depth);
-                      const icon = child.type === 'branch' ? '📂' : child.type === 'leaf' ? '🟢' : child.type === 'link' ? '🔗' : '📝';
-                      options.push(
-                        <Select.Option key={child.id} value={child.id} label={`${indent}${child.label}`}>
-                          <span style={{ color: child.type === 'sub' ? colors.link : 
-                                            child.type === 'leaf' ? colors.success : 
-                                            child.type === 'link' ? colors.warning : colors.primary }}>
-                            {indent}{icon} {child.label}
-                          </span>
-                        </Select.Option>
-                      );
-                      options.push(...renderOptions(child, depth + 1));
-                    }
-                  });
-                }
-                return options;
-              })(rawData)}
-            </Select>
-          </div>
-          
-          {/* 排序列表 */}
-          <div className="reorder-list">
-            <p style={{ marginBottom: 8, color: '#666', fontSize: 13 }}>
-              拖拽节点调整顺序：
-            </p>
-            <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 8 }}>
-              {reorderChildren.length === 0 ? (
-                <div style={{ padding: 20, textAlign: 'center', color: '#999' }}>
-                  该节点没有子节点
-                </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={reorderChildren.map(child => child.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {reorderChildren.map((child, index) => (
-                      <SortableItem
-                        key={child.id}
-                        id={child.id}
-                        node={child}
-                        index={index}
-                        colors={colors}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-          </div>
-          
-          <p style={{ marginTop: 12, color: '#999', fontSize: 12 }}>
-            💡 提示：拖拽节点可调整顺序，排序结果可通过 Ctrl+Z 撤销
-          </p>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 8 }}>选择父节点：</label>
+          <Select
+            style={{ width: '100%' }}
+            value={reorderParentId}
+            onChange={handleSelectReorderParent}
+            options={
+              rawData ? [{
+                value: rawData.id,
+                label: `${rawData.label.replace(/\n/g, ' ').slice(0, 30)} (根节点)`,
+              }] : []
+            }
+          />
         </div>
+        
+        {reorderChildren.length > 0 && (
+          <div>
+            <label style={{ display: 'block', marginBottom: 8 }}>
+              拖拽调整子节点顺序：
+            </label>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={reorderChildren.map(c => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {reorderChildren.map((node, index) => (
+                  <SortableItem
+                    key={node.id}
+                    id={node.id}
+                    node={node}
+                    index={index}
+                    colors={colors}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+        )}
       </Modal>
     </div>
   );

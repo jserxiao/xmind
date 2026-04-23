@@ -8,8 +8,9 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { RoadmapNode } from '../data/roadmapData';
-import { saveIndexJson, writeFile, deleteFile, readFile } from '../utils/fileSystem';
+import { saveIndexJson, writeFile, deleteFile } from '../utils/fileSystem';
 import { useRoadmapStore } from './roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -77,17 +78,22 @@ interface HistoryStore {
   
   /** 获取最近的历史描述 */
   getLastHistoryDescription: () => string | null;
+
+  /** 跳转到指定历史状态 */
+  jumpToHistory: (targetIndex: number, type: 'past' | 'future', roadmapPath: string) => Promise<RoadmapNode | null>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Store 实现
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const useHistoryStore = create<HistoryStore>((set, get) => ({
-  past: [],
-  future: [],
-  maxHistory: 50,
-  isProcessing: false,
+export const useHistoryStore = create<HistoryStore>()(
+  persist(
+    (set, get) => ({
+      past: [],
+      future: [],
+      maxHistory: 50,
+      isProcessing: false,
 
   // 记录操作历史
   pushHistory: (tree, description, deletedFiles) => {
@@ -252,7 +258,106 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
     const { past } = get();
     return past.length > 0 ? past[past.length - 1].description : null;
   },
-}));
+
+  // 跳转到指定历史状态
+  jumpToHistory: async (targetIndex: number, type: 'past' | 'future', roadmapPath: string) => {
+    const { past, future, isProcessing } = get();
+    
+    if (isProcessing) {
+      console.log('[HistoryStore] 正在处理中，跳过跳转');
+      return null;
+    }
+
+    set({ isProcessing: true });
+
+    try {
+      let targetTree: RoadmapNode | null = null;
+
+      if (type === 'past') {
+        // 跳转到过去的状态
+        if (targetIndex < 0 || targetIndex >= past.length) {
+          console.error('[HistoryStore] 无效的历史索引');
+          return null;
+        }
+
+        // 目标状态在 past 数组中的位置
+        const targetEntry = past[targetIndex];
+        targetTree = targetEntry.tree;
+
+        // 更新状态：将目标之后的所有历史移到 future
+        const newPast = past.slice(0, targetIndex);
+        const newFuture = [
+          ...past.slice(targetIndex + 1).reverse().map(entry => ({
+            tree: entry.tree,
+            description: entry.description,
+            timestamp: entry.timestamp,
+            deletedFiles: entry.deletedFiles,
+          })),
+          ...future,
+        ];
+
+        // 持久化目标状态
+        await saveIndexJson(roadmapPath, targetTree);
+
+        set({
+          past: newPast,
+          future: newFuture,
+        });
+
+        console.log('[HistoryStore] 跳转到历史状态:', targetEntry.description);
+      } else {
+        // 跳转到未来的状态
+        if (targetIndex < 0 || targetIndex >= future.length) {
+          console.error('[HistoryStore] 无效的未来索引');
+          return null;
+        }
+
+        // 目标状态在 future 数组中的位置
+        const targetEntry = future[targetIndex];
+        targetTree = targetEntry.tree;
+
+        // 更新状态：将目标之后的所有历史移到 past
+        const newFuture = future.slice(targetIndex + 1);
+        const newPast = [
+          ...past,
+          ...future.slice(0, targetIndex).reverse().map(entry => ({
+            tree: entry.tree,
+            description: entry.description,
+            timestamp: entry.timestamp,
+            deletedFiles: entry.deletedFiles,
+          })),
+        ];
+
+        // 持久化目标状态
+        await saveIndexJson(roadmapPath, targetTree);
+
+        set({
+          past: newPast,
+          future: newFuture,
+        });
+
+        console.log('[HistoryStore] 跳转到未来状态:', targetEntry.description);
+      }
+
+      return targetTree;
+    } catch (error) {
+      console.error('[HistoryStore] 跳转失败:', error);
+      return null;
+    } finally {
+      set({ isProcessing: false });
+    }
+  },
+    }),
+    {
+      name: 'history-storage',
+      partialize: (state) => ({
+        past: state.past.slice(-20), // 只持久化最近20条
+        future: state.future.slice(0, 20),
+        maxHistory: state.maxHistory,
+      }),
+    }
+  )
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 便捷方法：包装节点操作以自动记录历史

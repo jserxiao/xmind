@@ -59,7 +59,7 @@ import type { DeletedFileInfo } from '../store/historyStore';
 
 interface RoadmapGraphProps {
   /** 节点点击回调 */
-  onNodeClick?: (nodeData: any) => void;
+  onNodeClick?: (nodeData: RoadmapNode) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,7 +527,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           } else {
             message.error(result.message);
           }
-        } catch (error) {
+        } catch {
           hideLoading();
           message.error('删除节点失败');
         }
@@ -762,9 +762,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           message.success(`节点「${formData.label}」已更新`);
         } else {
           message.error(result.message);
-        }
       }
-    } catch (error) {
+    }
+    } catch {
       hideLoading();
       message.error('保存失败，请重试');
     }
@@ -859,6 +859,18 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     }
   }, [canRedo, redo, rawData]);
 
+  /** 处理跳转到指定历史状态 */
+  const handleJumpToHistory = useCallback((tree: RoadmapNode) => {
+    if (!tree) return;
+    
+    setRawData(tree);
+    rawDataRef.current = tree;
+    
+    // 更新画布
+    const treeData = convertToTreeData(tree);
+    graphManagerRef.current?.setData(treeData);
+  }, []);
+
   // 绑定撤销/重做快捷键
   useUndoRedoShortcuts({
     onUndo: handleUndo,
@@ -940,7 +952,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           } else {
             message.error(result.message);
           }
-        } catch (error) {
+        } catch {
           hideLoading();
           message.error('删除节点失败');
         }
@@ -1078,6 +1090,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onPreviewSubNode={handlePreviewSubNodeFromNav}
         onBatchDeleteNodes={handleBatchDeleteNodes}
         onReorderNodes={handleReorderNodes}
+        onJumpToHistory={handleJumpToHistory}
       />
 
       {/* 右侧画布区域（全屏） */}
