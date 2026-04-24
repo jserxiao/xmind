@@ -277,6 +277,163 @@ a:hover {
   margin: 0 4px;
 }
 
+/* 工具栏行布局 */
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 工具栏分隔符 */
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* 工具栏按钮 - 扩展样式 */
+.toolbar-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+}
+
+.toolbar-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.toolbar-btn-disabled,
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.toolbar-btn-disabled:hover,
+.toolbar-btn:disabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+/* 小地图切换按钮 */
+.minimap-toggle-btn {
+  position: relative;
+}
+
+.minimap-toggle-btn.active {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* 折叠状态下的小地图切换按钮 */
+.config-panel-collapsed .minimap-toggle-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+/* 备份上传按钮 */
+.backup-upload-btn {
+  width: 100%;
+  padding: 20px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.backup-upload-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+/* 导入选项 */
+.import-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.import-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.import-options input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-color);
+}
+
+/* 布局方向切换 */
+.config-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.config-switch-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.config-switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-switch-wrapper span {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.config-switch-wrapper span.active {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
 /* Tab 切换 */
 .config-tabs {
   display: flex;
@@ -2626,4 +2783,23 @@ gap: 8px;
 .empty-state p {
   font-size: 1.1rem;
   margin-bottom: 16px;
+}
+
+/* ===== Ant Design Modal 覆盖样式 ===== */
+.ant-modal-content {
+  padding: 0 !important;
+}
+
+.ant-modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ant-modal-body {
+  padding: 24px;
+}
+
+.ant-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
 }

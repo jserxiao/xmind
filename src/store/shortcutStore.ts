@@ -27,7 +27,10 @@ export type ShortcutAction =
   | 'fitView'       // 适应视图
   | 'togglePanel'   // 切换面板
   | 'exportJPG'     // 导出JPG
-  | 'exportPDF';    // 导出PDF
+  | 'exportPDF'     // 导出PDF
+  | 'toggleBookmark' // 切换书签
+  | 'nextBookmark'   // 下一个书签
+  | 'prevBookmark';  // 上一个书签
 
 /** 快捷键配置 */
 export interface ShortcutConfig {
@@ -182,6 +185,30 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
     description: '导出为PDF文档',
     enabled: true,
     category: 'export',
+  },
+  toggleBookmark: {
+    action: 'toggleBookmark',
+    key: 'ctrl+b',
+    name: '切换书签',
+    description: '为当前节点添加或移除书签',
+    enabled: true,
+    category: 'node',
+  },
+  nextBookmark: {
+    action: 'nextBookmark',
+    key: 'ctrl+]',
+    name: '下一个书签',
+    description: '跳转到下一个书签节点',
+    enabled: true,
+    category: 'node',
+  },
+  prevBookmark: {
+    action: 'prevBookmark',
+    key: 'ctrl+[',
+    name: '上一个书签',
+    description: '跳转到上一个书签节点',
+    enabled: true,
+    category: 'node',
   },
 };
 

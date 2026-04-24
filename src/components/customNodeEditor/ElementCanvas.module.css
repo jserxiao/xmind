@@ -1,0 +1,65 @@
+/**
+ * 元素画布样式
+ */
+
+.canvasContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+  background-image: 
+    linear-gradient(45deg, #e8e8e8 25%, transparent 25%),
+    linear-gradient(-45deg, #e8e8e8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e8e8e8 75%),
+    linear-gradient(-45deg, transparent 75%, #e8e8e8 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.canvas {
+  position: relative;
+  background: white;
+  border: 2px dashed var(--border-color);
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s;
+}
+
+.canvas:hover {
+  border-color: var(--primary-color);
+}
+
+.element {
+  user-select: none;
+  pointer-events: auto;
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.element:hover {
+  z-index: 10;
+}
+
+.element:active {
+  cursor: grabbing;
+}
+
+.selected {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.2);
+}
+
+.sizeHint {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+}

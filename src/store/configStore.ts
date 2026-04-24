@@ -210,6 +210,9 @@ export interface ConfigState {
   /** 配置栏是否展开 */
   panelExpanded: boolean;
   
+  /** 配置更新时间戳，用于触发组件重新渲染 */
+  configVersion: number;
+  
   // ── 操作方法 ──
   /** 获取当前思维导图的配置 */
   getCurrentConfig: () => RoadmapConfig;
@@ -285,6 +288,7 @@ export const useConfigStore = create<ConfigState>()(
     (set, get) => ({
       configs: {},
       panelExpanded: true,
+      configVersion: 0,
 
       getCurrentConfig: () => {
         const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
@@ -344,6 +348,7 @@ export const useConfigStore = create<ConfigState>()(
         set((state) => {
           const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
           return {
+            configVersion: state.configVersion + 1,
             configs: {
               ...state.configs,
               [currentRoadmapId]: {

@@ -5,6 +5,7 @@ import RoadmapPage from './pages/RoadmapPage';
 import KnowledgeDetail from './pages/KnowledgeDetail';
 import { useRoadmapStore } from './store/roadmapStore';
 import { getDirectoryHandle } from './utils/fileSystem';
+import { initializeTheme } from './store/themeStore';
 
 /** 路由守卫组件：根据存储状态决定初始页面 */
 function RouteGuard() {
@@ -16,6 +17,9 @@ function RouteGuard() {
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
+    // 初始化主题
+    initializeTheme();
+    
     // 只在首次加载时根据存储状态跳转
     if (isFirstLoad.current && location.pathname === '/' && currentRoadmapId && getDirectoryHandle()) {
       isFirstLoad.current = false;

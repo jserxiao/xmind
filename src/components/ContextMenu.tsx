@@ -24,6 +24,8 @@ export interface ContextMenuProps {
   node: RoadmapNode | null;
   /** 是否显示 */
   visible: boolean;
+  /** 是否有书签 */
+  hasBookmark?: boolean;
   /** 添加子节点回调 */
   onAddChild: () => void;
   /** 编辑节点回调 */
@@ -32,6 +34,8 @@ export interface ContextMenuProps {
   onDelete: () => void;
   /** 预览内容回调（sub 类型节点） */
   onPreview?: () => void;
+  /** 切换书签回调 */
+  onToggleBookmark?: () => void;
   /** 关闭菜单回调 */
   onClose: () => void;
 }
@@ -45,10 +49,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   y,
   node,
   visible,
+  hasBookmark,
   onAddChild,
   onEdit,
   onDelete,
   onPreview,
+  onToggleBookmark,
   onClose,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,6 +126,14 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>
       <div className="context-menu-divider" />
       <div className="context-menu-items">
+        {/* 书签选项 */}
+        {onToggleBookmark && (
+          <button className="context-menu-item" onClick={onToggleBookmark}>
+            <span className="menu-icon">{hasBookmark ? '🔖' : '📑'}</span>
+            <span>{hasBookmark ? '移除书签' : '添加书签'}</span>
+          </button>
+        )}
+        
         {/* sub 类型或有 mdPath 的节点显示预览选项 */}
         {canPreview && (
           <button className="context-menu-item" onClick={onPreview}>

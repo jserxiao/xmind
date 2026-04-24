@@ -1,19 +1,17 @@
 /**
  * ConfigSettingsPanel - 配置设置面板组件
  * 
- * 显示颜色和布局配置选项
+ * 显示布局配置选项
  */
 
 import React from 'react';
+import { Switch } from 'antd';
 import type { RoadmapConfig } from '../../store/configStore';
-import ColorInput from './ColorInput';
 import NumberInput from './NumberInput';
 
 interface ConfigSettingsPanelProps {
-  colors: RoadmapConfig['colors'];
   layout: RoadmapConfig['layout'];
   zoom: RoadmapConfig['zoom'];
-  onUpdateColors: (updates: Partial<RoadmapConfig['colors']>) => void;
   onUpdateLayout: (updates: Partial<RoadmapConfig['layout']>) => void;
   onUpdateZoom: (updates: Partial<RoadmapConfig['zoom']>) => void;
   onResetConfig: () => void;
@@ -21,57 +19,41 @@ interface ConfigSettingsPanelProps {
 
 /**
  * 配置设置面板组件
- * 提供颜色、布局、缩放等配置选项
+ * 提供布局、缩放等配置选项
  */
 const ConfigSettingsPanel: React.FC<ConfigSettingsPanelProps> = ({
-  colors,
   layout,
   zoom,
-  onUpdateColors,
   onUpdateLayout,
   onUpdateZoom,
   onResetConfig,
 }) => {
+  // 横向布局 = LR，纵向布局 = TB
+  const isHorizontal = layout.direction === 'LR';
+  
+  const handleDirectionChange = (checked: boolean) => {
+    onUpdateLayout({ direction: checked ? 'LR' : 'TB' });
+  };
+  
   return (
     <div className="config-settings-panel">
-      {/* 颜色配置 */}
-      <div className="config-section">
-        <h3 className="config-section-title">🎨 颜色配置</h3>
-        <ColorInput
-          label="主色调"
-          value={colors.primary}
-          onChange={(v) => onUpdateColors({ primary: v })}
-        />
-        <ColorInput
-          label="主色深"
-          value={colors.primaryDark}
-          onChange={(v) => onUpdateColors({ primaryDark: v })}
-        />
-        <ColorInput
-          label="主色浅"
-          value={colors.primaryLight}
-          onChange={(v) => onUpdateColors({ primaryLight: v })}
-        />
-        <ColorInput
-          label="成功色"
-          value={colors.success}
-          onChange={(v) => onUpdateColors({ success: v })}
-        />
-        <ColorInput
-          label="警告色"
-          value={colors.warning}
-          onChange={(v) => onUpdateColors({ warning: v })}
-        />
-        <ColorInput
-          label="链接色"
-          value={colors.link}
-          onChange={(v) => onUpdateColors({ link: v })}
-        />
-      </div>
-      
       {/* 布局配置 */}
       <div className="config-section">
         <h3 className="config-section-title">📐 布局配置</h3>
+        
+        {/* 横纵布局切换 */}
+        <div className="config-switch-row">
+          <span className="config-switch-label">布局方向</span>
+          <div className="config-switch-wrapper">
+            <span className={isHorizontal ? 'active' : ''}>横向</span>
+            <Switch
+              checked={isHorizontal}
+              onChange={handleDirectionChange}
+              size="small"
+            />
+            <span className={!isHorizontal ? 'active' : ''}>纵向</span>
+          </div>
+        </div>
         <NumberInput
           label="水平间距"
           value={layout.hGap}

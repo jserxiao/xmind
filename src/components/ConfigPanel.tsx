@@ -9,9 +9,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Input, Spin, Dropdown, Modal, Tree, message, Tooltip, Select } from 'antd';
+import { Input, Spin, Dropdown, Modal, Tree, message, Tooltip, Select, Upload } from 'antd';
 import type { TreeProps, TreeDataNode } from 'antd';
-import { SearchOutlined, DownOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, SettingOutlined } from '@ant-design/icons';
+import { SearchOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   DndContext,
   closestCenter,
@@ -28,6 +28,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useConfigStore } from '../store/configStore';
+import { useBookmarkStore } from '../store/bookmarkStore';
+import { useRoadmapStore } from '../store/roadmapStore';
+import { useMinimapStore } from '../store/minimapStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import {
   collectNodesWithMdPath,
@@ -42,6 +45,19 @@ import SortableItem from './configPanel/SortableItem';
 import MdSearchResults from './configPanel/MdSearchResults';
 import ConfigSettingsPanel from './configPanel/ConfigSettingsPanel';
 import TreeRenderer from './configPanel/TreeRenderer';
+import ThemeConfigModal from './configPanel/ThemeConfigModal';
+import WatermarkConfigModal from './configPanel/WatermarkConfigModal';
+import BookmarkManagerModal from './configPanel/BookmarkManagerModal';
+import CustomNodeManagerModal from './customNodeEditor/CustomNodeManagerModal';
+import {
+  exportAllData,
+  downloadBackupFile,
+  readBackupFile,
+  importBackupData,
+  getBackupSize,
+  type RoadmapNodeData,
+} from '../utils/backup';
+import { writeJsonFile, getDirectoryHandle } from '../utils/fileSystem';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件 Props
@@ -122,28 +138,56 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [reorderChildren, setReorderChildren] = useState<RoadmapNode[]>([]);
   const [reordering, setReordering] = useState(false);
   
+  // 备份相关状态
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importOptions, setImportOptions] = useState({
+    history: true,
+    shortcuts: true,
+    bookmarks: true,
+    configs: true,
+    roadmapNodes: true,
+    watermark: true,
+    minimap: true,
+  });
+  
+  // 水印相关状态
+  const [watermarkModalOpen, setWatermarkModalOpen] = useState(false);
+  
+  // 书签管理状态
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
+  
+  // 自定义节点管理状态
+  const [customNodeModalOpen, setCustomNodeModalOpen] = useState(false);
+  
+  // 主题设置状态
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
+  
   // ── Store ──
   const {
     panelExpanded,
     togglePanel,
     getCurrentConfig,
-    updateColors,
     updateLayout,
     updateZoom,
     resetCurrentConfig,
   } = useConfigStore();
+  
+  // 书签 Store
+  const currentRoadmapId = useBookmarkStore((state) => state.currentRoadmapId);
+  
+  // Roadmap Store - 获取当前思维导图路径
+  const currentRoadmap = useRoadmapStore((state) => state.currentRoadmap);
+  
+  // 小地图 Store
+  const minimapConfig = useMinimapStore((state) => state.config);
+  const toggleMinimap = useMinimapStore((state) => state.toggleEnabled);
   
   // 获取当前思维导图的配置
   const currentConfig = getCurrentConfig();
   const colors = currentConfig.colors;
   const layout = currentConfig.layout;
   const zoom = currentConfig.zoom;
-  
-  // 包装 updateColors 以添加日志
-  const handleUpdateColors = useCallback((updates: Partial<typeof colors>) => {
-    console.log('[ConfigPanel] 更新颜色', updates);
-    updateColors(updates);
-  }, [updateColors]);
   
   // ── 搜索过滤 ──
   const filteredData = useMemo(() => {
@@ -268,6 +312,32 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   // ── 批量操作菜单项 ──
   const batchMenuItems = [
     {
+      key: 'exportJPG',
+      label: '导出 JPG',
+      icon: <span>📷</span>,
+      onClick: onExportJPG,
+    },
+    {
+      key: 'exportPDF',
+      label: '导出 PDF',
+      icon: <span>📄</span>,
+      onClick: onExportPDF,
+    },
+    { type: 'divider' as const },
+    {
+      key: 'themeConfig',
+      label: '主题设置',
+      icon: <span>🎨</span>,
+      onClick: () => setThemeModalOpen(true),
+    },
+    {
+      key: 'watermarkConfig',
+      label: '水印设置',
+      icon: <span>💧</span>,
+      onClick: () => setWatermarkModalOpen(true),
+    },
+    { type: 'divider' as const },
+    {
       key: 'batchDelete',
       label: '批量删除节点',
       icon: <span>🗑️</span>,
@@ -289,7 +359,150 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         }
       },
     },
+    {
+      key: 'manageBookmarks',
+      label: '管理书签',
+      icon: <span>🔖</span>,
+      onClick: () => setBookmarkModalOpen(true),
+    },
+    {
+      key: 'manageCustomNodes',
+      label: '自定义节点',
+      icon: <span>🎨</span>,
+      onClick: () => setCustomNodeModalOpen(true),
+    },
+    { type: 'divider' as const },
+    {
+      key: 'exportBackup',
+      label: '导出备份',
+      icon: <span>💾</span>,
+      onClick: () => setBackupModalOpen(true),
+    },
+    {
+      key: 'importBackup',
+      label: '导入备份',
+      icon: <span>📂</span>,
+      onClick: () => setImportModalOpen(true),
+    },
   ];
+  
+  // ── 备份相关函数 ──
+  
+  // 导出备份
+  const handleExportBackup = useCallback(() => {
+    try {
+      // 准备节点数据（包含路径信息）
+      const roadmapNodesData = rawData ? [{
+        id: currentRoadmapId || 'unknown',
+        name: rawData.label || '未命名',
+        path: currentRoadmap?.path || '',
+        nodeTree: rawData,
+        exportedAt: Date.now(),
+      }] : [];
+      
+      const data = exportAllData(roadmapNodesData);
+      downloadBackupFile(data);
+      message.success(`备份已导出 (${getBackupSize(data)} KB)`);
+      setBackupModalOpen(false);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('[ConfigPanel] 导出备份失败:', error);
+    }
+  }, [rawData, currentRoadmapId, currentRoadmap]);
+  
+  // 导入备份
+  const handleImportBackup = useCallback(async (file: File) => {
+    try {
+      const data = await readBackupFile(file);
+      
+      // 检查是否包含节点数据
+      const hasRoadmapNodes = data.roadmapNodes && data.roadmapNodes.length > 0;
+      
+      // 如果有节点数据，需要用户确认是否覆盖当前数据
+      if (hasRoadmapNodes && importOptions.roadmapNodes) {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          Modal.confirm({
+            title: '确认导入节点数据',
+            content: `备份中包含 ${data.roadmapNodes.length} 个思维导图的节点数据。导入将会覆盖当前的节点数据，是否继续？`,
+            okText: '确认导入',
+            cancelText: '取消',
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        
+        if (!confirmed) {
+          return false;
+        }
+      }
+      
+      // 写入节点数据的回调函数
+      const writeNodeData = async (roadmapId: string, nodeTree: any): Promise<boolean> => {
+        try {
+          const dirHandle = getDirectoryHandle();
+          if (!dirHandle) {
+            console.warn('[ConfigPanel] 没有目录句柄，无法写入节点数据');
+            return false;
+          }
+          
+          // 写入到当前思维导图（如果 ID 匹配）
+          if (currentRoadmapId && roadmapId === currentRoadmapId && currentRoadmap) {
+            // 使用当前思维导图的路径
+            const indexPath = `${currentRoadmap.path}/index.json`;
+            console.log(`[ConfigPanel] 写入当前节点数据到: ${indexPath}`);
+            await writeJsonFile(indexPath, nodeTree);
+            console.log(`[ConfigPanel] 已写入当前节点数据`);
+            return true;
+          } else {
+            // 尝试按照备份中的路径写入
+            const roadmapNode = data.roadmapNodes?.find((r: RoadmapNodeData) => r.id === roadmapId);
+            if (roadmapNode?.path) {
+              const indexPath = `${roadmapNode.path}/index.json`;
+              console.log(`[ConfigPanel] 写入节点数据到: ${indexPath}`);
+              await writeJsonFile(indexPath, nodeTree);
+              console.log(`[ConfigPanel] 已写入节点数据: ${indexPath}`);
+              return true;
+            } else {
+              console.warn('[ConfigPanel] 未找到节点对应的路径');
+              return false;
+            }
+          }
+        } catch (err) {
+          console.error('[ConfigPanel] 写入节点数据失败:', err);
+          return false;
+        }
+      };
+      
+      const result = await importBackupData(data, {
+        importHistory: importOptions.history,
+        importShortcuts: importOptions.shortcuts,
+        importBookmarks: importOptions.bookmarks,
+        importConfigs: importOptions.configs,
+        importRoadmapNodes: importOptions.roadmapNodes,
+        importWatermark: importOptions.watermark,
+        importMinimap: importOptions.minimap,
+        onWriteNodeData: importOptions.roadmapNodes ? writeNodeData : undefined,
+      });
+      
+      if (result.success) {
+        message.success(result.message);
+        setImportModalOpen(false);
+        // 提示用户刷新页面
+        Modal.success({
+          title: '导入成功',
+          content: '备份数据已导入，请刷新页面以应用更改。',
+          okText: '刷新页面',
+          onOk: () => window.location.reload(),
+        });
+      } else {
+        message.error(result.message);
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '导入失败');
+    }
+    
+    return false; // 阻止默认上传行为
+  }, [importOptions, currentRoadmapId, currentRoadmap]);
   
   // ── 排序相关函数 ──
   
@@ -389,13 +602,21 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     setSelectedNodeIds(checkedKeys as string[]);
   };
   
-  // ── 收起状态只显示展开按钮 ──
+  // ── 收起状态只显示展开按钮和小地图开关 ──
   if (!panelExpanded) {
     return (
       <div className="config-panel config-panel-collapsed">
         <button className="config-toggle-btn" onClick={togglePanel} title="展开配置栏">
           ▶
         </button>
+        <Tooltip title={minimapConfig.enabled ? '关闭小地图' : '开启小地图'}>
+          <button 
+            className={`minimap-toggle-btn ${minimapConfig.enabled ? 'active' : ''}`}
+            onClick={toggleMinimap}
+          >
+            🗺️
+          </button>
+        </Tooltip>
       </div>
     );
   }
@@ -407,71 +628,67 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         ◀
       </button>
       
-      {/* 工具栏 */}
+      {/* 工具栏 - 紧凑两行布局 */}
       <div className="config-toolbar">
-        <button onClick={onFitView} className="config-tool-btn" title="适应画布">
-          ⊞ 适应
-        </button>
-        <button onClick={onZoomIn} className="config-tool-btn" title="放大">
-          🔍+
-        </button>
-        <button onClick={onZoomOut} className="config-tool-btn" title="缩小">
-          🔍−
-        </button>
-        <button onClick={onResetZoom} className="config-tool-btn" title="实际大小">
-          1:1
-        </button>
+        {/* 第一行：缩放 + 编辑 + 导出 */}
+        <div className="toolbar-row">
+          <Tooltip title="适应画布">
+            <button onClick={onFitView} className="toolbar-btn">⊞</button>
+          </Tooltip>
+          <Tooltip title="放大">
+            <button onClick={onZoomIn} className="toolbar-btn">+</button>
+          </Tooltip>
+          <Tooltip title="缩小">
+            <button onClick={onZoomOut} className="toolbar-btn">−</button>
+          </Tooltip>
+          <Tooltip title="实际大小">
+            <button onClick={onResetZoom} className="toolbar-btn">1:1</button>
+          </Tooltip>
+          
+          <div className="toolbar-divider" />
+          
+          <Tooltip title={canUndo ? '撤销 (Ctrl+Z)' : '没有可撤销的操作'}>
+            <button 
+              onClick={onUndo} 
+              className={`toolbar-btn ${!canUndo ? 'toolbar-btn-disabled' : ''}`}
+              disabled={!canUndo}
+            >
+              <UndoOutlined />
+            </button>
+          </Tooltip>
+          <Tooltip title={canRedo ? '恢复 (Ctrl+Y)' : '没有可恢复的操作'}>
+            <button 
+              onClick={onRedo} 
+              className={`toolbar-btn ${!canRedo ? 'toolbar-btn-disabled' : ''}`}
+              disabled={!canRedo}
+            >
+              <RedoOutlined />
+            </button>
+          </Tooltip>
+          
+          <div className="toolbar-divider" />
+          
+          <Tooltip title="设置">
+            <button className="toolbar-btn" onClick={() => setShortcutModalOpen(true)}>
+              <SettingOutlined />
+            </button>
+          </Tooltip>
+        </div>
         
-        {/* 撤销/恢复按钮 */}
-        <div className="config-toolbar-divider" />
-        <Tooltip title={canUndo ? '撤销 (Ctrl+Z)' : '没有可撤销的操作'}>
-          <button 
-            onClick={onUndo} 
-            className={`config-tool-btn ${!canUndo ? 'config-tool-btn-disabled' : ''}`}
-            disabled={!canUndo}
-          >
-            <UndoOutlined />
-          </button>
-        </Tooltip>
-        <Tooltip title={canRedo ? '恢复 (Ctrl+Y)' : '没有可恢复的操作'}>
-          <button 
-            onClick={onRedo} 
-            className={`config-tool-btn ${!canRedo ? 'config-tool-btn-disabled' : ''}`}
-            disabled={!canRedo}
-          >
-            <RedoOutlined />
-          </button>
-        </Tooltip>
-        
-        {/* 批量操作下拉菜单 */}
-        <Dropdown
-          menu={{ items: batchMenuItems }}
-          trigger={['click']}
-        >
-          <button className="config-tool-btn config-tool-btn-dropdown" title="批量操作">
-            ⚡ 批量 <DownOutlined style={{ fontSize: 10, marginLeft: 2 }} />
-          </button>
-        </Dropdown>
-        
-        {/* 导出按钮 */}
-        <div className="config-toolbar-divider" />
-        <button onClick={onExportJPG} className="config-tool-btn" title="导出JPG">
-          📷 JPG
-        </button>
-        <button onClick={onExportPDF} className="config-tool-btn" title="导出PDF">
-          📄 PDF
-        </button>
-        
-        {/* 快捷键设置按钮 */}
-        <Tooltip title="快捷键设置">
-          <button 
-            className="config-tool-btn" 
-            onClick={() => setShortcutModalOpen(true)}
-            style={{ marginLeft: 'auto' }}
-          >
-            <SettingOutlined />
-          </button>
-        </Tooltip>
+        {/* 第二行：小地图开关 + 更多操作 */}
+        <div className="toolbar-row">
+          <Tooltip title={minimapConfig.enabled ? '关闭小地图' : '开启小地图'}>
+            <button 
+              className={`toolbar-btn minimap-toggle-btn ${minimapConfig.enabled ? 'active' : ''}`}
+              onClick={toggleMinimap}
+            >
+              🗺️
+            </button>
+          </Tooltip>
+          <Dropdown menu={{ items: batchMenuItems }} trigger={['click']}>
+            <button className="toolbar-btn">⚡ 操作</button>
+          </Dropdown>
+        </div>
       </div>
       
       {/* Tab 切换 */}
@@ -547,10 +764,8 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         ) : (
           // 配置面板
           <ConfigSettingsPanel
-            colors={colors}
             layout={layout}
             zoom={zoom}
-            onUpdateColors={handleUpdateColors}
             onUpdateLayout={updateLayout}
             onUpdateZoom={updateZoom}
             onResetConfig={resetCurrentConfig}
@@ -645,6 +860,138 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         )}
       </Modal>
+      
+      {/* 导出备份弹窗 */}
+      <Modal
+        title="导出备份"
+        open={backupModalOpen}
+        onOk={handleExportBackup}
+        onCancel={() => setBackupModalOpen(false)}
+        okText="导出"
+        cancelText="取消"
+      >
+        <p>将导出以下数据：</p>
+        <ul style={{ paddingLeft: 20, color: '#666' }}>
+          <li>🌳 当前节点数据（思维导图结构）</li>
+          <li>📜 历史记录（撤销/恢复数据）</li>
+          <li>⌨️ 快捷键配置</li>
+          <li>🔖 书签数据</li>
+          <li>🎨 颜色/布局配置</li>
+        </ul>
+        <p style={{ marginTop: 12, color: '#999', fontSize: 12 }}>
+          备份文件为 JSON 格式，可用于在其他设备恢复完整数据。
+        </p>
+      </Modal>
+      
+      {/* 导入备份弹窗 */}
+      <Modal
+        title="导入备份"
+        open={importModalOpen}
+        onCancel={() => setImportModalOpen(false)}
+        footer={null}
+      >
+        <p>选择要导入的备份文件：</p>
+        
+        <Upload
+          accept=".json"
+          beforeUpload={handleImportBackup}
+          showUploadList={false}
+          maxCount={1}
+        >
+          <button className="backup-upload-btn">
+            📂 选择备份文件 (.json)
+          </button>
+        </Upload>
+        
+        <p style={{ marginTop: 16, marginBottom: 8 }}>导入选项：</p>
+        <div className="import-options">
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.roadmapNodes}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, roadmapNodes: e.target.checked }))}
+            />
+            节点数据
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.history}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, history: e.target.checked }))}
+            />
+            历史记录
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.shortcuts}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, shortcuts: e.target.checked }))}
+            />
+            快捷键配置
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.bookmarks}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, bookmarks: e.target.checked }))}
+            />
+            书签数据
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.configs}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, configs: e.target.checked }))}
+            />
+            颜色/布局配置
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.watermark}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, watermark: e.target.checked }))}
+            />
+            水印配置
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={importOptions.minimap}
+              onChange={(e) => setImportOptions(prev => ({ ...prev, minimap: e.target.checked }))}
+            />
+            小地图配置
+          </label>
+        </div>
+        
+        <p style={{ marginTop: 12, color: '#ff4d4f', fontSize: 12 }}>
+          ⚠️ 导入将覆盖现有数据，请谨慎操作。
+        </p>
+      </Modal>
+      
+      {/* 书签管理弹窗 */}
+      <BookmarkManagerModal
+        open={bookmarkModalOpen}
+        onClose={() => setBookmarkModalOpen(false)}
+        onFocusNode={onFocusNode}
+      />
+      
+      {/* 自定义节点管理弹窗 */}
+      <CustomNodeManagerModal
+        open={customNodeModalOpen}
+        onClose={() => setCustomNodeModalOpen(false)}
+      />
+      
+      {/* 水印设置弹窗 */}
+      <WatermarkConfigModal
+        open={watermarkModalOpen}
+        onClose={() => setWatermarkModalOpen(false)}
+      />
+      
+      {/* 主题设置弹窗 */}
+      <ThemeConfigModal
+        open={themeModalOpen}
+        onClose={() => setThemeModalOpen(false)}
+      />
     </div>
   );
 };

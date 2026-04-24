@@ -191,6 +191,13 @@ export function createNodeFromFormData(formData: NodeFormData, parentId?: string
     node.url = formData.url;
   }
 
+  // 添加自定义节点样式字段
+  if (formData.customNodeId) {
+    node.customNodeId = formData.customNodeId;
+    node.customFill = formData.customFill;
+    node.customStroke = formData.customStroke;
+  }
+
   return node;
 }
 
@@ -457,6 +464,39 @@ export function deleteSection(mdContent: string, sectionTitle: string): string {
   }
   
   return mdContent;
+}
+
+/**
+ * 从 MD 文件中删除指定章节
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
+ * @param sectionTitle 章节标题
+ * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
+ */
+export async function deleteSectionFromMdFile(
+  mdPath: string,
+  sectionTitle: string,
+  roadmapPath?: string
+): Promise<ApiResult> {
+  try {
+    // 构建完整的 MD 文件路径
+    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    
+    // 先获取 MD 文件内容
+    const readResult = await readMdFile(fullPath);
+    if (!readResult.success || !readResult.content) {
+      return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
+    }
+    
+    let mdContent = readResult.content;
+    
+    // 删除章节
+    mdContent = deleteSection(mdContent, sectionTitle);
+    
+    // 保存文件（使用完整路径）
+    return await saveMdFile(fullPath, mdContent);
+  } catch (error) {
+    return { success: false, message: `删除章节失败: ${error}` };
+  }
 }
 
 /**

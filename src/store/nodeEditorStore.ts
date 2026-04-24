@@ -27,6 +27,12 @@ export interface NodeFormData {
   mdContent: string;
   /** sub 节点专用：章节标题 */
   sectionTitle: string;
+  /** 自定义节点 ID（可选） */
+  customNodeId?: string;
+  /** 自定义节点填充色覆盖 */
+  customFill?: string;
+  /** 自定义节点边框色覆盖 */
+  customStroke?: string;
 }
 
 /** 编辑器状态 */
@@ -86,6 +92,9 @@ const DEFAULT_FORM_DATA: NodeFormData = {
   url: '',
   mdContent: '',
   sectionTitle: '',
+  customNodeId: undefined,
+  customFill: undefined,
+  customStroke: undefined,
 };
 
 /** 根据节点类型获取默认图标 */
@@ -156,12 +165,15 @@ export const useNodeEditorStore = create<NodeEditorState>((set, get) => ({
       formData: {
         label: node.label,
         type: node.type,
-        icon: '', // 从节点获取图标，如果有
+        icon: node.icon || '', // 从节点获取图标
         description: node.description || '',
         mdPath: isSubNode ? (mdPath || '') : (node.mdPath || ''),
         url: node.url || '',
         mdContent: '', // MD内容需要异步加载
         sectionTitle: isSubNode ? node.label : '',
+        customNodeId: node.customNodeId,
+        customFill: node.customFill,
+        customStroke: node.customStroke,
       },
       originalMdContent: '',
       isLoadingMd: false,

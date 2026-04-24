@@ -271,7 +271,10 @@ export const useHistoryStore = create<HistoryStore>()(
     set({ isProcessing: true });
 
     try {
+      // 获取当前思维导图路径
+      const mdBasePath = useRoadmapStore.getState().getMdBasePath();
       let targetTree: RoadmapNode | null = null;
+      let filesToRestore: DeletedFileInfo[] = [];
 
       if (type === 'past') {
         // 跳转到过去的状态
@@ -284,6 +287,12 @@ export const useHistoryStore = create<HistoryStore>()(
         const targetEntry = past[targetIndex];
         targetTree = targetEntry.tree;
 
+        // 收集需要恢复的文件：从当前状态到目标状态之间所有被修改的文件
+        // 对于跳转到过去，我们需要恢复目标状态对应的文件
+        if (targetEntry.deletedFiles && targetEntry.deletedFiles.length > 0) {
+          filesToRestore = targetEntry.deletedFiles;
+        }
+
         // 更新状态：将目标之后的所有历史移到 future
         const newPast = past.slice(0, targetIndex);
         const newFuture = [
@@ -295,6 +304,18 @@ export const useHistoryStore = create<HistoryStore>()(
           })),
           ...future,
         ];
+
+        // 恢复文件
+        if (filesToRestore.length > 0) {
+          console.log('[HistoryStore] 跳转时恢复文件:', filesToRestore.length, '个');
+          for (const fileInfo of filesToRestore) {
+            const fullPath = `${mdBasePath}/${fileInfo.path}`;
+            const result = await writeFile(fullPath, fileInfo.content);
+            if (!result.success) {
+              console.error('[HistoryStore] 恢复文件失败:', fileInfo.path, result.message);
+            }
+          }
+        }
 
         // 持久化目标状态
         await saveIndexJson(roadmapPath, targetTree);
@@ -316,6 +337,11 @@ export const useHistoryStore = create<HistoryStore>()(
         const targetEntry = future[targetIndex];
         targetTree = targetEntry.tree;
 
+        // 收集需要处理的文件
+        if (targetEntry.deletedFiles && targetEntry.deletedFiles.length > 0) {
+          filesToRestore = targetEntry.deletedFiles;
+        }
+
         // 更新状态：将目标之后的所有历史移到 past
         const newFuture = future.slice(targetIndex + 1);
         const newPast = [
@@ -327,6 +353,18 @@ export const useHistoryStore = create<HistoryStore>()(
             deletedFiles: entry.deletedFiles,
           })),
         ];
+
+        // 恢复文件（重做时需要重新应用文件状态）
+        if (filesToRestore.length > 0) {
+          console.log('[HistoryStore] 跳转到未来时恢复文件:', filesToRestore.length, '个');
+          for (const fileInfo of filesToRestore) {
+            const fullPath = `${mdBasePath}/${fileInfo.path}`;
+            const result = await writeFile(fullPath, fileInfo.content);
+            if (!result.success) {
+              console.error('[HistoryStore] 恢复文件失败:', fileInfo.path, result.message);
+            }
+          }
+        }
 
         // 持久化目标状态
         await saveIndexJson(roadmapPath, targetTree);

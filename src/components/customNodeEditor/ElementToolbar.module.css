@@ -1,0 +1,53 @@
+/**
+ * 元素工具栏样式
+ */
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.elementList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.elementItem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 44px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.elementItem:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  transform: scale(1.05);
+}
+
+.elementItem:active {
+  cursor: grabbing;
+}
+
+.elementIcon {
+  font-size: 20px;
+}

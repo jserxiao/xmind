@@ -1,0 +1,130 @@
+/**
+ * 自定义节点编辑器页面样式
+ */
+
+.modal :global(.ant-modal-content) {
+  padding: 0;
+}
+
+.modal :global(.ant-modal-header) {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px 8px 0 0;
+  margin: 0;
+}
+
+.modal :global(.ant-modal-title) {
+  color: white;
+}
+
+.modal :global(.ant-modal-close) {
+  color: white;
+  top: 12px;
+}
+
+.modal :global(.ant-modal-close:hover) {
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.container {
+  display: flex;
+  height: 600px;
+  background: var(--bg-secondary);
+}
+
+/* 左侧工具栏 */
+.toolbar {
+  width: 80px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 中间画布区域 */
+.canvasArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topSettings {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingRow label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.settingRow span {
+  color: var(--text-muted);
+}
+
+.colorInput {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorInput::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+/* 底部操作栏 */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+}
+
+.leftActions,
+.rightActions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 右侧属性面板 */
+.propertyPanel {
+  width: 220px;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  overflow-y: auto;
+}

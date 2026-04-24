@@ -4,10 +4,13 @@
  * 显示节点的基础信息编辑表单
  */
 
-import React from 'react';
-import { Input, Select } from 'antd';
+import React, { useState } from 'react';
+import { Input, Select, Button } from 'antd';
+import { AppstoreAddOutlined } from '@ant-design/icons';
 import { useNodeEditorStore, getDefaultIcon, type NodeType } from '../../store/nodeEditorStore';
+import { useCustomNodeStore } from '../../store/customNodeStore';
 import { ICON_LIST, NODE_TYPE_OPTIONS } from '../../constants';
+import CustomNodeManagerModal from '../customNodeEditor/CustomNodeManagerModal';
 
 const { TextArea } = Input;
 
@@ -17,6 +20,9 @@ const { TextArea } = Input;
  */
 const BasicInfoForm: React.FC = () => {
   const { formData, updateFormData, setMdContent } = useNodeEditorStore();
+  const [showCustomNodeModal, setShowCustomNodeModal] = useState(false);
+  const customNodesRecord = useCustomNodeStore((state) => state.customNodes);
+  const customNodes = Object.values(customNodesRecord);
   
   // 是否是 sub 节点
   const isSubNode = formData.type === 'sub';
@@ -28,6 +34,33 @@ const BasicInfoForm: React.FC = () => {
       icon: formData.icon || getDefaultIcon(type),
     });
   };
+  
+  // 选择自定义节点
+  const handleSelectCustomNode = (nodeId: string) => {
+    const node = customNodes.find((n) => n.id === nodeId);
+    if (node) {
+      updateFormData({
+        customNodeId: nodeId,
+        customFill: node.defaultFill,
+        customStroke: node.defaultStroke,
+      });
+    }
+    setShowCustomNodeModal(false);
+  };
+  
+  // 清除自定义节点选择
+  const handleClearCustomNode = () => {
+    updateFormData({
+      customNodeId: undefined,
+      customFill: undefined,
+      customStroke: undefined,
+    });
+  };
+  
+  // 获取选中的自定义节点信息
+  const selectedCustomNode = formData.customNodeId 
+    ? customNodes.find((n) => n.id === formData.customNodeId) 
+    : null;
 
   return (
     <div className="editor-form">
@@ -47,6 +80,76 @@ const BasicInfoForm: React.FC = () => {
           placeholder={isSubNode ? "请输入章节标题" : "请输入节点标题"}
           size="large"
         />
+      </div>
+
+      {/* 自定义节点选择 - 所有节点类型都可以选择 */}
+      <div className="form-group">
+        <label className="form-label">自定义节点样式</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {selectedCustomNode ? (
+            <>
+              <div 
+                style={{ 
+                  padding: '6px 12px', 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flex: 1,
+                }}
+              >
+                <span style={{ fontSize: 16 }}>
+                  {selectedCustomNode.elements.find(e => e.type === 'icon')?.icon || '🎨'}
+                </span>
+                <span>{selectedCustomNode.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  ({selectedCustomNode.width}×{selectedCustomNode.height})
+                </span>
+              </div>
+              <Button onClick={handleClearCustomNode}>清除</Button>
+              <Button onClick={() => setShowCustomNodeModal(true)}>更换</Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                icon={<AppstoreAddOutlined />} 
+                onClick={() => setShowCustomNodeModal(true)}
+                style={{ flex: 1 }}
+              >
+                选择自定义节点样式
+              </Button>
+              {customNodes.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  暂无自定义节点，请先创建
+                </span>
+              )}
+            </>
+          )}
+        </div>
+        {formData.customNodeId && (
+          <div style={{ marginTop: 8, display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>填充色：</label>
+              <input
+                type="color"
+                value={formData.customFill || '#e6f7ff'}
+                onChange={(e) => updateFormData({ customFill: e.target.value })}
+                style={{ width: 28, height: 28, border: '1px solid var(--border-color)', borderRadius: 4, cursor: 'pointer' }}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>边框色：</label>
+              <input
+                type="color"
+                value={formData.customStroke || '#1890ff'}
+                onChange={(e) => updateFormData({ customStroke: e.target.value })}
+                style={{ width: 28, height: 28, border: '1px solid var(--border-color)', borderRadius: 4, cursor: 'pointer' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 非 sub 节点显示类型、图标、描述等 */}
@@ -134,6 +237,14 @@ const BasicInfoForm: React.FC = () => {
           )}
         </>
       )}
+      
+      {/* 自定义节点选择弹窗 */}
+      <CustomNodeManagerModal
+        open={showCustomNodeModal}
+        onClose={() => setShowCustomNodeModal(false)}
+        onSelectNode={handleSelectCustomNode}
+        showSelect
+      />
     </div>
   );
 };

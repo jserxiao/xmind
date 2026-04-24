@@ -22,9 +22,14 @@ import { useConfigStore } from '../store/configStore';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { useHistoryStore } from '../store/historyStore';
+import { useBookmarkStore } from '../store/bookmarkStore';
+import { useWatermarkStore } from '../store/watermarkStore';
+import { useMinimapStore } from '../store/minimapStore';
+import { useThemeStore } from '../store/themeStore';
 import { useUndoRedoShortcuts } from '../hooks/useKeyboardShortcuts';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
+import { getDirectoryHandle } from '../utils/fileSystem';
 import type { NodeModel } from '../core/GraphManager';
 import { GraphManager } from '../core/GraphManager';
 import { NodeRenderer } from '../core/NodeRenderer';
@@ -44,6 +49,7 @@ import {
   saveMdFile,
   findAncestorMdPath,
   addSectionToMdFile,
+  deleteSectionFromMdFile,
   batchDeleteNodes,
   findNodesByIds,
   collectMdPathsFromNode,
@@ -69,9 +75,10 @@ interface RoadmapGraphProps {
 /**
  * 将 RoadmapNode 转换为 G6 可用的树形数据
  * @param node 原始节点数据
+ * @param bookmarkIdsSet 书签节点 ID 集合
  * @returns G6 节点数据
  */
-function convertToTreeData(node: RoadmapNode): NodeModel {
+function convertToTreeData(node: RoadmapNode, bookmarkIdsSet: Set<string>): NodeModel {
   const nodeData: NodeModel = {
     id: node.id,
     label: node.label,
@@ -79,6 +86,11 @@ function convertToTreeData(node: RoadmapNode): NodeModel {
     url: node.url,
     description: node.description,
     originalType: node.type,
+    hasBookmark: bookmarkIdsSet.has(node.id),
+    // 自定义节点样式
+    customNodeId: node.customNodeId,
+    customFill: node.customFill,
+    customStroke: node.customStroke,
   };
 
   // 根据节点类型设置 G6 节点类型和尺寸
@@ -107,7 +119,7 @@ function convertToTreeData(node: RoadmapNode): NodeModel {
 
   // 递归处理子节点
   if (node.children?.length) {
-    nodeData.children = node.children.map(convertToTreeData);
+    nodeData.children = node.children.map(n => convertToTreeData(n, bookmarkIdsSet));
   }
 
   return nodeData;
@@ -155,7 +167,8 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 
   // ── Store 状态 ──
   // 获取配置状态用于监听变化
-  // 使用 getCurrentConfig 获取当前思维导图的配置
+  // 使用 configVersion 确保配置变化时组件重新渲染
+  const configVersion = useConfigStore((state) => state.configVersion);
   const getCurrentConfig = useConfigStore((state) => state.getCurrentConfig);
   const currentConfig = getCurrentConfig();
   
@@ -176,6 +189,30 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const redo = useHistoryStore((state) => state.redo);
   const canUndo = useHistoryStore((state) => state.canUndo);
   const canRedo = useHistoryStore((state) => state.canRedo);
+  
+  // 书签 Store - 使用 ref 避免无限循环
+  const bookmarkIdsRef = useRef<Set<string>>(new Set());
+  const hasBookmark = useBookmarkStore((state) => state.hasBookmark);
+  const toggleBookmark = useBookmarkStore((state) => state.toggleBookmark);
+  const setCurrentRoadmapId = useBookmarkStore((state) => state.setCurrentRoadmapId);
+  
+  // 水印 Store
+  const watermarkConfig = useWatermarkStore((state) => state.config);
+  
+  // 小地图 Store
+  const minimapConfig = useMinimapStore((state) => state.config);
+  
+  // 更新书签 ID 集合
+  useEffect(() => {
+    const store = useBookmarkStore.getState();
+    const bookmarks = store.getBookmarks();
+    bookmarkIdsRef.current = new Set(bookmarks.map(b => b.nodeId));
+  }, []);
+  
+  // 同步书签 Store 的 currentRoadmapId
+  useEffect(() => {
+    setCurrentRoadmapId(currentRoadmapId);
+  }, [currentRoadmapId, setCurrentRoadmapId]);
   
   // 将对象序列化以便监听内部变化
   const colorsJson = JSON.stringify(currentConfig.colors);
@@ -205,6 +242,12 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
      */
     const init = async () => {
       try {
+        // 检查是否有有效的目录句柄
+        if (!getDirectoryHandle()) {
+          setLoading(false);
+          return;
+        }
+        
         // 检查是否有有效的路径
         const mdBasePath = getMdBasePath();
         if (!mdBasePath) {
@@ -240,7 +283,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         });
 
         // 5. 初始化图
-        const treeData = convertToTreeData(enriched);
+        const treeData = convertToTreeData(enriched, bookmarkIdsRef.current);
         graphManagerRef.current.initialize(treeData);
 
         // 6. 创建事件处理器
@@ -320,8 +363,6 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
             if (rootNode) {
               // 先将根节点移到中心
               graph.focusItem(rootNode, false);
-              // 设置初始缩放比例
-              graph.zoomTo(1.0, { x: graph.get('width') / 2, y: graph.get('height') / 2 });
             }
           }
         }, 100);
@@ -372,11 +413,51 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   useEffect(() => {
     // 当配置变化或切换思维导图时，刷新图
     if (graphManagerRef.current && !loading) {
-      console.log('[RoadmapGraph] 配置变化或切换思维导图，刷新图', { colors, layout, nodeStyles, textStyles, currentRoadmapId });
+      console.log('[RoadmapGraph] 配置变化或切换思维导图，刷新图', { colors, layout, nodeStyles, textStyles, currentRoadmapId, configVersion });
       graphManagerRef.current.refresh();
     }
     // 使用序列化后的字符串作为依赖，确保能检测到对象内部的变化
-  }, [colorsJson, layoutJson, nodeStylesJson, textStylesJson, loading, currentRoadmapId]);
+    // configVersion 确保配置更新时组件重新渲染
+  }, [colorsJson, layoutJson, nodeStylesJson, textStylesJson, loading, currentRoadmapId, configVersion]);
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 水印和小地图配置变化监听
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // 监听水印配置变化
+  useEffect(() => {
+    if (!graphManagerRef.current || loading) return;
+    
+    console.log('[RoadmapGraph] 水印配置变化:', watermarkConfig);
+    graphManagerRef.current.setWatermark(watermarkConfig);
+  }, [watermarkConfig, loading]);
+
+  // 监听小地图配置变化
+  useEffect(() => {
+    if (!graphManagerRef.current || loading) return;
+    
+    console.log('[RoadmapGraph] 小地图配置变化:', minimapConfig);
+    graphManagerRef.current.setMinimap(minimapConfig);
+  }, [minimapConfig, loading]);
+
+  // 监听主题变化，刷新画布节点
+  const currentThemeId = useThemeStore((state) => state.currentThemeId);
+  const themeColors = useThemeStore((state) => state.getCurrentColors());
+  
+  useEffect(() => {
+    if (!graphManagerRef.current || loading) return;
+    
+    const graph = graphManagerRef.current.getGraph();
+    if (!graph) return;
+    
+    console.log('[RoadmapGraph] 主题变化，刷新画布');
+    // 刷新所有节点以应用新主题
+    graph.getNodes().forEach((node: any) => {
+      graph.updateItem(node, {});
+    });
+    // 刷新布局
+    graph.layout();
+  }, [currentThemeId, themeColors, loading]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // 工具栏操作方法
@@ -405,6 +486,10 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   /** 聚焦到指定节点 */
   const focusNode = useCallback((nodeId: string) => {
     eventHandlerRef.current?.focusNode(nodeId);
+    // 聚焦后添加高亮效果
+    setTimeout(() => {
+      eventHandlerRef.current?.highlightNode(nodeId, 2500);
+    }, 600);
   }, []);
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -459,17 +544,24 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const handleDeleteNode = useCallback(() => {
     if (!contextMenu.node || !rawData) return;
     
-    const nodeLabel = contextMenu.node.label;
-    const hasChildren = contextMenu.node.children && contextMenu.node.children.length > 0;
+    const node = contextMenu.node;
+    const nodeLabel = node.label;
+    const isSubNode = node.type === 'sub';
+    const hasChildren = node.children && node.children.length > 0;
     
     Modal.confirm({
       title: '确认删除',
       content: (
         <div>
           <p>确定要删除节点「<strong>{nodeLabel}</strong>」吗？</p>
+          {isSubNode && (
+            <p style={{ color: '#faad14', marginTop: 8 }}>
+              ⚠️ 此操作将同时删除 MD 文件中对应的章节内容。
+            </p>
+          )}
           {hasChildren && (
             <p style={{ color: '#ff4d4f', marginTop: 8 }}>
-              ⚠️ 此操作将同时删除该节点的所有子节点（共 {contextMenu.node.children?.length} 个）。
+              ⚠️ 此操作将同时删除该节点的所有子节点（共 {node.children?.length} 个）。
             </p>
           )}
           <p style={{ color: '#999', marginTop: 8, fontSize: 12 }}>可通过 Ctrl+Z 撤销此操作</p>
@@ -484,37 +576,61 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         try {
           const mdBasePath = getMdBasePath();
           const roadmapPath = mdBasePath.split('/').pop() || '';
-          
-          // 1. 收集要删除的 MD 文件路径
-          const mdPathsToDelete = collectMdPathsFromNode(contextMenu.node!);
-          
-          // 2. 读取并保存 MD 文件内容（用于撤销时恢复）
           const deletedFiles: DeletedFileInfo[] = [];
-          for (const mdPath of mdPathsToDelete) {
-            const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
-            if (readResult.success && readResult.content) {
-              deletedFiles.push({
-                path: `${mdPath}.md`,
-                content: readResult.content,
-              });
+          
+          // 处理 sub 节点删除：需要删除 MD 文件中的章节
+          if (isSubNode) {
+            // 查找祖先节点的 mdPath
+            const ancestorMdPath = findAncestorMdPath(node.id, rawData);
+            
+            if (ancestorMdPath) {
+              // 读取完整的 MD 文件内容（用于撤销时恢复）
+              const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
+              if (readResult.success && readResult.content) {
+                // 保存完整的 MD 文件内容
+                deletedFiles.push({
+                  path: `${ancestorMdPath}.md`,
+                  content: readResult.content,
+                });
+                
+                // 删除 MD 文件中的章节
+                const deleteResult = await deleteSectionFromMdFile(ancestorMdPath, nodeLabel, roadmapPath);
+                if (!deleteResult.success) {
+                  console.warn('[RoadmapGraph] 删除章节失败:', deleteResult.message);
+                }
+              }
+            }
+          } else {
+            // 非 sub 节点：收集要删除的 MD 文件路径
+            const mdPathsToDelete = collectMdPathsFromNode(node);
+            
+            // 读取并保存 MD 文件内容（用于撤销时恢复）
+            for (const mdPath of mdPathsToDelete) {
+              const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+              if (readResult.success && readResult.content) {
+                deletedFiles.push({
+                  path: `${mdPath}.md`,
+                  content: readResult.content,
+                });
+              }
+            }
+            
+            // 删除 MD 文件
+            for (const mdPath of mdPathsToDelete) {
+              await deleteMdFile(mdPath, roadmapPath);
             }
           }
           
-          // 3. 记录历史（包含被删除的文件信息）
+          // 记录历史（包含被删除的文件信息）
           pushHistory(rawData, `删除节点「${nodeLabel}」`, deletedFiles);
           
-          // 4. 删除 MD 文件
-          for (const mdPath of mdPathsToDelete) {
-            await deleteMdFile(mdPath, roadmapPath);
-          }
-          
-          // 5. 执行删除节点
-          const newTree = deleteNodeFromTree(rawData, contextMenu.node!.id);
+          // 执行删除节点
+          const newTree = deleteNodeFromTree(rawData, node.id);
           setRawData(newTree);
           rawDataRef.current = newTree;
           
           // 更新画布
-          const treeData = convertToTreeData(newTree);
+          const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
           graphManagerRef.current?.setData(treeData);
           
           // 更新 index.json
@@ -541,6 +657,16 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu((prev) => ({ ...prev, visible: false }));
   }, []);
+
+  /** 切换书签 */
+  const handleToggleBookmark = useCallback(() => {
+    const node = contextMenu.node;
+    if (!node) return;
+    
+    const added = toggleBookmark(node.id, node.label.replace(/\n/g, ' ').slice(0, 50));
+    message.success(added ? '已添加书签' : '已移除书签');
+    setContextMenu((prev) => ({ ...prev, visible: false }));
+  }, [contextMenu.node, toggleBookmark]);
 
   /**
    * 内部函数：打开预览面板
@@ -626,64 +752,102 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         // 添加新节点
         const newNode = createNodeFromFormData(formData, parentNodeId);
         newNodeId = newNode.id;
-        const newTree = addChildNode(rawData, parentNodeId, newNode);
-        setRawData(newTree);
-        rawDataRef.current = newTree;
         
-        // 更新画布
-        const treeData = convertToTreeData(newTree);
-        graphManagerRef.current?.setData(treeData);
-        
-        // 处理 MD 文件同步
+        // 处理 sub 类型节点的特殊情况
         if (formData.type === 'sub') {
-          // sub 类型节点：在父节点的 MD 文件中添加新章节
+          // sub 节点需要特殊处理：
+          // 1. 不添加到节点树中（因为是动态从 MD 文件提取的）
+          // 2. 在 MD 文件中添加新章节
           const parentNode = findNodeInTree(rawData, parentNodeId);
-          const parentMdPath = parentNode?.mdPath;
+          let targetMdPath = parentNode?.mdPath;
           
-          if (parentMdPath) {
+          // 如果父节点没有 mdPath，尝试向上查找祖先节点
+          if (!targetMdPath) {
+            targetMdPath = findAncestorMdPath(parentNodeId, rawData);
+          }
+          
+          if (targetMdPath) {
             // 在 MD 文件中添加新章节
             const sectionResult = await addSectionToMdFile(
-              parentMdPath,
+              targetMdPath,
               formData.label,
               formData.mdContent || undefined,
               getMdBasePath()
             );
             if (!sectionResult.success) {
               message.warning(sectionResult.message);
+            } else {
+              // 需要重新加载数据以获取更新后的 sub 节点
+              const mdBasePath = getMdBasePath();
+              const roadmapPath = mdBasePath.split('/').pop() || '';
+              const freshTree = await loadRoadmapData(roadmapPath);
+              const enrichedTree = await enrichWithSubNodes(freshTree, roadmapPath);
+              
+              setRawData(enrichedTree);
+              rawDataRef.current = enrichedTree;
+              
+              // 更新画布
+              const treeData = convertToTreeData(enrichedTree, bookmarkIdsRef.current);
+              graphManagerRef.current?.setData(treeData);
+              
+              // 更新 index.json（sub 节点不存储在 index.json 中，但需要确保一致性）
+              await updateIndexJson(roadmapPath, freshTree);
             }
           } else {
-            // 父节点没有 mdPath，尝试向上查找祖先节点
-            const ancestorMdPath = findAncestorMdPath(parentNodeId, rawData);
-            if (ancestorMdPath) {
-              const sectionResult = await addSectionToMdFile(
-                ancestorMdPath,
-                formData.label,
-                formData.mdContent || undefined,
-                getMdBasePath()
-              );
-              if (!sectionResult.success) {
-                message.warning(sectionResult.message);
-              }
+            message.warning('无法找到对应的 MD 文件，请确保父节点或祖先节点有关联的 MD 文件');
+          }
+        } else {
+          // 非 sub 节点：正常添加到节点树
+          const newTree = addChildNode(rawData, parentNodeId, newNode);
+          setRawData(newTree);
+          rawDataRef.current = newTree;
+          
+          // 更新画布
+          const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
+          graphManagerRef.current?.setData(treeData);
+          
+          // 处理 MD 文件同步
+          if (formData.mdContent && formData.mdPath) {
+            // 有 MD 内容：保存 MD 文件
+            const fullMdPath = getFullMdPath(formData.mdPath);
+            const mdResult = await saveMdFile(fullMdPath, formData.mdContent);
+            if (!mdResult.success) {
+              message.warning(mdResult.message);
             }
+          } else if (formData.mdPath) {
+            // 没有内容但有路径：创建默认模板
+            const fullMdPath = getFullMdPath(formData.mdPath);
+            const template = `# ${formData.label}\n\n${formData.description ? `> ${formData.description}` : ''}\n\n## 概述\n\n<!-- 在这里编写内容 -->\n`;
+            await saveMdFile(fullMdPath, template);
           }
-        } else if (formData.mdContent && formData.mdPath) {
-          // 非 sub 节点，有 MD 内容：保存 MD 文件（需要添加完整路径）
-          const fullMdPath = getFullMdPath(formData.mdPath);
-          const mdResult = await saveMdFile(fullMdPath, formData.mdContent);
-          if (!mdResult.success) {
-            message.warning(mdResult.message);
+          
+          // 更新 index.json
+          const mdBasePath = getMdBasePath();
+          const roadmapPath = mdBasePath.split('/').pop() || '';
+          const result = await updateIndexJson(roadmapPath, newTree);
+          
+          hideLoading();
+          
+          if (result.success) {
+            message.success(`节点「${formData.label}」已添加`);
+          } else {
+            message.error(result.message);
           }
-        } else if (formData.mdPath) {
-          // 非 sub 节点，没有内容但有路径：创建默认模板
-          const fullMdPath = getFullMdPath(formData.mdPath);
-          const template = `# ${formData.label}\n\n${formData.description ? `> ${formData.description}` : ''}\n\n## 概述\n\n<!-- 在这里编写内容 -->\n`;
-          await saveMdFile(fullMdPath, template);
+          closePanel();
+          
+          // 跳转到新节点
+          if (newNodeId) {
+            setTimeout(() => {
+              eventHandlerRef.current?.focusNode(newNodeId!);
+            }, 300);
+          }
+          return;
         }
         
         // 更新 index.json
         const mdBasePath = getMdBasePath();
         const roadmapPath = mdBasePath.split('/').pop() || '';
-        const result = await updateIndexJson(roadmapPath, newTree);
+        const result = await updateIndexJson(roadmapPath, rawData);
         
         hideLoading();
         
@@ -704,6 +868,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
           label: formData.label,
           type: formData.type,
           description: formData.description || undefined,
+          customNodeId: formData.customNodeId,
+          customFill: formData.customFill,
+          customStroke: formData.customStroke,
         };
         
         if (formData.type !== 'link' && formData.mdPath && !isSubNode) {
@@ -718,7 +885,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         rawDataRef.current = newTree;
         
         // 更新画布
-        const treeData = convertToTreeData(newTree);
+        const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
         graphManagerRef.current?.setData(treeData);
         
         // 处理 MD 内容保存
@@ -815,7 +982,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         rawDataRef.current = previousTree;
         
         // 更新画布
-        const treeData = convertToTreeData(previousTree);
+        const treeData = convertToTreeData(previousTree, bookmarkIdsRef.current);
         graphManagerRef.current?.setData(treeData);
         
         hideLoading();
@@ -844,7 +1011,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         rawDataRef.current = nextTree;
         
         // 更新画布
-        const treeData = convertToTreeData(nextTree);
+        const treeData = convertToTreeData(nextTree, bookmarkIdsRef.current);
         graphManagerRef.current?.setData(treeData);
         
         hideLoading();
@@ -867,7 +1034,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     rawDataRef.current = tree;
     
     // 更新画布
-    const treeData = convertToTreeData(tree);
+    const treeData = convertToTreeData(tree, bookmarkIdsRef.current);
     graphManagerRef.current?.setData(treeData);
   }, []);
 
@@ -885,6 +1052,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     if (!rawData || node.type === 'root') return;
     
     const nodeLabel = node.label;
+    const isSubNode = node.type === 'sub';
     const hasChildren = node.children && node.children.length > 0;
     
     Modal.confirm({
@@ -892,6 +1060,11 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       content: (
         <div>
           <p>确定要删除节点「<strong>{nodeLabel}</strong>」吗？</p>
+          {isSubNode && (
+            <p style={{ color: '#faad14', marginTop: 8 }}>
+              ⚠️ 此操作将同时删除 MD 文件中对应的章节内容。
+            </p>
+          )}
           {hasChildren && (
             <p style={{ color: '#ff4d4f', marginTop: 8 }}>
               ⚠️ 此操作将同时删除该节点的所有子节点（共 {node.children?.length} 个）。
@@ -909,37 +1082,61 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         try {
           const mdBasePath = getMdBasePath();
           const roadmapPath = mdBasePath.split('/').pop() || '';
-          
-          // 1. 收集要删除的 MD 文件路径
-          const mdPathsToDelete = collectMdPathsFromNode(node);
-          
-          // 2. 读取并保存 MD 文件内容（用于撤销时恢复）
           const deletedFiles: DeletedFileInfo[] = [];
-          for (const mdPath of mdPathsToDelete) {
-            const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
-            if (readResult.success && readResult.content) {
-              deletedFiles.push({
-                path: `${mdPath}.md`,
-                content: readResult.content,
-              });
+          
+          // 处理 sub 节点删除：需要删除 MD 文件中的章节
+          if (isSubNode) {
+            // 查找祖先节点的 mdPath
+            const ancestorMdPath = findAncestorMdPath(node.id, rawData);
+            
+            if (ancestorMdPath) {
+              // 读取完整的 MD 文件内容（用于撤销时恢复）
+              const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
+              if (readResult.success && readResult.content) {
+                // 保存完整的 MD 文件内容
+                deletedFiles.push({
+                  path: `${ancestorMdPath}.md`,
+                  content: readResult.content,
+                });
+                
+                // 删除 MD 文件中的章节
+                const deleteResult = await deleteSectionFromMdFile(ancestorMdPath, nodeLabel, roadmapPath);
+                if (!deleteResult.success) {
+                  console.warn('[RoadmapGraph] 删除章节失败:', deleteResult.message);
+                }
+              }
+            }
+          } else {
+            // 非 sub 节点：收集要删除的 MD 文件路径
+            const mdPathsToDelete = collectMdPathsFromNode(node);
+            
+            // 读取并保存 MD 文件内容（用于撤销时恢复）
+            for (const mdPath of mdPathsToDelete) {
+              const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+              if (readResult.success && readResult.content) {
+                deletedFiles.push({
+                  path: `${mdPath}.md`,
+                  content: readResult.content,
+                });
+              }
+            }
+            
+            // 删除 MD 文件
+            for (const mdPath of mdPathsToDelete) {
+              await deleteMdFile(mdPath, roadmapPath);
             }
           }
           
-          // 3. 记录历史（包含被删除的文件信息）
+          // 记录历史（包含被删除的文件信息）
           pushHistory(rawData, `删除节点「${nodeLabel}」`, deletedFiles);
           
-          // 4. 删除 MD 文件
-          for (const mdPath of mdPathsToDelete) {
-            await deleteMdFile(mdPath, roadmapPath);
-          }
-          
-          // 5. 执行删除节点
+          // 执行删除节点
           const newTree = deleteNodeFromTree(rawData, node.id);
           setRawData(newTree);
           rawDataRef.current = newTree;
           
           // 更新画布
-          const treeData = convertToTreeData(newTree);
+          const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
           graphManagerRef.current?.setData(treeData);
           
           // 更新 index.json
@@ -973,40 +1170,68 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       // 1. 找到所有要删除的节点
       const nodesToDelete = findNodesByIds(rawData, nodeIds);
       
-      // 2. 收集所有要删除的 MD 文件路径
-      const mdPathsToDelete: string[] = [];
-      for (const node of nodesToDelete) {
-        const mdPaths = collectMdPathsFromNode(node);
-        mdPathsToDelete.push(...mdPaths);
-      }
-      
-      // 3. 读取并保存 MD 文件内容（用于撤销时恢复）
+      // 2. 分别处理 sub 节点和普通节点
       const deletedFiles: DeletedFileInfo[] = [];
-      for (const mdPath of mdPathsToDelete) {
-        const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
-        if (readResult.success && readResult.content) {
-          deletedFiles.push({
-            path: `${mdPath}.md`,
-            content: readResult.content,
-          });
+      const processedMdPaths = new Set<string>(); // 避免重复处理同一个文件
+      
+      for (const node of nodesToDelete) {
+        if (node.type === 'sub') {
+          // sub 节点：删除 MD 文件中的章节
+          const ancestorMdPath = findAncestorMdPath(node.id, rawData);
+          
+          if (ancestorMdPath && !processedMdPaths.has(ancestorMdPath)) {
+            processedMdPaths.add(ancestorMdPath);
+            
+            // 读取完整的 MD 文件内容（用于撤销时恢复）
+            const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
+            if (readResult.success && readResult.content) {
+              deletedFiles.push({
+                path: `${ancestorMdPath}.md`,
+                content: readResult.content,
+              });
+            }
+          }
+          
+          // 删除章节
+          if (ancestorMdPath) {
+            await deleteSectionFromMdFile(ancestorMdPath, node.label, roadmapPath);
+          }
+        } else {
+          // 非 sub 节点：收集要删除的 MD 文件路径
+          const mdPaths = collectMdPathsFromNode(node);
+          
+          for (const mdPath of mdPaths) {
+            if (!processedMdPaths.has(mdPath)) {
+              processedMdPaths.add(mdPath);
+              
+              // 读取并保存 MD 文件内容（用于撤销时恢复）
+              const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+              if (readResult.success && readResult.content) {
+                deletedFiles.push({
+                  path: `${mdPath}.md`,
+                  content: readResult.content,
+                });
+              }
+            }
+          }
+          
+          // 删除 MD 文件
+          for (const mdPath of mdPaths) {
+            await deleteMdFile(mdPath, roadmapPath);
+          }
         }
       }
       
-      // 4. 记录历史（包含被删除的文件信息）
+      // 3. 记录历史（包含被删除的文件信息）
       pushHistory(rawData, `批量删除 ${nodeIds.length} 个节点`, deletedFiles);
       
-      // 5. 删除 MD 文件
-      for (const mdPath of mdPathsToDelete) {
-        await deleteMdFile(mdPath, roadmapPath);
-      }
-      
-      // 6. 批量删除节点
+      // 4. 批量删除节点
       const newTree = batchDeleteNodes(rawData, nodeIds);
       setRawData(newTree);
       rawDataRef.current = newTree;
       
       // 更新画布
-      const treeData = convertToTreeData(newTree);
+      const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
       graphManagerRef.current?.setData(treeData);
       
       // 更新 index.json
@@ -1042,7 +1267,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       rawDataRef.current = newTree;
       
       // 更新画布
-      const treeData = convertToTreeData(newTree);
+      const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
       graphManagerRef.current?.setData(treeData);
       
       // 更新 index.json
@@ -1113,10 +1338,12 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         y={contextMenu.y}
         node={contextMenu.node}
         visible={contextMenu.visible}
+        hasBookmark={contextMenu.node ? hasBookmark(contextMenu.node.id) : false}
         onAddChild={handleAddChild}
         onEdit={handleEditNode}
         onDelete={handleDeleteNode}
         onPreview={handlePreviewSubNode}
+        onToggleBookmark={handleToggleBookmark}
         onClose={handleCloseContextMenu}
       />
 

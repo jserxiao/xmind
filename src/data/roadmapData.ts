@@ -17,6 +17,10 @@ export interface RoadmapNode {
   // 思维导图元数据（仅 root 节点）
   icon?: string;
   color?: string;
+  // 自定义节点样式
+  customNodeId?: string;
+  customFill?: string;
+  customStroke?: string;
 }
 
 /**

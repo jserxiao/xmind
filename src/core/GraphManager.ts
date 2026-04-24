@@ -8,6 +8,8 @@
 
 import G6, { TreeGraph } from '@antv/g6';
 import { useConfigStore } from '../store/configStore';
+import type { WatermarkConfig } from '../store/watermarkStore';
+import type { MinimapConfig } from '../store/minimapStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -35,6 +37,14 @@ export interface NodeModel {
   children?: NodeModel[];
   collapsed?: boolean;
   size?: [number, number];
+  /** 是否有书签标记 */
+  hasBookmark?: boolean;
+  /** 自定义节点 ID */
+  customNodeId?: string;
+  /** 自定义节点填充色 */
+  customFill?: string;
+  /** 自定义节点边框色 */
+  customStroke?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,12 +181,17 @@ export class GraphManager {
     
     // 更新布局配置
     const config = getConfig();
-    const { layout, colors } = config;
+    const { layout, colors, edge } = config;
+    
+    // 根据布局方向决定边的类型
+    const isHorizontal = layout.direction === 'LR';
+    const edgeType = isHorizontal ? 'cubic-horizontal' : 'cubic-vertical';
     
     console.log('[GraphManager] refresh 被调用', { 
       layout, 
       primaryColor: colors.primary,
-      nodeCount: this.graph.getNodes().length 
+      nodeCount: this.graph.getNodes().length,
+      edgeType,
     });
     
     // 刷新所有节点 - 使用 updateItem 触发 update 方法
@@ -186,12 +201,7 @@ export class GraphManager {
       this.graph!.updateItem(node, { ...model });
     });
     
-    // 刷新所有边
-    this.graph.getEdges().forEach((edge: any) => {
-      this.graph!.refreshItem(edge);
-    });
-    
-    // 更新布局
+    // 更新布局（这会重新计算节点位置）
     this.graph.updateLayout({
       type: layout.type,
       direction: layout.direction,
@@ -200,6 +210,36 @@ export class GraphManager {
       getVGap: () => layout.vGap,
       getHGap: () => layout.hGap,
     });
+    
+    // 等待布局完成后更新边的类型和样式
+    // 使用 setTimeout 确保布局计算完成后再更新边
+    setTimeout(() => {
+      if (!this.graph || this.destroyed) return;
+      
+      this.graph.getEdges().forEach((edgeItem: any) => {
+        this.graph!.updateItem(edgeItem, {
+          type: edgeType,
+          style: {
+            stroke: edge.style.stroke,
+            lineWidth: edge.style.lineWidth,
+            endArrow: isHorizontal 
+              ? {
+                  path: G6.Arrow.triangle(4, 6, 0),
+                  fill: edge.style.endArrow.fill,
+                  d: 0,
+                }
+              : {
+                  path: G6.Arrow.triangle(4, 6, 0),
+                  fill: edge.style.endArrow.fill,
+                  d: 8, // 纵向布局时增加偏移，让箭头靠近节点
+                },
+          },
+        });
+      });
+      
+      // 不再自动调整视口，保持用户当前的视图状态
+      // 如果需要适应视口，用户可以手动点击适应按钮
+    }, 50);
     
     console.log('[GraphManager] refresh 完成');
   }
@@ -424,6 +464,168 @@ export class GraphManager {
    */
   getHeight(): number {
     return this.graph?.get('height') || 0;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 水印方法
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 设置水印（通过 DOM 方式实现）
+   * @param config 水印配置
+   */
+  setWatermark(config: WatermarkConfig): void {
+    if (!this.graph || this.destroyed) return;
+
+    // 先移除已有的水印
+    this.removeWatermark();
+
+    if (!config.enabled) return;
+
+    // 使用 DOM 方式添加水印
+    const canvas = this.container.querySelector('canvas');
+    if (!canvas) return;
+
+    // 创建水印层
+    const watermarkDiv = document.createElement('div');
+    watermarkDiv.id = 'g6-watermark';
+    watermarkDiv.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      background-repeat: repeat;
+      font-family: ${config.fontFamily};
+    `;
+
+    // 创建 SVG 水印
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${config.gapX * 2}" height="${config.gapY * 2}">
+        <text
+          x="50%"
+          y="50%"
+          font-size="${config.fontSize}"
+          fill="${config.color}"
+          fill-opacity="${config.opacity}"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          transform="rotate(${config.rotate}, ${config.gapX}, ${config.gapY})"
+        >${config.content}</text>
+      </svg>
+    `;
+
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    watermarkDiv.style.backgroundImage = `url(${url})`;
+
+    // 插入到容器中
+    this.container.style.position = 'relative';
+    this.container.appendChild(watermarkDiv);
+
+    console.log('[GraphManager] 水印已设置:', config.content);
+  }
+
+  /**
+   * 移除水印
+   */
+  removeWatermark(): void {
+    const watermarkDiv = document.getElementById('g6-watermark');
+    if (watermarkDiv) {
+      watermarkDiv.remove();
+      console.log('[GraphManager] 水印已移除');
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 小地图方法
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 设置小地图
+   * @param config 小地图配置
+   */
+  setMinimap(config: MinimapConfig): void {
+    if (!this.graph || this.destroyed) return;
+
+    // 检查是否已有小地图容器
+    let minimapContainer = document.getElementById('g6-minimap-container');
+    
+    if (!config.enabled) {
+      // 关闭小地图：隐藏容器
+      if (minimapContainer) {
+        minimapContainer.style.display = 'none';
+      }
+      console.log('[GraphManager] 小地图已关闭');
+      return;
+    }
+    
+    // 开启小地图
+    if (minimapContainer) {
+      // 已存在容器，直接显示
+      minimapContainer.style.display = 'block';
+      console.log('[GraphManager] 小地图已开启（复用现有容器）');
+      return;
+    }
+    
+    // 创建新的小地图容器
+    minimapContainer = document.createElement('div');
+    minimapContainer.id = 'g6-minimap-container';
+    minimapContainer.style.cssText = `
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      background: ${config.backgroundColor || '#fff'};
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      z-index: 10;
+    `;
+
+    // 插入到容器中
+    this.container.style.position = 'relative';
+    this.container.appendChild(minimapContainer);
+
+    // 创建小地图插件
+    // 注意：不设置 type 或 type: 'default' 可以显示完整内容包括文字
+    // delegate 只显示占位框，keyShape 只显示主形状，都不显示文字
+    const minimap = new G6.Minimap({
+      container: minimapContainer as HTMLDivElement,
+      width: config.width || 200,
+      height: config.height || 160,
+      type: 'delegate', // 只显示简化占位框
+      // type: 'keyShape' , //只显示节点主形状
+      // 不设置 type - 显示完整内容（包括文字），性能稍差但体验更好
+      padding: 10,
+    });
+
+    // 尝试使用 addPlugin 方法，如果不存在则直接更新 plugins
+    if (typeof this.graph.addPlugin === 'function') {
+      this.graph.addPlugin(minimap);
+    } else {
+      // 备选方案：直接更新 plugins 数组
+      const plugins = this.graph.get('plugins') || [];
+      this.graph.set('plugins', [...plugins, minimap]);
+    }
+    
+    // 保存插件实例引用
+    (this as any)._minimapPlugin = minimap;
+
+    console.log('[GraphManager] 小地图已创建');
+  }
+
+  /**
+   * 移除小地图
+   */
+  removeMinimap(): void {
+    const minimapContainer = document.getElementById('g6-minimap-container');
+    if (minimapContainer) {
+      minimapContainer.style.display = 'none';
+      console.log('[GraphManager] 小地图已隐藏');
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────────────

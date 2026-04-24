@@ -687,7 +687,10 @@
                   "label": "面试常见问题",
                   "type": "sub"
                 }
-              ]
+              ],
+              "customNodeId": "custom-node-1777019429371-r7tw2ce",
+              "customFill": "#e6f7ff",
+              "customStroke": "#1890ff"
             },
             {
               "id": "scheduler",

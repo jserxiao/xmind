@@ -92,6 +92,12 @@ export class EventHandler {
   /** 是否正在执行动画 */
   private isAnimating: boolean = false;
 
+  /** 当前高亮的节点 ID */
+  private highlightedNodeId: string | null = null;
+
+  /** 高亮效果定时器 */
+  private highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * 构造函数
    * @param config 配置选项
@@ -494,6 +500,61 @@ export class EventHandler {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // 节点高亮方法
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 高亮指定节点（搜索跳转时调用）
+   * @param nodeId 节点 ID
+   * @param duration 高亮持续时间（毫秒），默认 2000ms
+   */
+  highlightNode(nodeId: string, duration = 2000): void {
+    const graph = this.graphManager.getGraph();
+    if (!graph) return;
+
+    // 先清除之前的高亮
+    this.clearHighlight();
+
+    const item = graph.findById(nodeId);
+    if (!item) return;
+
+    this.highlightedNodeId = nodeId;
+
+    // 添加高亮状态
+    item.setState('highlight', true);
+
+    // 设置定时器，自动清除高亮
+    this.highlightTimer = setTimeout(() => {
+      this.clearHighlight();
+    }, duration);
+
+    console.log(`[EventHandler] 节点高亮: ${nodeId}`);
+  }
+
+  /**
+   * 清除高亮效果
+   */
+  clearHighlight(): void {
+    // 清除定时器
+    if (this.highlightTimer) {
+      clearTimeout(this.highlightTimer);
+      this.highlightTimer = null;
+    }
+
+    // 清除节点高亮状态
+    if (this.highlightedNodeId) {
+      const graph = this.graphManager.getGraph();
+      if (graph) {
+        const item = graph.findById(this.highlightedNodeId);
+        if (item) {
+          item.setState('highlight', false);
+        }
+      }
+      this.highlightedNodeId = null;
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // 生命周期方法
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -504,6 +565,9 @@ export class EventHandler {
     this.unbindAll();
     this.focusQueue = [];
     this.onNavigate = undefined;
+    
+    // 清理高亮效果
+    this.clearHighlight();
     
     // 清理 tooltip
     if (this.tooltipEl) {
