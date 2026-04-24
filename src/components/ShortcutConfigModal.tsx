@@ -17,6 +17,7 @@ import {
   type ShortcutAction,
   type ShortcutConfig 
 } from '../store/shortcutStore';
+import { EMOJI } from '../constants/icons';
 import ShortcutCategoryList from './shortcut/ShortcutCategoryList';
 
 interface ShortcutConfigModalProps {
@@ -168,7 +169,7 @@ const ShortcutConfigModal: React.FC<ShortcutConfigModalProps> = ({ open, onClose
         items={[
           {
             key: 'edit',
-            label: '✏️ 编辑',
+            label: `${EMOJI.EDIT} 编辑`,
             children: (
               <ShortcutCategoryList
                 items={getCategoryItems('edit')}
@@ -186,7 +187,7 @@ const ShortcutConfigModal: React.FC<ShortcutConfigModalProps> = ({ open, onClose
           },
           {
             key: 'node',
-            label: '📦 节点',
+            label: `${EMOJI.FOLDER} 节点`,
             children: (
               <ShortcutCategoryList
                 items={getCategoryItems('node')}
@@ -204,7 +205,7 @@ const ShortcutConfigModal: React.FC<ShortcutConfigModalProps> = ({ open, onClose
           },
           {
             key: 'view',
-            label: '👁️ 视图',
+            label: `${EMOJI.EYE} 视图`,
             children: (
               <ShortcutCategoryList
                 items={getCategoryItems('view')}

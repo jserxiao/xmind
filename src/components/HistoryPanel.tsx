@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import { useHistoryStore } from '../store/historyStore';
 import { useRoadmapStore } from '../store/roadmapStore';
+import { EMOJI } from '../constants/icons';
 import HistoryItem from './historyPanel/HistoryItem';
 import CurrentStateIndicator from './historyPanel/CurrentStateIndicator';
 
@@ -309,7 +310,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ onJumpToHistory }) => {
           justifyContent: 'space-between',
         }}>
           <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-            💡 点击按钮可跳转到该历史状态
+            {EMOJI.LIGHTBULB} 点击按钮可跳转到该历史状态
           </div>
           <Popconfirm
             title="清空历史记录"

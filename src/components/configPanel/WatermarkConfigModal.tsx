@@ -7,6 +7,7 @@
 import React from 'react';
 import { Modal, Input, message } from 'antd';
 import { useWatermarkStore } from '../../store/watermarkStore';
+import { EMOJI } from '../../constants/icons';
 import styles from '../../styles/WatermarkConfigModal.module.css';
 
 interface WatermarkConfigModalProps {
@@ -25,7 +26,7 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
 
   return (
     <Modal
-      title="💧 水印设置"
+      title={`${EMOJI.WATER} 水印设置`}
       open={open}
       onCancel={onClose}
       onOk={handleSave}

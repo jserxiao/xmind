@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Modal, message } from 'antd';
 import { useThemeStore, THEME_PRESETS } from '../../store/themeStore';
 import type { ThemeColors, ThemePreset } from '../../store/themeStore';
+import { EMOJI } from '../../constants/icons';
 import styles from '../../styles/ThemeConfigModal.module.css';
 
 interface ThemeConfigModalProps {
@@ -53,27 +54,27 @@ const COLOR_LABELS: Record<keyof ThemeColors, string> = {
 /** 颜色分组 */
 const COLOR_GROUPS = [
   {
-    title: '🎨 品牌色系',
+    title: `${EMOJI.PALETTE} 品牌色系`,
     keys: ['primary', 'primaryLight', 'primaryDark'] as (keyof ThemeColors)[],
   },
   {
-    title: '✅ 状态色系',
+    title: `${EMOJI.CHECK} 状态色系`,
     keys: ['success', 'successLight', 'warning', 'warningLight', 'warningDark', 'error', 'errorLight', 'info', 'infoLight'] as (keyof ThemeColors)[],
   },
   {
-    title: '📝 文字色系',
+    title: `${EMOJI.NOTE} 文字色系`,
     keys: ['textPrimary', 'textSecondary', 'textMuted', 'textInverse'] as (keyof ThemeColors)[],
   },
   {
-    title: '🖼️ 背景色系',
+    title: `🖼️ 背景色系`,
     keys: ['bgPrimary', 'bgSecondary', 'bgHover', 'bgSelected'] as (keyof ThemeColors)[],
   },
   {
-    title: '🔗 边框与线条',
+    title: `🔗 边框与线条`,
     keys: ['border', 'borderHover', 'divider', 'shadow'] as (keyof ThemeColors)[],
   },
   {
-    title: '🧩 节点颜色',
+    title: `🧩 节点颜色`,
     keys: ['nodeRoot', 'nodeBranch', 'nodeLeaf', 'nodeSelected', 'nodeHover'] as (keyof ThemeColors)[],
   },
 ];
@@ -144,7 +145,7 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
 
   return (
     <Modal
-      title="🎨 主题设置"
+      title={`${EMOJI.PALETTE} 主题设置`}
       open={open}
       onCancel={onClose}
       footer={null}
@@ -213,7 +214,7 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
 
           {!useCustomColors && (
             <div className={styles.themeCustomHint}>
-              <p>💡 点击「启用自定义」可手动配置所有颜色</p>
+              <p>{EMOJI.LIGHTBULB} 点击「启用自定义」可手动配置所有颜色</p>
             </div>
           )}
         </div>

@@ -6,6 +6,10 @@
 
 import type { NodeType } from '../store/nodeEditorStore';
 
+// 导出图标常量
+export { EMOJI, NODE_ICONS } from './icons';
+import { NODE_ICONS } from './icons';
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 预设图标列表
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -54,13 +58,7 @@ export const NODE_TYPE_OPTIONS: { value: NodeType; label: string; desc: string }
 // 节点类型与图标映射
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const NODE_TYPE_ICONS: Record<NodeType, string> = {
-  root: '📘',
-  branch: '📂',
-  leaf: '🟢',
-  link: '🔗',
-  sub: '📝',
-};
+export const NODE_TYPE_ICONS: Record<NodeType, string> = NODE_ICONS;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点样式配置

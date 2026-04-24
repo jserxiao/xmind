@@ -7,6 +7,7 @@
 import React from 'react';
 import { Modal, message } from 'antd';
 import { useBookmarkStore } from '../../store/bookmarkStore';
+import { EMOJI } from '../../constants/icons';
 import styles from '../../styles/BookmarkManagerModal.module.css';
 
 interface BookmarkManagerModalProps {
@@ -31,7 +32,7 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
     <Modal
       title={
         <span>
-          🔖 书签管理
+          {EMOJI.BOOKMARK} 书签管理
           <span style={{ fontSize: 12, color: '#999', marginLeft: 8 }}>
             ({currentBookmarks.length} 个书签)
           </span>
@@ -44,7 +45,7 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
     >
       {currentBookmarks.length === 0 ? (
         <div className={styles.bookmarkEmpty}>
-          <div className={styles.bookmarkEmptyIcon}>📭</div>
+          <div className={styles.bookmarkEmptyIcon}>{EMOJI.EMPTY_INBOX}</div>
           <p className={styles.bookmarkEmptyText}>暂无书签</p>
           <p className={styles.bookmarkEmptyHint}>右键点击节点可添加书签</p>
         </div>
@@ -73,7 +74,7 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
                   }}
                   title="定位到节点"
                 >
-                  📍
+                  {EMOJI.PIN}
                 </button>
                 <button
                   className={`${styles.bookmarkActionBtn} ${styles.bookmarkActionDelete}`}
@@ -83,7 +84,7 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
                   }}
                   title="删除书签"
                 >
-                  🗑️
+                  {EMOJI.DELETE}
                 </button>
               </div>
             </div>

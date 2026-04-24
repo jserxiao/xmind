@@ -1,6 +1,7 @@
 // ===== 树形面板工具函数 =====
 
 import type { TreeNodeItem } from '../types/treeNode';
+import { NODE_ICONS, EMOJI } from '../constants/icons';
 
 /** 递归收集需要默认展开的 key（前两层全部展开） */
 export function collectExpandKeys(
@@ -18,14 +19,7 @@ export function collectExpandKeys(
 
 /** 根据节点类型返回图标 */
 export function getNodeIcon(type: string): string {
-  switch (type) {
-    case 'root': return '📘';
-    case 'branch': return '📂';
-    case 'leaf': return '🟢';
-    case 'link': return '🔗';
-    case 'sub': return '📝';
-    default: return '⚪';
-  }
+  return NODE_ICONS[type as keyof typeof NODE_ICONS] || EMOJI.WHITE_CIRCLE;
 }
 
 /** 根据节点类型返回颜色 */

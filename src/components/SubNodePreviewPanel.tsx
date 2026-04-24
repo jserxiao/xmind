@@ -9,6 +9,7 @@ import MDEditor from '@uiw/react-md-editor';
 import { Spin, message } from 'antd';
 import { readFile } from '../utils/fileSystem';
 import { extractSectionContent } from '../utils/nodeUtils';
+import { EMOJI, FullscreenIcon, ExitFullscreenIcon, CloseIcon } from '../constants/icons';
 import overlayStyles from '../styles/NodeEditorPanel.module.css';
 import styles from '../styles/SubNodePreviewPanel.module.css';
 
@@ -32,22 +33,6 @@ interface SubNodePreviewPanelProps {
   /** 全屏退出回调 */
   onExitFullscreen?: () => void;
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 全屏 SVG 图标
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const FullscreenIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-  </svg>
-);
-
-const ExitFullscreenIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-  </svg>
-);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件
@@ -195,7 +180,7 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
         {/* 标题栏 */}
         <div className={overlayStyles.editorHeader}>
           <h2 className={overlayStyles.editorTitle}>
-            👁️ 预览：{nodeLabel}
+            {EMOJI.EYE} 预览：{nodeLabel}
           </h2>
           <div className={styles.headerActions}>
             <button 
@@ -206,7 +191,7 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
               {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
             </button>
             <button className={overlayStyles.editorCloseBtn} onClick={onClose}>
-              ✕
+              <CloseIcon size={14} />
             </button>
           </div>
         </div>
@@ -219,7 +204,7 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
             </div>
           ) : error ? (
             <div className={styles.previewError}>
-              <span className={styles.errorIcon}>⚠️</span>
+              <span className={styles.errorIcon}>{EMOJI.WARNING}</span>
               <span>{error}</span>
             </div>
           ) : (
@@ -233,7 +218,7 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
         {/* 底部提示 */}
         <div className={overlayStyles.editorFooter}>
           <div className={overlayStyles.footerHint}>
-            {mdPath && <span className={styles.mdPathHint}>📄 {mdPath}</span>}
+            {mdPath && <span className={styles.mdPathHint}>{EMOJI.DOCUMENT} {mdPath}</span>}
           </div>
           <div className={overlayStyles.footerActions}>
             <button className="btn btn-secondary" onClick={onClose}>

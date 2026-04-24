@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, Tabs, message } from 'antd';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
+import { EMOJI } from '../constants/icons';
 import BasicInfoForm from './nodeEditorPanel/BasicInfoForm';
 import ContentEditor from './nodeEditorPanel/ContentEditor';
 import styles from '../styles/NodeEditorPanel.module.css';
@@ -77,12 +78,12 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
   const tabItems = [
     {
       key: 'basic',
-      label: '📋 基础信息',
+      label: `${EMOJI.CLIPBOARD} 基础信息`,
       children: <BasicInfoForm />,
     },
     {
       key: 'content',
-      label: '📝 内容编辑',
+      label: `${EMOJI.NOTE} 内容编辑`,
       children: <ContentEditor />,
     },
   ];
@@ -93,7 +94,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
         {/* 标题栏 */}
         <div className={styles.editorHeader}>
           <h2 className={styles.editorTitle}>
-            {mode === 'add' ? '➕ 添加节点' : '✏️ 编辑节点'}
+            {mode === 'add' ? `${EMOJI.PLUS} 添加节点` : `${EMOJI.EDIT} 编辑节点`}
           </h2>
           <Button 
             type="text" 

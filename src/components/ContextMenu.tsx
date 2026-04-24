@@ -11,6 +11,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { RoadmapNode } from '../data/roadmapData';
+import { EMOJI } from '../constants/icons';
 import styles from '../styles/ContextMenu.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -130,27 +131,27 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
         {isSubNode ? (
           <>
             <button className={styles.contextMenuItem} onClick={onPreview}>
-              <span className={styles.menuIcon}>👁️</span>
+              <span className={styles.menuIcon}>{EMOJI.EYE}</span>
               <span>预览内容</span>
             </button>
             <button className={styles.contextMenuItem} onClick={onEdit}>
-              <span className={styles.menuIcon}>✏️</span>
+              <span className={styles.menuIcon}>{EMOJI.EDIT}</span>
               <span>编辑章节</span>
             </button>
           </>
         ) : (
           <>
             <button className={styles.contextMenuItem} onClick={onAddChild}>
-              <span className={styles.menuIcon}>➕</span>
+              <span className={styles.menuIcon}>{EMOJI.PLUS}</span>
               <span>添加子节点</span>
             </button>
             <button className={styles.contextMenuItem} onClick={onEdit}>
-              <span className={styles.menuIcon}>✏️</span>
+              <span className={styles.menuIcon}>{EMOJI.EDIT}</span>
               <span>编辑节点</span>
             </button>
             {!isRoot && (
               <button className={`${styles.contextMenuItem} ${styles.contextMenuItemDanger}`} onClick={onDelete}>
-                <span className={styles.menuIcon}>🗑️</span>
+                <span className={styles.menuIcon}>{EMOJI.DELETE}</span>
                 <span>删除节点</span>
               </button>
             )}
@@ -159,7 +160,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
         {/* 书签切换按钮 */}
         {onToggleBookmark && (
           <button className={styles.contextMenuItem} onClick={onToggleBookmark}>
-            <span className={styles.menuIcon}>{hasBookmarkProp ? '🔖' : '📑'}</span>
+            <span className={styles.menuIcon}>{hasBookmarkProp ? EMOJI.BOOKMARK : EMOJI.BOOKMARK_OUTLINE}</span>
             <span>{hasBookmarkProp ? '移除书签' : '添加书签'}</span>
           </button>
         )}

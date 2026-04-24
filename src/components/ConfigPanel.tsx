@@ -58,6 +58,7 @@ import {
   type RoadmapNodeData,
 } from '../utils/backup';
 import { writeJsonFile, getDirectoryHandle } from '../utils/fileSystem';
+import { EMOJI } from '../constants/icons';
 import styles from '../styles/ConfigPanel.module.css';
 import treeStyles from '../styles/TreePanel.module.css';
 
@@ -316,33 +317,33 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     {
       key: 'exportJPG',
       label: '导出 JPG',
-      icon: <span>📷</span>,
+      icon: <span>{EMOJI.CAMERA}</span>,
       onClick: onExportJPG,
     },
     {
       key: 'exportPDF',
       label: '导出 PDF',
-      icon: <span>📄</span>,
+      icon: <span>{EMOJI.DOCUMENT}</span>,
       onClick: onExportPDF,
     },
     { type: 'divider' as const },
     {
       key: 'themeConfig',
       label: '主题设置',
-      icon: <span>🎨</span>,
+      icon: <span>{EMOJI.PALETTE}</span>,
       onClick: () => setThemeModalOpen(true),
     },
     {
       key: 'watermarkConfig',
       label: '水印设置',
-      icon: <span>💧</span>,
+      icon: <span>{EMOJI.WATER}</span>,
       onClick: () => setWatermarkModalOpen(true),
     },
     { type: 'divider' as const },
     {
       key: 'batchDelete',
       label: '批量删除节点',
-      icon: <span>🗑️</span>,
+      icon: <span>{EMOJI.DELETE}</span>,
       onClick: () => {
         setSelectedNodeIds([]);
         setBatchDeleteModalOpen(true);
@@ -364,26 +365,26 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     {
       key: 'manageBookmarks',
       label: '管理书签',
-      icon: <span>🔖</span>,
+      icon: <span>{EMOJI.BOOKMARK}</span>,
       onClick: () => setBookmarkModalOpen(true),
     },
     {
       key: 'manageCustomNodes',
       label: '自定义节点',
-      icon: <span>🎨</span>,
+      icon: <span>{EMOJI.PALETTE}</span>,
       onClick: () => setCustomNodeModalOpen(true),
     },
     { type: 'divider' as const },
     {
       key: 'exportBackup',
       label: '导出备份',
-      icon: <span>💾</span>,
+      icon: <span>{EMOJI.SAVE}</span>,
       onClick: () => setBackupModalOpen(true),
     },
     {
       key: 'importBackup',
       label: '导入备份',
-      icon: <span>📂</span>,
+      icon: <span>{EMOJI.FOLDER_OPEN}</span>,
       onClick: () => setImportModalOpen(true),
     },
   ];
@@ -616,7 +617,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             className={`${styles.minimapToggleBtn} ${minimapConfig.enabled ? styles.minimapToggleBtnActive : ''}`}
             onClick={toggleMinimap}
           >
-            🗺️
+            {EMOJI.MAP}
           </button>
         </Tooltip>
       </div>
@@ -684,7 +685,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               className={`${styles.toolbarBtn} ${styles.minimapToggleBtn} ${minimapConfig.enabled ? styles.minimapToggleBtnActive : ''}`}
               onClick={toggleMinimap}
             >
-              🗺️
+              {EMOJI.MAP}
             </button>
           </Tooltip>
           <Dropdown menu={{ items: batchMenuItems }} trigger={['click']}>
@@ -699,19 +700,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           className={`${styles.configTab} ${activeTab === 'nav' ? styles.active : ''}`}
           onClick={() => setActiveTab('nav')}
         >
-          🌳 导航
+          {EMOJI.TREE} 导航
         </button>
         <button
           className={`${styles.configTab} ${activeTab === 'config' ? styles.active : ''}`}
           onClick={() => setActiveTab('config')}
         >
-          ⚙️ 配置
+          {EMOJI.SETTINGS} 配置
         </button>
         <button
           className={`${styles.configTab} ${activeTab === 'history' ? styles.active : ''}`}
           onClick={() => setActiveTab('history')}
         >
-          📜 历史
+          {EMOJI.SCROLL} 历史
         </button>
       </div>
       
@@ -874,11 +875,11 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       >
         <p>将导出以下数据：</p>
         <ul style={{ paddingLeft: 20, color: '#666' }}>
-          <li>🌳 当前节点数据（思维导图结构）</li>
-          <li>📜 历史记录（撤销/恢复数据）</li>
+          <li>{EMOJI.TREE} 当前节点数据（思维导图结构）</li>
+          <li>{EMOJI.SCROLL} 历史记录（撤销/恢复数据）</li>
           <li>⌨️ 快捷键配置</li>
-          <li>🔖 书签数据</li>
-          <li>🎨 颜色/布局配置</li>
+          <li>{EMOJI.BOOKMARK} 书签数据</li>
+          <li>{EMOJI.PALETTE} 颜色/布局配置</li>
         </ul>
         <p style={{ marginTop: 12, color: '#999', fontSize: 12 }}>
           备份文件为 JSON 格式，可用于在其他设备恢复完整数据。
@@ -901,7 +902,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           maxCount={1}
         >
           <button className={styles.backupUploadBtn}>
-            📂 选择备份文件 (.json)
+            {EMOJI.FOLDER_OPEN} 选择备份文件 (.json)
           </button>
         </Upload>
         
@@ -966,7 +967,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </div>
         
         <p style={{ marginTop: 12, color: '#ff4d4f', fontSize: 12 }}>
-          ⚠️ 导入将覆盖现有数据，请谨慎操作。
+          {EMOJI.WARNING} 导入将覆盖现有数据，请谨慎操作。
         </p>
       </Modal>
       

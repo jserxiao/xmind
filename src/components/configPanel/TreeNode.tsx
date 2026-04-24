@@ -7,6 +7,7 @@
 import React from 'react';
 import type { RoadmapNode } from '../../data/roadmapData';
 import type { RoadmapConfig } from '../../store/configStore';
+import { EMOJI, NODE_ICONS } from '../../constants/icons';
 import styles from '../../styles/TreePanel.module.css';
 
 interface TreeNodeProps {
@@ -63,15 +64,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               }[node.type] || '#888',
           }}
         >
-          {node.type === 'root'
-            ? '📘'
-            : node.type === 'branch'
-              ? '📂'
-              : node.type === 'leaf'
-                ? '🟢'
-                : node.type === 'link'
-                  ? '🔗'
-                  : '📝'}
+          {NODE_ICONS[node.type] || EMOJI.NOTE}
         </span>
         <span 
           className={styles.treeLabel} 
@@ -97,7 +90,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   }}
                   title="预览内容"
                 >
-                  👁️
+                  {EMOJI.EYE}
                 </button>
               )}
               {onEditNode && (
@@ -109,7 +102,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   }}
                   title="编辑章节"
                 >
-                  ✏️
+                  {EMOJI.EDIT}
                 </button>
               )}
             </>
@@ -124,7 +117,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   }}
                   title="添加子节点"
                 >
-                  ➕
+                  {EMOJI.PLUS}
                 </button>
               )}
               {onEditNode && (
@@ -136,7 +129,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   }}
                   title="编辑节点"
                 >
-                  ✏️
+                  {EMOJI.EDIT}
                 </button>
               )}
               {onDeleteNode && !isRoot && (
@@ -148,7 +141,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   }}
                   title="删除节点"
                 >
-                  🗑️
+                  {EMOJI.DELETE}
                 </button>
               )}
             </>

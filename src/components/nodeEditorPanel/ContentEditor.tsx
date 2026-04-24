@@ -10,6 +10,7 @@ import { Button, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useNodeEditorStore } from '../../store/nodeEditorStore';
+import { EMOJI } from '../../constants/icons';
 import { 
   MD_TEMPLATES, 
   MD_SNIPPETS, 
@@ -71,7 +72,7 @@ const ContentEditor: React.FC = () => {
     { type: 'divider' },
     {
       key: 'cancel',
-      label: '❌ 取消模板',
+      label: `${EMOJI.CANCEL} 取消模板`,
       danger: true,
     },
   ];
@@ -133,7 +134,7 @@ const ContentEditor: React.FC = () => {
             trigger={['click']}
           >
             <Button size="small" type="primary" ghost>
-              📋 使用模板
+              {EMOJI.CLIPBOARD} 使用模板
             </Button>
           </Dropdown>
           <Dropdown 
@@ -141,7 +142,7 @@ const ContentEditor: React.FC = () => {
             trigger={['click']}
           >
             <Button size="small">
-              ✨ 插入样式
+              {EMOJI.SPARKLE} 插入样式
             </Button>
           </Dropdown>
           <Button size="small" onClick={handleImportMd}>

@@ -10,6 +10,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { RoadmapNode } from '../../data/roadmapData';
 import type { RoadmapConfig } from '../../store/configStore';
+import { NODE_ICONS, EMOJI } from '../../constants/icons';
 
 interface SortableItemProps {
   id: string;
@@ -90,10 +91,7 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, node, index, colors }) 
                  node.type === 'leaf' ? colors.success :
                  node.type === 'link' ? colors.warning : colors.primary
         }}>
-          {node.type === 'root' ? '📘' :
-           node.type === 'branch' ? '📂' :
-           node.type === 'leaf' ? '🟢' :
-           node.type === 'link' ? '🔗' : '📝'}
+          {NODE_ICONS[node.type] || EMOJI.NOTE}
         </span>
         <span>{node.label}</span>
       </span>
