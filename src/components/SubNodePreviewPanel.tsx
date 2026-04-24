@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import { Spin, message } from 'antd';
 import { readFile } from '../utils/fileSystem';
+import { extractSectionContent } from '../utils/nodeUtils';
 import overlayStyles from '../styles/NodeEditorPanel.module.css';
 import styles from '../styles/SubNodePreviewPanel.module.css';
 
@@ -30,51 +31,6 @@ interface SubNodePreviewPanelProps {
   autoFullscreen?: boolean;
   /** 全屏退出回调 */
   onExitFullscreen?: () => void;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 工具函数
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 从 Markdown 内容中提取指定章节的内容
- */
-function extractSectionContent(mdContent: string, sectionTitle: string): string {
-  const normalized = mdContent.replace(/\r\n?/g, '\n');
-  const lines = normalized.split('\n');
-  
-  let inTargetSection = false;
-  let content: string[] = [];
-  let targetLevel = 2; // ## 开头的标题级别
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
-    
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const title = headingMatch[2].trim();
-      
-      if (!inTargetSection) {
-        // 还没进入目标章节，检查是否匹配
-        if (title === sectionTitle) {
-          inTargetSection = true;
-          targetLevel = level;
-          continue; // 跳过章节标题本身
-        }
-      } else {
-        // 已经在目标章节内，检查是否遇到同级或更高级标题
-        if (level <= targetLevel) {
-          // 遇到同级或更高级标题，结束当前章节
-          break;
-        }
-      }
-    } else if (inTargetSection) {
-      content.push(line);
-    }
-  }
-  
-  return content.join('\n').trim();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

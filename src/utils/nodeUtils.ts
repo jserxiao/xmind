@@ -20,6 +20,20 @@ export interface ApiResult {
   data?: any;
 }
 
+/** 删除节点操作的返回数据 */
+export interface DeleteNodeResult {
+  newTree: RoadmapNode;
+  deletedFiles: Array<{ path: string; content: string }>;
+}
+
+/** 节点删除的上下文信息 */
+export interface NodeDeleteContext {
+  node: RoadmapNode;
+  rawData: RoadmapNode;
+  mdBasePath: string;
+  roadmapPath: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点树遍历工具
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -781,4 +795,142 @@ export async function searchMdContent(
   
   // 过滤掉 null 结果
   return searchResults.filter((r): r is MdSearchResult => r !== null);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 统一的节点操作服务
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 执行节点删除操作（包括处理相关 MD 文件）
+ * 此函数封装了 sub 节点和普通节点的删除逻辑，供组件调用
+ * 
+ * @param context 删除上下文
+ * @returns 删除结果，包含新的节点树和被删除的文件信息
+ */
+export async function executeNodeDelete(
+  context: NodeDeleteContext
+): Promise<DeleteNodeResult> {
+  const { node, rawData, mdBasePath, roadmapPath } = context;
+  const deletedFiles: Array<{ path: string; content: string }> = [];
+  const isSubNode = node.type === 'sub';
+  
+  if (isSubNode) {
+    // sub 节点：删除 MD 文件中的章节
+    const ancestorMdPath = findAncestorMdPath(node.id, rawData);
+    
+    if (ancestorMdPath) {
+      // 读取完整的 MD 文件内容（用于撤销时恢复）
+      const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
+      if (readResult.success && readResult.content) {
+        deletedFiles.push({
+          path: `${ancestorMdPath}.md`,
+          content: readResult.content,
+        });
+      }
+      
+      // 删除 MD 文件中的章节
+      await deleteSectionFromMdFile(ancestorMdPath, node.label, roadmapPath);
+    }
+  } else {
+    // 非 sub 节点：收集并删除相关 MD 文件
+    const mdPathsToDelete = collectMdPathsFromNode(node);
+    
+    // 读取并保存 MD 文件内容（用于撤销时恢复）
+    for (const mdPath of mdPathsToDelete) {
+      const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+      if (readResult.success && readResult.content) {
+        deletedFiles.push({
+          path: `${mdPath}.md`,
+          content: readResult.content,
+        });
+      }
+    }
+    
+    // 删除 MD 文件
+    for (const mdPath of mdPathsToDelete) {
+      await deleteMdFile(mdPath, roadmapPath);
+    }
+  }
+  
+  // 执行节点删除
+  const newTree = deleteNodeFromTree(rawData, node.id);
+  
+  return { newTree, deletedFiles };
+}
+
+/**
+ * 批量删除节点（包括处理相关 MD 文件）
+ * 
+ * @param nodeIds 要删除的节点 ID 列表
+ * @param rawData 当前节点树
+ * @param mdBasePath MD 文件基础路径
+ * @param roadmapPath 思维导图路径
+ * @returns 删除结果
+ */
+export async function executeBatchNodeDelete(
+  nodeIds: string[],
+  rawData: RoadmapNode,
+  mdBasePath: string,
+  roadmapPath: string
+): Promise<DeleteNodeResult> {
+  const deletedFiles: Array<{ path: string; content: string }> = [];
+  const processedMdPaths = new Set<string>(); // 避免重复处理同一个文件
+  
+  // 找到所有要删除的节点
+  const nodesToDelete = findNodesByIds(rawData, nodeIds);
+  
+  // 分别处理 sub 节点和普通节点
+  for (const node of nodesToDelete) {
+    if (node.type === 'sub') {
+      // sub 节点：删除 MD 文件中的章节
+      const ancestorMdPath = findAncestorMdPath(node.id, rawData);
+      
+      if (ancestorMdPath && !processedMdPaths.has(ancestorMdPath)) {
+        processedMdPaths.add(ancestorMdPath);
+        
+        // 读取完整的 MD 文件内容（用于撤销时恢复）
+        const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
+        if (readResult.success && readResult.content) {
+          deletedFiles.push({
+            path: `${ancestorMdPath}.md`,
+            content: readResult.content,
+          });
+        }
+      }
+      
+      // 删除章节
+      if (ancestorMdPath) {
+        await deleteSectionFromMdFile(ancestorMdPath, node.label, roadmapPath);
+      }
+    } else {
+      // 非 sub 节点：收集要删除的 MD 文件路径
+      const mdPaths = collectMdPathsFromNode(node);
+      
+      for (const mdPath of mdPaths) {
+        if (!processedMdPaths.has(mdPath)) {
+          processedMdPaths.add(mdPath);
+          
+          // 读取并保存 MD 文件内容（用于撤销时恢复）
+          const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
+          if (readResult.success && readResult.content) {
+            deletedFiles.push({
+              path: `${mdPath}.md`,
+              content: readResult.content,
+            });
+          }
+        }
+      }
+      
+      // 删除 MD 文件
+      for (const mdPath of mdPaths) {
+        await deleteMdFile(mdPath, roadmapPath);
+      }
+    }
+  }
+  
+  // 批量删除节点
+  const newTree = batchDeleteNodes(rawData, nodeIds);
+  
+  return { newTree, deletedFiles };
 }

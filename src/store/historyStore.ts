@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { RoadmapNode } from '../data/roadmapData';
-import { saveIndexJson, writeFile, deleteFile } from '../utils/fileSystem';
+import { saveIndexJson, writeFile } from '../utils/fileSystem';
 import { useRoadmapStore } from './roadmapStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -148,14 +148,13 @@ export const useHistoryStore = create<HistoryStore>()(
       await saveIndexJson(roadmapPath, lastEntry.tree);
 
       // 更新状态
-      // 注意：撤销时，将当前操作记录移动到 future 栈
-      // 未来重做时，会重新执行删除操作
+      // 注意：撤销时，将历史状态放入 future 栈，重做时可以恢复
       set({
         past: newPast,
         future: [
           {
             tree: lastEntry.tree,
-            description: `重做: ${lastEntry.description}`,
+            description: lastEntry.description,
             timestamp: Date.now(),
             deletedFiles: lastEntry.deletedFiles,
           },
@@ -191,19 +190,8 @@ export const useHistoryStore = create<HistoryStore>()(
       const mdBasePath = useRoadmapStore.getState().getMdBasePath();
       const roadmapPath = mdBasePath.split('/').pop() || '';
 
-      // 重做删除操作：如果有删除文件信息，重新删除这些文件
-      if (nextEntry.deletedFiles && nextEntry.deletedFiles.length > 0) {
-        console.log('[HistoryStore] 重做删除操作，删除文件:', nextEntry.deletedFiles.length, '个');
-        for (const fileInfo of nextEntry.deletedFiles) {
-          const fullPath = `${mdBasePath}/${fileInfo.path}`;
-          const result = await deleteFile(fullPath);
-          if (!result.success) {
-            console.error('[HistoryStore] 重做删除文件失败:', fileInfo.path, result.message);
-          } else {
-            console.log('[HistoryStore] 重做删除文件成功:', fileInfo.path);
-          }
-        }
-      }
+      // 注意：重做时不再重复删除文件，因为 nextEntry.tree 已经是不包含这些文件的状态
+      // 只需要将状态恢复并持久化即可
 
       // 持久化到文件
       await saveIndexJson(roadmapPath, nextEntry.tree);
