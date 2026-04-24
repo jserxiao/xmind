@@ -1,0 +1,88 @@
+/* ===== 首页样式 ===== */
+.homePage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.homeHeader {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 24px 40px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.homeHeader::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.headerContent {
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.logoIcon {
+  font-size: 36px;
+}
+
+.logo h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.headerSubtitle {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-left: 48px;
+}
+
+.homeFooter {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.homeFooter a {
+  color: var(--primary-color);
+}
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 768px) {
+  .homeHeader {
+    padding: 16px 20px;
+  }
+
+  .logo h1 {
+    font-size: 22px;
+  }
+
+  .logoIcon {
+    font-size: 28px;
+  }
+
+  .headerSubtitle {
+    font-size: 12px;
+    margin-left: 38px;
+  }
+}

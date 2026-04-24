@@ -1,0 +1,337 @@
+/* ===== 知识详情页样式 ===== */
+.knowledgeDetail {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+  min-height: 100vh;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 0;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.backBtn {
+  padding: 8px 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.backBtn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 200px;
+}
+
+.headerInfo h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.headerDesc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.externalLinkBtn {
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.externalLinkBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+/* 面包屑导航 */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.breadcrumb span:first-child {
+  cursor: pointer;
+  color: var(--primary-color);
+}
+
+.breadcrumb span:first-child:hover {
+  text-decoration: underline;
+}
+
+.breadcrumbSeparator {
+  user-select: none;
+}
+
+.breadcrumbItem.active {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Markdown 内容渲染 */
+.detailContent {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 36px 44px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  min-height: 400px;
+}
+
+.markdownBody {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.markdownBody h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 32px 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.markdownBody h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin: 28px 0 14px;
+  padding-left: 12px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.markdownBody h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 22px 0 10px;
+}
+
+.markdownBody h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 18px 0 8px;
+}
+
+.markdownBody p {
+  margin: 12px 0;
+}
+
+.markdownBody strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.markdownBody em {
+  color: var(--text-secondary);
+}
+
+.markdownBody code {
+  background: #f5f5f5;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #e83e8c;
+}
+
+.markdownBody pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 20px 24px;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: 16px 0;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+
+.markdownBody pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.markdownBody blockquote {
+  border-left: 4px solid var(--primary-color);
+  background: var(--primary-light);
+  padding: 12px 20px;
+  margin: 16px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary);
+}
+
+.markdownBody ul,
+.markdownBody ol {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+.markdownBody li {
+  margin: 6px 0;
+  list-style-position: outside;
+}
+
+.markdownBody li::marker {
+  color: var(--primary-color);
+}
+
+.markdownBody table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.markdownBody th,
+.markdownBody td {
+  border: 1px solid var(--border-color);
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.markdownBody th {
+  background: var(--primary-light);
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.markdownBody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.markdownBody hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 28px 0;
+}
+
+.markdownBody a {
+  color: var(--primary-color);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.markdownBody a:hover {
+  border-bottom-color: var(--primary-color);
+}
+
+.backBtnInline {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.backBtnInline:hover {
+  background: var(--primary-dark);
+}
+
+/* 底部操作栏 */
+.detailFooter {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0;
+  margin-top: 30px;
+}
+
+.footerBtn {
+  padding: 10px 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.footerBtn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 768px) {
+  .knowledgeDetail {
+    padding: 0 16px 40px;
+  }
+
+  .detailHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .detailContent {
+    padding: 20px 16px;
+  }
+
+  .markdownBody h1 {
+    font-size: 22px;
+  }
+
+  .markdownBody h2 {
+    font-size: 18px;
+  }
+
+  .markdownBody pre {
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+
+  .markdownBody table {
+    font-size: 12px;
+  }
+
+  .markdownBody th,
+  .markdownBody td {
+    padding: 6px 8px;
+  }
+}

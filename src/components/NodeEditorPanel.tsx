@@ -13,6 +13,7 @@ import { Button, Tabs, message } from 'antd';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
 import BasicInfoForm from './nodeEditorPanel/BasicInfoForm';
 import ContentEditor from './nodeEditorPanel/ContentEditor';
+import styles from '../styles/NodeEditorPanel.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件
@@ -87,16 +88,16 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
   ];
 
   return (
-    <div className="node-editor-overlay">
-      <div className="node-editor-panel">
+    <div className={styles.nodeEditorOverlay}>
+      <div className={styles.nodeEditorPanel}>
         {/* 标题栏 */}
-        <div className="editor-header">
-          <h2 className="editor-title">
+        <div className={styles.editorHeader}>
+          <h2 className={styles.editorTitle}>
             {mode === 'add' ? '➕ 添加节点' : '✏️ 编辑节点'}
           </h2>
           <Button 
             type="text" 
-            className="editor-close-btn"
+            className={styles.editorCloseBtn}
             onClick={closePanel}
           >
             ✕
@@ -108,11 +109,11 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
           activeKey={activeTab}
           onChange={(key) => setActiveTab(key as 'basic' | 'content')}
           items={tabItems}
-          className="editor-tabs"
+          className={styles.editorTabs}
         />
 
         {/* 底部操作栏 */}
-        <div className="editor-footer">
+        <div className={styles.editorFooter}>
           <Button onClick={closePanel}>
             取消
           </Button>
@@ -124,9 +125,9 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
 
       {/* Loading 遮罩 */}
       {isLoadingMd && (
-        <div className="editor-loading-overlay">
-          <div className="editor-loading-content">
-            <div className="editor-loading-spinner" />
+        <div className={styles.editorLoadingOverlay}>
+          <div className={styles.editorLoadingContent}>
+            <div className={styles.editorLoadingSpinner} />
             <span>正在加载内容...</span>
           </div>
         </div>

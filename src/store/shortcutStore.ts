@@ -164,7 +164,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
   },
   togglePanel: {
     action: 'togglePanel',
-    key: 'ctrl+b',
+    key: 'ctrl+shift+b',
     name: '切换面板',
     description: '显示/隐藏侧边面板',
     enabled: true,

@@ -7,6 +7,7 @@
 import React from 'react';
 import type { RoadmapNode } from '../../data/roadmapData';
 import type { RoadmapConfig } from '../../store/configStore';
+import styles from '../../styles/TreePanel.module.css';
 
 interface TreeNodeProps {
   node: RoadmapNode;
@@ -46,11 +47,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   return (
     <div key={node.id}>
       <div
-        className="tree-node-content"
+        className={styles.treeNodeContent}
         style={{ paddingLeft: `${depth * 16 + 10}px` }}
       >
         <span
-          className="tree-icon"
+          className={styles.treeIcon}
           style={{
             color:
               {
@@ -73,7 +74,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   : '📝'}
         </span>
         <span 
-          className="tree-label" 
+          className={styles.treeLabel} 
           title={node.label}
           onClick={() => onFocusNode(node.id)}
         >
@@ -83,13 +84,13 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </span>
         
         {/* 操作按钮 */}
-        <div className="tree-node-actions">
+        <div className={styles.treeNodeActions}>
           {/* sub 类型节点显示预览和编辑按钮 */}
           {isSubNode ? (
             <>
               {onPreviewSubNode && (
                 <button
-                  className="tree-action-btn"
+                  className={styles.treeActionBtn}
                   onClick={(e) => {
                     e.stopPropagation();
                     onPreviewSubNode(node);
@@ -101,7 +102,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               )}
               {onEditNode && (
                 <button
-                  className="tree-action-btn"
+                  className={styles.treeActionBtn}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEditNode(node);
@@ -116,7 +117,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             <>
               {onAddNode && (
                 <button
-                  className="tree-action-btn"
+                  className={styles.treeActionBtn}
                   onClick={(e) => {
                     e.stopPropagation();
                     onAddNode(node.id, node);
@@ -128,7 +129,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               )}
               {onEditNode && (
                 <button
-                  className="tree-action-btn"
+                  className={styles.treeActionBtn}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEditNode(node);
@@ -140,7 +141,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
               )}
               {onDeleteNode && !isRoot && (
                 <button
-                  className="tree-action-btn tree-action-btn-danger"
+                  className={`${styles.treeActionBtn} ${styles.treeActionBtnDanger}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteNode(node);
@@ -155,7 +156,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         </div>
       </div>
       {hasChildren && (
-        <div className="tree-children">{children}</div>
+        <div className={styles.treeChildren}>{children}</div>
       )}
     </div>
   );

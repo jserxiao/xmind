@@ -1,0 +1,91 @@
+/* ===== 思维导图详情页面 ===== */
+.roadmapPage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.roadmapPageHeader {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 24px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 100;
+}
+
+.backToListBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.backToListBtn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.roadmapTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.roadmapSwitcher {
+  margin-left: auto;
+}
+
+.roadmapSwitcher .ant-select-selector {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.roadmapSwitcher .ant-select-arrow {
+  color: white;
+}
+
+.roadmapSwitcher .ant-select-selection-item {
+  color: white !important;
+}
+
+.headerSpacer {
+  width: 20px;
+}
+
+.roadmapPageContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 响应式：思维导图详情页 ===== */
+@media (max-width: 768px) {
+  .roadmapPageHeader {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .backToListBtn {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+
+  .roadmapTitle {
+    font-size: 1rem;
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+
+  .headerSpacer {
+    display: none;
+  }
+}

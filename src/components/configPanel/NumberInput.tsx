@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import styles from '../../styles/ConfigPanel.module.css';
 
 interface NumberInputProps {
   label: string;
@@ -27,8 +28,8 @@ const NumberInput: React.FC<NumberInputProps> = ({
   max = 1000, 
   step = 1 
 }) => (
-  <div className="config-row">
-    <span className="config-label">{label}</span>
+  <div className={styles.configRow}>
+    <span className={styles.configLabel}>{label}</span>
     <input
       type="number"
       value={value}
@@ -36,7 +37,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
       min={min}
       max={max}
       step={step}
-      className="config-number-input"
+      className={styles.configNumberInput}
     />
   </div>
 );

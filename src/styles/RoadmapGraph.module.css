@@ -1,0 +1,259 @@
+/* ===== 图容器样式 ===== */
+.graphContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* 画布舞台区域（全屏） */
+.graphStage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.graphCanvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* ===== 工具栏 ===== */
+.graphToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.toolbarTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarSubtitle {
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--text-secondary);
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbarBtn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarBtn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.toolbarBtnDisabled,
+.toolbarBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.toolbarBtnDisabled:hover,
+.toolbarBtn:disabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+/* 工具栏按钮 - 扩展样式 */
+.toolbarBtnExtended {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+}
+
+/* 工具栏行布局 */
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 工具栏分隔符 */
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* 小地图切换按钮 */
+.minimapToggleBtn {
+  position: relative;
+}
+
+.minimapToggleBtnActive {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* ===== 图例 ===== */
+.graphLegend {
+  display: flex;
+  gap: 24px;
+  padding: 10px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendColor {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legendRoot {
+  background: linear-gradient(135deg, #1890ff, #096dd9);
+}
+
+.legendBranch {
+  background: var(--primary-light);
+  border: 1.5px solid var(--primary-color);
+}
+
+.legendLeaf {
+  background: var(--success-light);
+  border: 1.5px solid var(--success-color);
+}
+
+.legendLink {
+  background: var(--warning-light);
+  border: 1.5px dashed var(--warning-color);
+}
+
+/* 细分子节点图例 */
+.legendSub {
+  background: #f0f5ff;
+  border: 1.5px solid #adc6ff;
+}
+
+/* ===== 加载状态 ===== */
+.graphLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+/* ===== 导出下拉菜单 ===== */
+.exportDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 150px;
+  overflow: hidden;
+}
+
+.exportItem {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: background 0.15s;
+}
+
+.exportItem:hover {
+  background: #f5f5f5;
+}
+
+.exportItem + .exportItem {
+  border-top: 1px solid #f0f0f0;
+}
+
+/* ===== 提示信息 ===== */
+.graphHint {
+  padding: 8px 24px;
+  background: #fffbe6;
+  border-bottom: 1px solid #ffe58f;
+  font-size: 12px;
+  color: #ad6800;
+  text-align: center;
+}
+
+/* ===== 响应式设计 ===== */
+@media (max-width: 768px) {
+  .graphToolbar {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .toolbarActions {
+    flex-wrap: wrap;
+  }
+
+  .graphLegend {
+    gap: 12px;
+    padding: 8px 16px;
+    font-size: 11px;
+  }
+}

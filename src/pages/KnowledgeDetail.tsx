@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { marked } from 'marked';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { readFile } from '../utils/fileSystem';
+import styles from '../styles/KnowledgeDetail.module.css';
 
 const KnowledgeDetail: React.FC = () => {
   // 使用通配符路由，从 location.pathname 获取完整路径
@@ -92,16 +93,16 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
   }, [path, state, getMdBasePath]);
 
   return (
-    <div className="knowledge-detail">
+    <div className={styles.knowledgeDetail}>
       {/* 头部导航 */}
-      <header className="detail-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>
+      <header className={styles.detailHeader}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)}>
           ← 返回思维导图
         </button>
-        <div className="header-info">
+        <div className={styles.headerInfo}>
           <h1>{state?.label || path?.split('/').pop() || '知识点详情'}</h1>
           {state?.description && (
-            <p className="header-desc">{state.description}</p>
+            <p className={styles.headerDesc}>{state.description}</p>
           )}
         </div>
         {state?.url && (
@@ -109,7 +110,7 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
             href={state.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="external-link-btn"
+            className={styles.externalLinkBtn}
           >
             🔗 访问原始资源
           </a>
@@ -117,20 +118,20 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
       </header>
 
       {/* 面包屑导航 */}
-      <nav className="breadcrumb">
+      <nav className={styles.breadcrumb}>
         <span onClick={() => navigate('/')}>📘 学习思维导图</span>
         {path && path.split('/').map((_segment, index) => (
-          <span key={index} className="breadcrumb-separator"> / </span>
+          <span key={index} className={styles.breadcrumbSeparator}> / </span>
         ))}
         {path && path.split('/').map((segment, index) => (
-          <span key={index} className="breadcrumb-item active">
+          <span key={index} className={`${styles.breadcrumbItem} ${styles.active}`}>
             {segment}
           </span>
         ))}
       </nav>
 
       {/* 内容区域 */}
-      <main className="detail-content">
+      <main className={styles.detailContent}>
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
@@ -139,13 +140,13 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
         ) : error && !content ? (
           <div className="error-state">
             <p>⚠️ {error}</p>
-            <button onClick={() => navigate(-1)} className="back-btn-inline">
+            <button onClick={() => navigate(-1)} className={styles.backBtnInline}>
               返回思维导图
             </button>
           </div>
         ) : (
           <article
-            className="markdown-body"
+            className={styles.markdownBody}
             dangerouslySetInnerHTML={{ __html: content }}
           />
         )}
@@ -153,11 +154,11 @@ ${state?.url ? `- [访问资源](${state.url})` : ''}
 
       {/* 底部操作栏 */}
       {!loading && content && (
-        <footer className="detail-footer">
-          <button className="footer-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+        <footer className={styles.detailFooter}>
+          <button className={styles.footerBtn} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             ⬆ 回到顶部
           </button>
-          <button className="footer-btn" onClick={() => navigate(-1)}>
+          <button className={styles.footerBtn} onClick={() => navigate(-1)}>
             ← 返回思维导图
           </button>
         </footer>

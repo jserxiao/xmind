@@ -1,0 +1,133 @@
+/* ===== 文件夹选择界面 ===== */
+.folderSelectContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.folderSelectCard {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.folderIcon {
+  font-size: 4rem;
+  margin-bottom: 24px;
+}
+
+.folderSelectCard h2 {
+  font-size: 1.75rem;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.folderHint {
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  font-size: 1rem;
+}
+
+.selectFolderBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.selectFolderBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.selectFolderBtn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.selectFolderBtn:not(.primary) {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.folderSelectButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.folderSelectButtons .selectFolderBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.folderExample {
+  margin-top: 20px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.folderExample code {
+  background: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+}
+
+.changeFolderBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: all 0.2s;
+}
+
+.changeFolderBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.retryBtn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.2s;
+}
+
+.retryBtn:hover {
+  background: var(--primary-dark);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.emptyState p {
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+}

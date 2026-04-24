@@ -8,6 +8,7 @@ import React from 'react';
 import { Switch } from 'antd';
 import type { RoadmapConfig } from '../../store/configStore';
 import NumberInput from './NumberInput';
+import styles from '../../styles/ConfigPanel.module.css';
 
 interface ConfigSettingsPanelProps {
   layout: RoadmapConfig['layout'];
@@ -36,22 +37,22 @@ const ConfigSettingsPanel: React.FC<ConfigSettingsPanelProps> = ({
   };
   
   return (
-    <div className="config-settings-panel">
+    <div className={styles.configSettingsPanel}>
       {/* 布局配置 */}
-      <div className="config-section">
-        <h3 className="config-section-title">📐 布局配置</h3>
+      <div className={styles.configSection}>
+        <h3 className={styles.configSectionTitle}>📐 布局配置</h3>
         
         {/* 横纵布局切换 */}
-        <div className="config-switch-row">
-          <span className="config-switch-label">布局方向</span>
-          <div className="config-switch-wrapper">
-            <span className={isHorizontal ? 'active' : ''}>横向</span>
+        <div className={styles.configSwitchRow}>
+          <span className={styles.configSwitchLabel}>布局方向</span>
+          <div className={styles.configSwitchWrapper}>
+            <span className={isHorizontal ? styles.active : ''}>横向</span>
             <Switch
               checked={isHorizontal}
               onChange={handleDirectionChange}
               size="small"
             />
-            <span className={!isHorizontal ? 'active' : ''}>纵向</span>
+            <span className={!isHorizontal ? styles.active : ''}>纵向</span>
           </div>
         </div>
         <NumberInput
@@ -89,8 +90,8 @@ const ConfigSettingsPanel: React.FC<ConfigSettingsPanelProps> = ({
       </div>
       
       {/* 缩放配置 */}
-      <div className="config-section">
-        <h3 className="config-section-title">🔍 缩放配置</h3>
+      <div className={styles.configSection}>
+        <h3 className={styles.configSectionTitle}>🔍 缩放配置</h3>
         <NumberInput
           label="最小缩放"
           value={zoom.minZoom}
@@ -118,8 +119,8 @@ const ConfigSettingsPanel: React.FC<ConfigSettingsPanelProps> = ({
       </div>
       
       {/* 重置按钮 */}
-      <div className="config-section">
-        <button className="config-reset-btn" onClick={onResetConfig}>
+      <div className={styles.configSection}>
+        <button className={styles.configResetBtn} onClick={onResetConfig}>
           🔄 重置为默认配置
         </button>
       </div>

@@ -1,0 +1,585 @@
+/* ===== 节点编辑面板样式 ===== */
+.nodeEditorOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: overlayFadeIn 0.2s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.nodeEditorPanel {
+  width: 90%;
+  max-width: 1100px;
+  height: 90vh;
+  max-height: 800px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panelSlideIn 0.25s ease-out;
+}
+
+@keyframes panelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.editorTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.editorSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.editorCloseBtn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.editorCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.editorMain {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.editorLeft {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.editorRight {
+  width: 45%;
+  display: flex;
+  flex-direction: column;
+  background: #fafbfc;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.editorTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 16px;
+}
+
+.editorTab {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.editorTab:hover {
+  color: var(--text-primary);
+}
+
+.editorTab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.editorForm {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.formGroup {
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.formGroupHalf {
+  flex: 1;
+  position: relative;
+  overflow: visible;
+}
+
+.formRow {
+  display: flex;
+  gap: 16px;
+}
+
+.formLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.formInput:focus,
+.formSelect:focus,
+.formTextarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.formHint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 图标选择器 */
+.iconPickerTrigger,
+.typePickerTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  background: var(--bg-secondary);
+}
+
+.iconPickerTrigger:hover,
+.typePickerTrigger:hover {
+  border-color: var(--primary-color);
+}
+
+.iconPreview {
+  font-size: 20px;
+}
+
+.typeLabel {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.iconArrow,
+.typeArrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* 类型选择器下拉 */
+.typePickerDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 240px;
+  margin-top: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.typeOption {
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.typeOption:last-child {
+  border-bottom: none;
+}
+
+.typeOption:hover {
+  background: var(--primary-light);
+}
+
+.typeOption.selected {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.typeOptionLabel {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.typeOptionDesc {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 图标选择器下拉 */
+.iconPickerDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 220px;
+  margin-top: 4px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  z-index: 1000;
+}
+
+.iconOption {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.iconOption:hover {
+  background: var(--primary-light);
+}
+
+.iconOption.selected {
+  background: var(--primary-color);
+}
+
+/* MD 编辑区域 */
+.editorMdArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Ant Design Tabs 在编辑器中 */
+.editorLeft .ant-tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editorLeft .ant-tabs-content-holder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editorLeft .ant-tabs-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 只对活动的 tabpane 应用 flex 布局 */
+.editorLeft .ant-tabs-tabpane-active {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdEditorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mdEditorTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mdEditorHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mdEditorContainer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mdEditorContainer .w-md-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.mdEditorContainer .w-md-editor-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.mdEditorContainer .w-md-editor-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.mdEditorLoading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  min-height: 200px;
+}
+
+.mdEditorLoading .loadingSpinner {
+  font-size: 24px;
+  animation: spin 1s linear infinite;
+}
+
+/* MD 编辑器滚动条 */
+.mdEditorContainer .w-md-editor-text {
+  overflow-y: auto !important;
+  flex: 1;
+  min-height: 0;
+}
+
+.mdEditorContainer .w-md-editor-text textarea {
+  overflow-y: auto !important;
+  resize: none !important;
+}
+
+.mdEditorContainer .w-md-editor-toolbar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.mdEditorActions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 预览区域 */
+.previewHeader {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.previewTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.previewTip {
+  font-size: 12px;
+  color: var(--text-hint);
+  cursor: help;
+}
+
+.previewContent {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.previewContent .wmde-markdown {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.previewTemplates {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+}
+
+.templatesLabel {
+  font-size: 12px;
+  color: var(--text-hint);
+}
+
+.previewTemplates .ant-btn {
+  font-size: 12px;
+  padding: 2px 8px;
+  height: auto;
+}
+
+/* 底部按钮 */
+.editorFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-color);
+  background: #fafbfc;
+}
+
+.footerHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.footerHint kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.footerActions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Loading 遮罩 */
+.editorLoadingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.editorLoadingContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.editorLoadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ===== 响应式：节点编辑面板 ===== */
+@media (max-width: 900px) {
+  .nodeEditorPanel {
+    width: 95%;
+    height: 90vh;
+  }
+
+  .editorMain {
+    flex-direction: column;
+  }
+
+  .editorLeft,
+  .editorRight {
+    width: 100%;
+    border-right: none;
+  }
+
+  .editorRight {
+    border-top: 1px solid var(--border-color);
+    height: 40%;
+  }
+}

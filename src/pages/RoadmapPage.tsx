@@ -4,6 +4,7 @@ import { Select } from 'antd';
 import RoadmapGraph from '../components/RoadmapGraph';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { getDirectoryHandle } from '../utils/fileSystem';
+import styles from '../styles/RoadmapPage.module.css';
 
 const RoadmapPage: React.FC = () => {
   const { roadmapId } = useParams<{ roadmapId: string }>();
@@ -62,15 +63,15 @@ const RoadmapPage: React.FC = () => {
   // 如果没有设置当前思维导图，显示加载状态
   if (!directoryName || !currentRoadmap) {
     return (
-      <div className="roadmap-page">
-        <header className="roadmap-page-header">
-          <button className="back-to-list-btn" onClick={handleBackToList}>
+      <div className={styles.roadmapPage}>
+        <header className={styles.roadmapPageHeader}>
+          <button className={styles.backToListBtn} onClick={handleBackToList}>
             ← 返回列表
           </button>
-          <h1 className="roadmap-title">加载中...</h1>
-          <div className="header-spacer"></div>
+          <h1 className={styles.roadmapTitle}>加载中...</h1>
+          <div className={styles.headerSpacer}></div>
         </header>
-        <main className="roadmap-page-content">
+        <main className={styles.roadmapPageContent}>
           <div className="loading-state">
             <div className="loading-spinner"></div>
             <p>正在加载思维导图...</p>
@@ -81,16 +82,16 @@ const RoadmapPage: React.FC = () => {
   }
 
   return (
-    <div className="roadmap-page">
+    <div className={styles.roadmapPage}>
       {/* 顶部导航 */}
-      <header className="roadmap-page-header">
-        <button className="back-to-list-btn" onClick={handleBackToList}>
+      <header className={styles.roadmapPageHeader}>
+        <button className={styles.backToListBtn} onClick={handleBackToList}>
           ← 返回列表
         </button>
-        <h1 className="roadmap-title">{currentRoadmap.name}</h1>
+        <h1 className={styles.roadmapTitle}>{currentRoadmap.name}</h1>
         
         {/* 思维导图切换下拉框 */}
-        <div className="roadmap-switcher">
+        <div className={styles.roadmapSwitcher}>
           <Select
             value={currentRoadmap.id}
             onChange={handleRoadmapChange}
@@ -105,7 +106,7 @@ const RoadmapPage: React.FC = () => {
       </header>
 
       {/* 思维导图 */}
-      <main className="roadmap-page-content">
+      <main className={styles.roadmapPageContent}>
         <RoadmapGraph />
       </main>
     </div>

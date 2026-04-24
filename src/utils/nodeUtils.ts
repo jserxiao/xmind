@@ -1,18 +1,24 @@
 /**
  * 节点操作工具函数
  * 
- * 提供节点的增删改查操作，以及 index.md 文件的更新功能
+ * 提供节点的增删改查操作，以及 MD 文件的更新功能
  */
 
 import type { RoadmapNode } from '../data/roadmapData';
 import type { NodeFormData } from '../store/nodeEditorStore';
-import {
-  readFile,
-  writeFile,
-  readJsonFile,
-  writeJsonFile,
-  deleteFile,
-} from './fileSystem';
+import { writeFile, readFile, deleteFile, writeJsonFile } from './fileSystem';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 类型定义
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface ApiResult {
+  success: boolean;
+  message: string;
+  path?: string;
+  content?: string;
+  data?: any;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点树遍历工具
@@ -115,6 +121,18 @@ export function findNodeInTree(root: RoadmapNode, nodeId: string): RoadmapNode |
 }
 
 /**
+ * 根据节点 ID 列表查找多个节点
+ */
+export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNode[] {
+  const result: RoadmapNode[] = [];
+  for (const nodeId of nodeIds) {
+    const node = findNodeInTree(root, nodeId);
+    if (node) result.push(node);
+  }
+  return result;
+}
+
+/**
  * 添加子节点
  */
 export function addChildNode(
@@ -172,6 +190,33 @@ export function deleteNodeFromTree(root: RoadmapNode, nodeId: string): RoadmapNo
 }
 
 /**
+ * 批量删除节点
+ */
+export function batchDeleteNodes(root: RoadmapNode, nodeIds: string[]): RoadmapNode {
+  let result = deepCloneNode(root);
+  for (const nodeId of nodeIds) {
+    result = deleteNodeFromTree(result, nodeId);
+  }
+  return result;
+}
+
+/**
+ * 重新排序节点的子节点
+ */
+export function reorderNodeChildren(
+  root: RoadmapNode,
+  parentId: string,
+  newChildren: RoadmapNode[]
+): RoadmapNode {
+  const clonedRoot = deepCloneNode(root);
+  const parent = findNodeInTree(clonedRoot, parentId);
+  if (parent) {
+    parent.children = newChildren.map(deepCloneNode);
+  }
+  return clonedRoot;
+}
+
+/**
  * 从表单数据创建节点
  */
 export function createNodeFromFormData(formData: NodeFormData, parentId?: string): RoadmapNode {
@@ -205,14 +250,10 @@ export function createNodeFromFormData(formData: NodeFormData, parentId?: string
 // index.json 更新
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface ApiResult {
-  success: boolean;
-  message: string;
-  path?: string;
-}
-
 /**
  * 更新 index.json 文件
+ * @param folderName 思维导图文件夹名称
+ * @param data 节点树数据
  */
 export async function updateIndexJson(folderName: string, data: RoadmapNode): Promise<ApiResult> {
   return writeJsonFile(`${folderName}/index.json`, data);
@@ -222,7 +263,15 @@ export async function updateIndexJson(folderName: string, data: RoadmapNode): Pr
  * 读取 index.json 文件
  */
 export async function readIndexJson(folderName: string): Promise<ApiResult & { data?: RoadmapNode }> {
-  return readJsonFile<RoadmapNode>(`${folderName}/index.json`);
+  const result = await readFile(`${folderName}/index.json`);
+  if (result.success && result.content) {
+    try {
+      return { ...result, data: JSON.parse(result.content) };
+    } catch {
+      return { success: false, message: 'JSON 解析失败' };
+    }
+  }
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -240,11 +289,24 @@ export async function saveMdFile(mdPath: string, content: string): Promise<ApiRe
  * 读取 MD 文件内容
  */
 export async function readMdFile(mdPath: string): Promise<ApiResult & { content?: string }> {
-  return readFile(`${mdPath}.md`);
+  // mdPath 可能已经包含 .md 后缀，也可能没有
+  const fullPath = mdPath.endsWith('.md') ? mdPath : `${mdPath}.md`;
+  return readFile(fullPath);
 }
 
 /**
- * 获取 MD 文件内容（从 localStorage 缓存）
+ * 删除 MD 文件
+ * @param mdPath MD 文件路径（相对路径，不含 .md 后缀）
+ * @param roadmapPath 思维导图路径（可选）
+ */
+export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promise<ApiResult> {
+  const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+  return deleteFile(`${fullPath}.md`);
+}
+
+/**
+ * 获取 MD 文件内容（从 localStorage 缓存）- 已废弃，使用 readMdFile 替代
+ * @deprecated
  */
 export function getMdFile(mdPath: string): string | null {
   const key = `md_${mdPath.replace(/\//g, '_')}`;
@@ -278,6 +340,25 @@ ${description ? `> ${description}` : ''}
 
 - 
 `;
+}
+
+/**
+ * 收集节点及其子节点中所有的 mdPath
+ */
+export function collectMdPathsFromNode(node: RoadmapNode): string[] {
+  const result: string[] = [];
+  
+  function traverse(n: RoadmapNode) {
+    if (n.mdPath) {
+      result.push(n.mdPath);
+    }
+    if (n.children) {
+      n.children.forEach(traverse);
+    }
+  }
+  
+  traverse(node);
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -637,13 +718,11 @@ export interface MdSearchResult {
  * 搜索 MD 文件内容
  * @param keyword 搜索关键词
  * @param nodesWithMdPath 具有 mdPath 的节点列表
- * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  * @returns 匹配的搜索结果
  */
 export async function searchMdContent(
   keyword: string,
-  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>,
-  roadmapPath?: string
+  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>
 ): Promise<MdSearchResult[]> {
   if (!keyword.trim()) return [];
   
@@ -652,11 +731,7 @@ export async function searchMdContent(
   // 并行搜索所有 MD 文件
   const searchPromises = nodesWithMdPath.map(async (node) => {
     try {
-      // 构建完整的 MD 文件路径
-      const fullPath = roadmapPath ? `${roadmapPath}/${node.mdPath}` : node.mdPath;
-      
-      // 读取文件内容
-      const readResult = await readMdFile(fullPath);
+      const readResult = await readMdFile(node.mdPath);
       if (!readResult.success || !readResult.content) return null;
       
       const content = readResult.content;
@@ -706,108 +781,4 @@ export async function searchMdContent(
   
   // 过滤掉 null 结果
   return searchResults.filter((r): r is MdSearchResult => r !== null);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 批量删除节点
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 批量删除节点
- * @param root 根节点
- * @param nodeIds 要删除的节点 ID 列表
- * @returns 更新后的节点树
- */
-export function batchDeleteNodes(root: RoadmapNode, nodeIds: string[]): RoadmapNode {
-  let result = deepCloneNode(root);
-  
-  for (const nodeId of nodeIds) {
-    result = deleteNodeFromTree(result, nodeId);
-  }
-  
-  return result;
-}
-
-/**
- * 收集节点及其子节点的所有 mdPath
- * @param node 起始节点
- * @returns mdPath 列表
- */
-export function collectMdPathsFromNode(node: RoadmapNode): string[] {
-  const mdPaths: string[] = [];
-  
-  function traverse(n: RoadmapNode) {
-    if (n.mdPath) {
-      mdPaths.push(n.mdPath);
-    }
-    if (n.children) {
-      n.children.forEach(traverse);
-    }
-  }
-  
-  traverse(node);
-  return mdPaths;
-}
-
-/**
- * 查找多个节点并返回它们的完整信息
- * @param root 根节点
- * @param nodeIds 节点 ID 列表
- * @returns 找到的节点列表
- */
-export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNode[] {
-  const nodes: RoadmapNode[] = [];
-  
-  function traverse(node: RoadmapNode) {
-    if (nodeIds.includes(node.id)) {
-      nodes.push(node);
-    }
-    if (node.children) {
-      node.children.forEach(traverse);
-    }
-  }
-  
-  traverse(root);
-  return nodes;
-}
-
-/**
- * 删除 MD 文件
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
- * @param roadmapPath 思维导图路径
- */
-export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promise<ApiResult> {
-  const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
-  return deleteFile(`${fullPath}.md`);
-}
-
-/**
- * 重新排序节点的子节点
- * @param root 根节点
- * @param parentId 父节点 ID
- * @param newChildren 新的子节点顺序
- * @returns 更新后的节点树
- */
-export function reorderNodeChildren(
-  root: RoadmapNode,
-  parentId: string,
-  newChildren: RoadmapNode[]
-): RoadmapNode {
-  const clonedRoot = deepCloneNode(root);
-  
-  function updateChildren(node: RoadmapNode): boolean {
-    if (node.id === parentId) {
-      node.children = newChildren;
-      return true;
-    }
-    if (node.children) {
-      for (const child of node.children) {
-        if (updateChildren(child)) return true;
-      }
-    }
-    return false;
-  }
-  
-  updateChildren(clonedRoot);
-  return clonedRoot;
 }

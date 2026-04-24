@@ -7,6 +7,7 @@
 import React from 'react';
 import { Modal, message } from 'antd';
 import { useBookmarkStore } from '../../store/bookmarkStore';
+import styles from '../../styles/BookmarkManagerModal.module.css';
 
 interface BookmarkManagerModalProps {
   open: boolean;
@@ -42,30 +43,30 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
       width={500}
     >
       {currentBookmarks.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
-          <p>暂无书签</p>
-          <p style={{ fontSize: 12 }}>右键点击节点可添加书签</p>
+        <div className={styles.bookmarkEmpty}>
+          <div className={styles.bookmarkEmptyIcon}>📭</div>
+          <p className={styles.bookmarkEmptyText}>暂无书签</p>
+          <p className={styles.bookmarkEmptyHint}>右键点击节点可添加书签</p>
         </div>
       ) : (
-        <div className="bookmark-list">
+        <div className={styles.bookmarkList}>
           {currentBookmarks.map((bookmark, index) => (
-            <div key={bookmark.nodeId} className="bookmark-item">
-              <div className="bookmark-info">
-                <span className="bookmark-index">{index + 1}</span>
-                <div className="bookmark-content">
-                  <div className="bookmark-label">{bookmark.nodeLabel}</div>
-                  <div className="bookmark-meta">
-                    <span className="bookmark-id">ID: {bookmark.nodeId.slice(0, 20)}...</span>
+            <div key={bookmark.nodeId} className={styles.bookmarkItem}>
+              <div className={styles.bookmarkInfo}>
+                <span className={styles.bookmarkIndex}>{index + 1}</span>
+                <div className={styles.bookmarkContent}>
+                  <div className={styles.bookmarkLabel}>{bookmark.nodeLabel}</div>
+                  <div className={styles.bookmarkMeta}>
+                    <span className={styles.bookmarkId}>ID: {bookmark.nodeId.slice(0, 20)}...</span>
                     {bookmark.note && (
-                      <span className="bookmark-note">备注: {bookmark.note}</span>
+                      <span className={styles.bookmarkNote}>备注: {bookmark.note}</span>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="bookmark-actions">
+              <div className={styles.bookmarkActions}>
                 <button
-                  className="bookmark-action-btn bookmark-action-locate"
+                  className={styles.bookmarkActionBtn}
                   onClick={() => {
                     onFocusNode(bookmark.nodeId);
                     onClose();
@@ -75,7 +76,7 @@ const BookmarkManagerModal: React.FC<BookmarkManagerModalProps> = ({
                   📍
                 </button>
                 <button
-                  className="bookmark-action-btn bookmark-action-delete"
+                  className={`${styles.bookmarkActionBtn} ${styles.bookmarkActionDelete}`}
                   onClick={() => {
                     removeBookmark(bookmark.nodeId);
                     message.success('已删除书签');

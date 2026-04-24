@@ -12,6 +12,8 @@ import {
   getDirectoryHandle,
   clearDirectoryHandle,
 } from '../utils/fileSystem';
+import styles from '../styles/RoadmapListPage.module.css';
+import folderStyles from '../styles/FolderSelect.module.css';
 
 const RoadmapListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -144,29 +146,29 @@ const RoadmapListPage: React.FC = () => {
   // 如果没有选择目录，显示选择界面
   if (!directoryName) {
     return (
-      <div className="roadmap-list-page">
-        <div className="folder-select-container">
-          <div className="folder-select-card">
-            <div className="folder-icon">📁</div>
+      <div className={styles.roadmapListPage}>
+        <div className={folderStyles.folderSelectContainer}>
+          <div className={folderStyles.folderSelectCard}>
+            <div className={folderStyles.folderIcon}>📁</div>
             <h2>选择思维导图文件夹</h2>
-            <p className="folder-hint">
+            <p className={folderStyles.folderHint}>
               请选择包含思维导图的根文件夹
             </p>
             {!isFileSystemSupported() && (
-              <p className="folder-warning" style={{ color: '#faad14', marginBottom: 16 }}>
+              <p className={folderStyles.folderWarning} style={{ color: '#faad14', marginBottom: 16 }}>
                 ⚠️ 您的浏览器不支持文件系统访问，请使用 Chrome 或 Edge 浏览器
               </p>
             )}
-            <div className="folder-select-buttons">
+            <div className={folderStyles.folderSelectButtons}>
               <button
-                className="select-folder-btn primary"
+                className={`${folderStyles.selectFolderBtn} ${folderStyles.primary}`}
                 onClick={handleSelectDirectory}
                 disabled={!isFileSystemSupported()}
               >
                 <FolderOpenOutlined /> 选择文件夹
               </button>
             </div>
-            <p className="folder-example">
+            <p className={folderStyles.folderExample}>
               提示：选择一个本地文件夹作为思维导图的存储位置
             </p>
           </div>
@@ -176,17 +178,17 @@ const RoadmapListPage: React.FC = () => {
   }
 
   return (
-    <div className="roadmap-list-page">
+    <div className={styles.roadmapListPage}>
       {/* 头部 */}
-      <header className="roadmap-list-header">
-        <div className="header-content">
-          <h1 className="main-title">
-            <span className="title-icon">🧠</span>
+      <header className={styles.roadmapListHeader}>
+        <div className={styles.headerContent}>
+          <h1 className={styles.mainTitle}>
+            <span className={styles.titleIcon}>🧠</span>
             思维导图中心
           </h1>
-          <p className="subtitle">
+          <p className={styles.subtitle}>
             当前文件夹：<code>{directoryName}</code>
-            <button className="change-folder-btn" onClick={handleChangeDirectory}>
+            <button className={folderStyles.changeFolderBtn} onClick={handleChangeDirectory}>
               更换
             </button>
           </p>
@@ -194,7 +196,7 @@ const RoadmapListPage: React.FC = () => {
       </header>
 
       {/* 思维导图列表 */}
-      <main className="roadmap-list-content">
+      <main className={styles.roadmapListContent}>
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
@@ -203,17 +205,17 @@ const RoadmapListPage: React.FC = () => {
         ) : (
           <>
             {error && (
-              <div className="empty-hint">
+              <div className={styles.emptyHint}>
                 <p>⚠️ {error}</p>
-                <p className="empty-hint-sub">您可以新建一个思维导图</p>
+                <p className={styles.emptyHintSub}>您可以新建一个思维导图</p>
               </div>
             )}
-            <div className="roadmap-grid">
+            <div className={styles.roadmapGrid}>
               {/* 现有思维导图卡片 */}
               {availableRoadmaps.map((roadmap) => (
                 <div
                   key={roadmap.id}
-                  className="roadmap-card"
+                  className={styles.roadmapCard}
                   onClick={() => handleRoadmapClick(roadmap)}
                   style={{ '--card-color': roadmap.color } as React.CSSProperties}
                 >
@@ -228,7 +230,7 @@ const RoadmapListPage: React.FC = () => {
                     okButtonProps={{ danger: true, loading: deleting === roadmap.id }}
                   >
                     <button
-                      className="card-delete-btn"
+                      className={styles.cardDeleteBtn}
                       onClick={(e) => e.stopPropagation()}
                       title="删除思维导图"
                     >
@@ -236,35 +238,35 @@ const RoadmapListPage: React.FC = () => {
                     </button>
                   </Popconfirm>
 
-                  <div className="card-icon" style={{ backgroundColor: roadmap.color }}>
+                  <div className={styles.cardIcon} style={{ backgroundColor: roadmap.color }}>
                     {roadmap.icon}
                   </div>
-                  <div className="card-content">
-                    <h3 className="card-title">{roadmap.name}</h3>
-                    <p className="card-description">{roadmap.description}</p>
+                  <div className={styles.cardContent}>
+                    <h3 className={styles.cardTitle}>{roadmap.name}</h3>
+                    <p className={styles.cardDescription}>{roadmap.description}</p>
                   </div>
-                  <div className="card-action">
-                    <span className="action-text">进入</span>
-                    <span className="action-arrow">→</span>
+                  <div className={styles.cardAction}>
+                    <span className={styles.actionText}>进入</span>
+                    <span className={styles.actionArrow}>→</span>
                   </div>
                 </div>
               ))}
 
               {/* 新增思维导图卡片 - 放在最后 */}
               <div
-                className="roadmap-card add-card"
+                className={`${styles.roadmapCard} ${styles.addCard}`}
                 onClick={handleOpenCreateModal}
               >
-                <div className="card-icon add-icon">
+                <div className={`${styles.cardIcon} ${styles.addIcon}`}>
                   <FolderAddOutlined />
                 </div>
-                <div className="card-content">
-                  <h3 className="card-title">新增思维导图</h3>
-                  <p className="card-description">创建一个新的思维导图</p>
+                <div className={styles.cardContent}>
+                  <h3 className={styles.cardTitle}>新增思维导图</h3>
+                  <p className={styles.cardDescription}>创建一个新的思维导图</p>
                 </div>
-                <div className="card-action">
-                  <span className="action-text">创建</span>
-                  <span className="action-arrow">+</span>
+                <div className={styles.cardAction}>
+                  <span className={styles.actionText}>创建</span>
+                  <span className={styles.actionArrow}>+</span>
                 </div>
               </div>
             </div>
@@ -273,7 +275,7 @@ const RoadmapListPage: React.FC = () => {
       </main>
 
       {/* 底部 */}
-      <footer className="roadmap-list-footer">
+      <footer className={styles.roadmapListFooter}>
         <p>💡 提示：点击思维导图卡片进入对应的配置页面</p>
       </footer>
 

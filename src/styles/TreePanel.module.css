@@ -1,0 +1,244 @@
+/* ===== 悬浮树形导航面板（紧凑小框） ===== */
+.treePanel {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  width: 230px;
+  max-height: calc(100vh - 170px);
+  min-height: 180px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: treePanelSlideIn 0.2s ease-out;
+}
+
+@keyframes treePanelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.treePanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 11px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(24, 144, 255, 0.04);
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+
+.treePanelClose {
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.treePanelClose:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+/* 左侧导航面板内容区 - 不需要单独滚动，由父级 config-content 控制 */
+.treePanelBody {
+  padding: 3px 0;
+}
+
+/* 搜索框 */
+.treeSearchBox {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.treeSearchBox .ant-input-affix-wrapper {
+  border-radius: var(--radius-sm);
+}
+
+.treeSearchBox .ant-input {
+  font-size: 12px;
+}
+
+/* 搜索高亮 */
+.treeLabelHighlight {
+  background: rgba(250, 173, 20, 0.3);
+  color: #d48806;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* MD 内容搜索结果 */
+.mdSearchResults {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(24, 144, 255, 0.02);
+}
+
+.mdSearchHeader {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mdSearchItem {
+  padding: 6px 10px;
+  margin: 2px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+}
+
+.mdSearchItem:hover {
+  background: rgba(24, 144, 255, 0.08);
+  border-color: var(--primary-color-light);
+}
+
+.mdSearchItemTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.mdSearchItemContext {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.mdSearchItemContext .treeLabelHighlight {
+  background: rgba(250, 173, 20, 0.25);
+  color: #ad6800;
+}
+
+.treePanelFooter {
+  padding: 5px 11px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 9.5px;
+  color: var(--text-muted);
+  background: rgba(24, 144, 255, 0.02);
+  user-select: none;
+}
+
+/* 树节点（紧凑） */
+.treePanelNode {
+  user-select: none;
+}
+
+.treeNodeContent {
+  display: flex;
+  align-items: center;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-radius: 4px;
+  margin: 0 3px;
+}
+
+.treeNodeContent:hover {
+  background: rgba(24, 144, 255, 0.08);
+}
+
+.treeNodeContent:hover .treeNodeActions {
+  opacity: 1;
+}
+
+.treeArrow {
+  display: inline-block;
+  width: 14px;
+  font-size: 7px;
+  color: #bbb;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.treeIcon {
+  font-size: 11px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.treeLabel {
+  font-size: 11.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+  flex: 1;
+  cursor: pointer;
+}
+
+.treeLabel:hover {
+  color: var(--primary-color);
+}
+
+/* 树节点操作按钮 */
+.treeNodeActions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.treeActionBtn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  color: var(--text-muted);
+}
+
+.treeActionBtn:hover {
+  background: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.treeActionBtnDanger:hover {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+
+.treeChildren {
+  padding-left: 0;
+}

@@ -7,6 +7,7 @@
 import React from 'react';
 import { Modal, Input, message } from 'antd';
 import { useWatermarkStore } from '../../store/watermarkStore';
+import styles from '../../styles/WatermarkConfigModal.module.css';
 
 interface WatermarkConfigModalProps {
   open: boolean;
@@ -31,9 +32,9 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
       okText="保存"
       cancelText="取消"
     >
-      <div className="watermark-config">
-        <div className="watermark-config-item">
-          <label className="watermark-label">
+      <div className={styles.watermarkConfig}>
+        <div className={styles.watermarkConfigItem}>
+          <label className={styles.watermarkLabel}>
             <input
               type="checkbox"
               checked={watermarkConfig.enabled}
@@ -43,7 +44,7 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
           </label>
         </div>
         
-        <div className="watermark-config-item">
+        <div className={styles.watermarkConfigItem}>
           <label>水印内容</label>
           <Input
             value={watermarkConfig.content}
@@ -53,8 +54,8 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
           />
         </div>
         
-        <div className="watermark-config-row">
-          <div className="watermark-config-item">
+        <div className={styles.watermarkConfigRow}>
+          <div className={styles.watermarkConfigItem}>
             <label>字体大小</label>
             <Input
               type="number"
@@ -66,7 +67,7 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
             />
           </div>
           
-          <div className="watermark-config-item">
+          <div className={styles.watermarkConfigItem}>
             <label>透明度</label>
             <Input
               type="number"
@@ -80,8 +81,8 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
           </div>
         </div>
         
-        <div className="watermark-config-row">
-          <div className="watermark-config-item">
+        <div className={styles.watermarkConfigRow}>
+          <div className={styles.watermarkConfigItem}>
             <label>水印颜色</label>
             <Input
               type="color"
@@ -92,7 +93,7 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
             />
           </div>
           
-          <div className="watermark-config-item">
+          <div className={styles.watermarkConfigItem}>
             <label>旋转角度</label>
             <Input
               type="number"
@@ -105,8 +106,8 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
           </div>
         </div>
         
-        <div className="watermark-config-row">
-          <div className="watermark-config-item">
+        <div className={styles.watermarkConfigRow}>
+          <div className={styles.watermarkConfigItem}>
             <label>水平间距</label>
             <Input
               type="number"
@@ -118,7 +119,7 @@ const WatermarkConfigModal: React.FC<WatermarkConfigModalProps> = ({ open, onClo
             />
           </div>
           
-          <div className="watermark-config-item">
+          <div className={styles.watermarkConfigItem}>
             <label>垂直间距</label>
             <Input
               type="number"

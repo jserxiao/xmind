@@ -1,0 +1,521 @@
+/* ===== 左侧配置栏样式 ===== */
+.configPanel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+}
+
+.configPanelCollapsed {
+  width: 32px;
+}
+
+.configPanelExpanded {
+  width: 280px;
+}
+
+/* 折叠/展开按钮 */
+.configToggleBtn {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 30;
+}
+
+.configToggleBtn:hover {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.configToggleCollapse {
+  right: -14px;
+}
+
+/* 配置栏头部 */
+.configHeader {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+}
+
+.configTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.configSubtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* 工具栏 */
+.configToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.configToolBtn {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.configToolBtn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.configToolBtn:disabled,
+.configToolBtnDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.configToolBtn:disabled:hover,
+.configToolBtnDisabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+.configToolbarDivider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* Config Toolbar Dropdown */
+.configToolBtnDropdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 备份上传按钮 */
+.backupUploadBtn {
+  width: 100%;
+  padding: 20px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.backupUploadBtn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+/* 导入选项 */
+.importOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.importOptions label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.importOptions input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-color);
+}
+
+/* 布局方向切换 */
+.configSwitchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.configSwitchLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.configSwitchWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configSwitchWrapper span {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+
+.configSwitchWrapper span.active {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* Tab 切换 */
+.configTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.configTab {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.configTab:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-secondary);
+}
+
+.configTab.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+/* Tab 内容区域 */
+.configContent {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.configContent::-webkit-scrollbar {
+  width: 4px;
+}
+
+.configContent::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+/* 导航面板 */
+.configNavPanel {
+  padding: 8px 0;
+}
+
+.configLoading {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 配置面板 */
+.configSettingsPanel {
+  padding: 12px;
+}
+
+.configSection {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.configSection:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.configSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 10px;
+}
+
+/* 配置行 */
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.configLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  width: 70px;
+}
+
+/* 颜色输入 */
+.configColorWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.configColorInput {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.configColorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.configColorInput::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.configTextInput {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  max-width: 90px;
+}
+
+.configTextInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* 数字输入 */
+.configNumberInput {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: right;
+}
+
+.configNumberInput:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* 重置按钮 */
+.configResetBtn {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(250, 140, 22, 0.1);
+  border: 1px solid rgba(250, 140, 22, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--warning-color);
+  transition: all 0.2s;
+}
+
+.configResetBtn:hover {
+  background: rgba(250, 140, 22, 0.2);
+  border-color: var(--warning-color);
+}
+
+/* 导出按钮组 */
+.configExportGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.configExportBtn {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--primary-light);
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--primary-color);
+  transition: all 0.2s;
+}
+
+.configExportBtn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* 图例 */
+.configLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+/* 底部提示 */
+.configFooter {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Batch Delete Modal */
+.batchDeleteModalContent {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.batchDeleteTreeContainer {
+  max-height: 350px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  background: #fafbfc;
+}
+
+.batchDeleteTreeContainer .ant-tree {
+  background: transparent;
+}
+
+/* 工具栏按钮样式 */
+.toolbarBtn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarBtn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: var(--primary-light);
+}
+
+.toolbarBtnDisabled,
+.toolbarBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.toolbarBtnDisabled:hover,
+.toolbarBtn:disabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+/* 工具栏行布局 */
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 工具栏分隔符 */
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+/* 小地图切换按钮 */
+.minimapToggleBtn {
+  position: relative;
+}
+
+.minimapToggleBtnActive {
+  background: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* 折叠状态下的小地图切换按钮 */
+.configPanelCollapsed .minimapToggleBtn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}

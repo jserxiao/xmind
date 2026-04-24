@@ -1,9 +1,9 @@
-/**
- * BookmarkStore - 书签标记 Store
+/** BookmarkStore - 书签标记 Store
  * 
  * 管理节点的书签标记功能
  * - 支持添加/移除书签
  * - 持久化存储
+ * - 记录最后导航位置
  */
 
 import { create } from 'zustand';
@@ -33,8 +33,14 @@ interface BookmarkStore {
   /** 当前思维导图 ID */
   currentRoadmapId: string | null;
   
+  /** 当前书签导航索引 */
+  currentBookmarkIndex: number;
+  
   /** 设置当前思维导图 ID */
   setCurrentRoadmapId: (roadmapId: string | null) => void;
+  
+  /** 设置当前书签索引 */
+  setCurrentBookmarkIndex: (index: number) => void;
   
   /** 添加书签 */
   addBookmark: (nodeId: string, nodeLabel: string, note?: string) => void;
@@ -59,6 +65,9 @@ interface BookmarkStore {
   
   /** 清空当前思维导图的所有书签 */
   clearBookmarks: () => void;
+  
+  /** 更新书签的节点 ID（用于 sub 节点标题变化时） */
+  updateBookmarkNodeId: (oldNodeId: string, newNodeId: string, newNodeLabel: string) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -70,9 +79,15 @@ export const useBookmarkStore = create<BookmarkStore>()(
     (set, get) => ({
       bookmarks: {},
       currentRoadmapId: null,
+      currentBookmarkIndex: -1,
       
       setCurrentRoadmapId: (roadmapId) => {
-        set({ currentRoadmapId: roadmapId });
+        // 切换思维导图时重置索引
+        set({ currentRoadmapId: roadmapId, currentBookmarkIndex: -1 });
+      },
+      
+      setCurrentBookmarkIndex: (index) => {
+        set({ currentBookmarkIndex: index });
       },
       
       addBookmark: (nodeId, nodeLabel, note) => {
@@ -177,9 +192,36 @@ export const useBookmarkStore = create<BookmarkStore>()(
           },
         });
       },
+      
+      updateBookmarkNodeId: (oldNodeId, newNodeId, newNodeLabel) => {
+        const { bookmarks, currentRoadmapId } = get();
+        if (!currentRoadmapId) return;
+        
+        const roadmapBookmarks = bookmarks[currentRoadmapId] || [];
+        const bookmark = roadmapBookmarks.find(b => b.nodeId === oldNodeId);
+        
+        if (bookmark) {
+          set({
+            bookmarks: {
+              ...bookmarks,
+              [currentRoadmapId]: roadmapBookmarks.map(b =>
+                b.nodeId === oldNodeId 
+                  ? { ...b, nodeId: newNodeId, nodeLabel: newNodeLabel }
+                  : b
+              ),
+            },
+          });
+          console.log(`[BookmarkStore] 更新书签节点 ID: ${oldNodeId} -> ${newNodeId}`);
+        }
+      },
     }),
     {
       name: 'mindmap-bookmarks',
+      partialize: (state) => ({
+        bookmarks: state.bookmarks,
+        currentRoadmapId: state.currentRoadmapId,
+        currentBookmarkIndex: state.currentBookmarkIndex,
+      }),
     }
   )
 );

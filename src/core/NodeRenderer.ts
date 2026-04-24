@@ -14,7 +14,7 @@ import { useThemeStore } from '../store/themeStore';
 import { useCustomNodeStore } from '../store/customNodeStore';
 import type { RoadmapConfig } from '../store/configStore';
 import type { ThemeColors } from '../store/themeStore';
-import type { CustomNodeConfig, BaseElement } from '../types/customNode';
+import type { CustomNodeConfig } from '../types/customNode';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -101,34 +101,6 @@ function getThemedNodeStyles(config: RoadmapConfig, themeColors: ThemeColors) {
       fill: themeColors.bgSecondary,
       stroke: themeColors.border,
     },
-  };
-}
-
-/**
- * 获取基于主题的颜色配置
- */
-function getThemedColors(themeColors: ThemeColors) {
-  return {
-    primary: themeColors.primary,
-    primaryLight: themeColors.primaryLight,
-    success: themeColors.success,
-    successLight: themeColors.successLight,
-    warning: themeColors.warning,
-    warningLight: themeColors.warningLight,
-    link: themeColors.info,
-    linkLight: themeColors.infoLight,
-    textPrimary: themeColors.textPrimary,
-    textSuccess: themeColors.textPrimary,
-    textWarning: themeColors.textPrimary,
-    textLink: themeColors.textPrimary,
-    borderSuccess: themeColors.success,
-    borderWarning: themeColors.warning,
-    borderLink: themeColors.info,
-    hoverPrimary: themeColors.primaryDark,
-    hoverPrimaryLight: themeColors.primaryLight,
-    hoverSuccessLight: themeColors.successLight,
-    hoverWarningLight: themeColors.warningLight,
-    hoverLinkLight: themeColors.infoLight,
   };
 }
 

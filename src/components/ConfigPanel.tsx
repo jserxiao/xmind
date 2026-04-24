@@ -58,6 +58,8 @@ import {
   type RoadmapNodeData,
 } from '../utils/backup';
 import { writeJsonFile, getDirectoryHandle } from '../utils/fileSystem';
+import styles from '../styles/ConfigPanel.module.css';
+import treeStyles from '../styles/TreePanel.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件 Props
@@ -281,7 +283,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     return (
       <>
         {before}
-        <span className="tree-label-highlight">{match}</span>
+        <span className={treeStyles.treeLabelHighlight}>{match}</span>
         {after}
       </>
     );
@@ -605,13 +607,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   // ── 收起状态只显示展开按钮和小地图开关 ──
   if (!panelExpanded) {
     return (
-      <div className="config-panel config-panel-collapsed">
-        <button className="config-toggle-btn" onClick={togglePanel} title="展开配置栏">
+      <div className={`${styles.configPanel} ${styles.configPanelCollapsed}`}>
+        <button className={styles.configToggleBtn} onClick={togglePanel} title="展开配置栏">
           ▶
         </button>
         <Tooltip title={minimapConfig.enabled ? '关闭小地图' : '开启小地图'}>
           <button 
-            className={`minimap-toggle-btn ${minimapConfig.enabled ? 'active' : ''}`}
+            className={`${styles.minimapToggleBtn} ${minimapConfig.enabled ? styles.minimapToggleBtnActive : ''}`}
             onClick={toggleMinimap}
           >
             🗺️
@@ -622,35 +624,35 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   }
   
   return (
-    <div className="config-panel config-panel-expanded">
+    <div className={`${styles.configPanel} ${styles.configPanelExpanded}`}>
       {/* 折叠按钮 */}
-      <button className="config-toggle-btn config-toggle-collapse" onClick={togglePanel} title="收起配置栏">
+      <button className={`${styles.configToggleBtn} ${styles.configToggleCollapse}`} onClick={togglePanel} title="收起配置栏">
         ◀
       </button>
       
       {/* 工具栏 - 紧凑两行布局 */}
-      <div className="config-toolbar">
+      <div className={styles.configToolbar}>
         {/* 第一行：缩放 + 编辑 + 导出 */}
-        <div className="toolbar-row">
+        <div className={styles.toolbarRow}>
           <Tooltip title="适应画布">
-            <button onClick={onFitView} className="toolbar-btn">⊞</button>
+            <button onClick={onFitView} className={styles.toolbarBtn}>⊞</button>
           </Tooltip>
           <Tooltip title="放大">
-            <button onClick={onZoomIn} className="toolbar-btn">+</button>
+            <button onClick={onZoomIn} className={styles.toolbarBtn}>+</button>
           </Tooltip>
           <Tooltip title="缩小">
-            <button onClick={onZoomOut} className="toolbar-btn">−</button>
+            <button onClick={onZoomOut} className={styles.toolbarBtn}>−</button>
           </Tooltip>
           <Tooltip title="实际大小">
-            <button onClick={onResetZoom} className="toolbar-btn">1:1</button>
+            <button onClick={onResetZoom} className={styles.toolbarBtn}>1:1</button>
           </Tooltip>
           
-          <div className="toolbar-divider" />
+          <div className={styles.toolbarDivider} />
           
           <Tooltip title={canUndo ? '撤销 (Ctrl+Z)' : '没有可撤销的操作'}>
             <button 
               onClick={onUndo} 
-              className={`toolbar-btn ${!canUndo ? 'toolbar-btn-disabled' : ''}`}
+              className={`${styles.toolbarBtn} ${!canUndo ? styles.toolbarBtnDisabled : ''}`}
               disabled={!canUndo}
             >
               <UndoOutlined />
@@ -659,54 +661,54 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           <Tooltip title={canRedo ? '恢复 (Ctrl+Y)' : '没有可恢复的操作'}>
             <button 
               onClick={onRedo} 
-              className={`toolbar-btn ${!canRedo ? 'toolbar-btn-disabled' : ''}`}
+              className={`${styles.toolbarBtn} ${!canRedo ? styles.toolbarBtnDisabled : ''}`}
               disabled={!canRedo}
             >
               <RedoOutlined />
             </button>
           </Tooltip>
           
-          <div className="toolbar-divider" />
+          <div className={styles.toolbarDivider} />
           
           <Tooltip title="设置">
-            <button className="toolbar-btn" onClick={() => setShortcutModalOpen(true)}>
+            <button className={styles.toolbarBtn} onClick={() => setShortcutModalOpen(true)}>
               <SettingOutlined />
             </button>
           </Tooltip>
         </div>
         
         {/* 第二行：小地图开关 + 更多操作 */}
-        <div className="toolbar-row">
+        <div className={styles.toolbarRow}>
           <Tooltip title={minimapConfig.enabled ? '关闭小地图' : '开启小地图'}>
             <button 
-              className={`toolbar-btn minimap-toggle-btn ${minimapConfig.enabled ? 'active' : ''}`}
+              className={`${styles.toolbarBtn} ${styles.minimapToggleBtn} ${minimapConfig.enabled ? styles.minimapToggleBtnActive : ''}`}
               onClick={toggleMinimap}
             >
               🗺️
             </button>
           </Tooltip>
           <Dropdown menu={{ items: batchMenuItems }} trigger={['click']}>
-            <button className="toolbar-btn">⚡ 操作</button>
+            <button className={styles.toolbarBtn}>⚡ 操作</button>
           </Dropdown>
         </div>
       </div>
       
       {/* Tab 切换 */}
-      <div className="config-tabs">
+      <div className={styles.configTabs}>
         <button
-          className={`config-tab ${activeTab === 'nav' ? 'active' : ''}`}
+          className={`${styles.configTab} ${activeTab === 'nav' ? styles.active : ''}`}
           onClick={() => setActiveTab('nav')}
         >
           🌳 导航
         </button>
         <button
-          className={`config-tab ${activeTab === 'config' ? 'active' : ''}`}
+          className={`${styles.configTab} ${activeTab === 'config' ? styles.active : ''}`}
           onClick={() => setActiveTab('config')}
         >
           ⚙️ 配置
         </button>
         <button
-          className={`config-tab ${activeTab === 'history' ? 'active' : ''}`}
+          className={`${styles.configTab} ${activeTab === 'history' ? styles.active : ''}`}
           onClick={() => setActiveTab('history')}
         >
           📜 历史
@@ -714,14 +716,14 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       </div>
       
       {/* Tab 内容 */}
-      <div className="config-content">
+      <div className={styles.configContent}>
         {activeTab === 'history' ? (
           <HistoryPanel onJumpToHistory={onJumpToHistory} />
         ) : activeTab === 'nav' ? (
           // 节点导航面板
-          <div className="config-nav-panel">
+          <div className={styles.configNavPanel}>
             {/* 搜索框 */}
-            <div className="tree-search-box">
+            <div className={treeStyles.treeSearchBox}>
               <Input
                 placeholder="搜索节点或文档内容..."
                 prefix={<SearchOutlined />}
@@ -742,7 +744,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             />
             
             {filteredData ? (
-              <div className="tree-panel-body">
+              <div className={treeStyles.treePanelBody}>
                 <TreeRenderer
                   nodes={[filteredData]}
                   colors={colors}
@@ -756,7 +758,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 />
               </div>
             ) : (
-              <div className="config-loading">
+              <div className={styles.configLoading}>
                 {searchKeyword ? '未找到匹配的节点' : '加载中...'}
               </div>
             )}
@@ -898,13 +900,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           showUploadList={false}
           maxCount={1}
         >
-          <button className="backup-upload-btn">
+          <button className={styles.backupUploadBtn}>
             📂 选择备份文件 (.json)
           </button>
         </Upload>
         
         <p style={{ marginTop: 16, marginBottom: 8 }}>导入选项：</p>
-        <div className="import-options">
+        <div className={styles.importOptions}>
           <label>
             <input
               type="checkbox"

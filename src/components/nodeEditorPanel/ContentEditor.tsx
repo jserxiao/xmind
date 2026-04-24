@@ -16,6 +16,7 @@ import {
   getTemplateContent, 
   getSnippetContent 
 } from '../../utils/mdTemplates';
+import styles from '../../styles/NodeEditorPanel.module.css';
 
 /**
  * 内容编辑器组件
@@ -121,12 +122,12 @@ const ContentEditor: React.FC = () => {
   };
 
   return (
-    <div className="editor-md-area">
-      <div className="md-editor-header">
-        <span className="md-editor-title">
+    <div className={styles.editorMdArea}>
+      <div className={styles.mdEditorHeader}>
+        <span className={styles.mdEditorTitle}>
           {isSubNode ? '章节内容' : 'Markdown 内容'}
         </span>
-        <div className="md-editor-actions">
+        <div className={styles.mdEditorActions}>
           <Dropdown 
             menu={{ items: templateMenuItems, onClick: handleTemplateClick }} 
             trigger={['click']}
@@ -156,7 +157,7 @@ const ContentEditor: React.FC = () => {
         </div>
       </div>
       
-      <div className="md-editor-container" data-color-mode="light">
+      <div className={styles.mdEditorContainer} data-color-mode="light">
         <MDEditor
           value={formData.mdContent || ''}
           onChange={(val) => setMdContent(val || '')}

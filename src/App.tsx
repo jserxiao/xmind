@@ -6,6 +6,7 @@ import KnowledgeDetail from './pages/KnowledgeDetail';
 import { useRoadmapStore } from './store/roadmapStore';
 import { getDirectoryHandle } from './utils/fileSystem';
 import { initializeTheme } from './store/themeStore';
+import styles from './styles/Home.module.css';
 
 /** 路由守卫组件：根据存储状态决定初始页面 */
 function RouteGuard() {
@@ -50,7 +51,7 @@ function RouteGuard() {
 function App() {
   return (
     <Router>
-      <div className="app">
+      <div className={styles.app}>
         <Routes>
           {/* 主页：根据存储状态决定显示列表页还是直接进入思维导图 */}
           <Route path="/" element={<RouteGuard />} />

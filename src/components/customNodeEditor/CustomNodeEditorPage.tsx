@@ -4,11 +4,11 @@
  * 支持拖拽基础元素到画布中组合成自定义节点
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Modal, Input, Button, message, Tooltip, Popconfirm } from 'antd';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Modal, Input, Button, message, Popconfirm } from 'antd';
 import { SaveOutlined, DeleteOutlined, CopyOutlined, ClearOutlined } from '@ant-design/icons';
 import { useCustomNodeStore } from '../../store/customNodeStore';
-import type { CustomNodeConfig, BaseElement, BaseElementType } from '../../types/customNode';
+import type { BaseElement, BaseElementType } from '../../types/customNode';
 import { ELEMENT_TEMPLATES } from '../../types/customNode';
 import ElementCanvas from './ElementCanvas';
 import ElementToolbar from './ElementToolbar';

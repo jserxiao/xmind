@@ -7,6 +7,7 @@
 import React from 'react';
 import { FileTextOutlined } from '@ant-design/icons';
 import type { MdSearchResult } from '../../utils/nodeUtils';
+import styles from '../../styles/TreePanel.module.css';
 
 interface MdSearchResultsProps {
   results: MdSearchResult[];
@@ -30,21 +31,21 @@ const MdSearchResults: React.FC<MdSearchResultsProps> = ({
   }
 
   return (
-    <div className="md-search-results">
-      <div className="md-search-header">
+    <div className={styles.mdSearchResults}>
+      <div className={styles.mdSearchHeader}>
         <FileTextOutlined /> 文档内容匹配 ({results.length})
       </div>
       {results.map((result) => (
         <div
           key={result.nodeId}
-          className="md-search-item"
+          className={styles.mdSearchItem}
           onClick={() => onFocusNode(result.nodeId)}
         >
-          <div className="md-search-item-title">
+          <div className={styles.mdSearchItemTitle}>
             {highlightText(result.nodeLabel, searchKeyword)}
           </div>
           {result.matches.slice(0, 2).map((match, idx) => (
-            <div key={idx} className="md-search-item-context">
+            <div key={idx} className={styles.mdSearchItemContext}>
               ...{highlightText(match, searchKeyword)}...
             </div>
           ))}

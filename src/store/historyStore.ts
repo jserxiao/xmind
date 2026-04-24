@@ -114,7 +114,7 @@ export const useHistoryStore = create<HistoryStore>()(
 
   // 撤销操作
   undo: async () => {
-    const { past, isProcessing } = get();
+    const { past, future, isProcessing } = get();
     
     if (past.length === 0 || isProcessing) {
       return null;
@@ -148,18 +148,20 @@ export const useHistoryStore = create<HistoryStore>()(
       await saveIndexJson(roadmapPath, lastEntry.tree);
 
       // 更新状态
-      set((state) => ({
+      // 注意：撤销时，将当前操作记录移动到 future 栈
+      // 未来重做时，会重新执行删除操作
+      set({
         past: newPast,
         future: [
           {
-            tree: state.past[state.past.length - 1]?.tree || lastEntry.tree,
+            tree: lastEntry.tree,
             description: `重做: ${lastEntry.description}`,
             timestamp: Date.now(),
-            deletedFiles: lastEntry.deletedFiles, // 保存删除文件信息以便重做时使用
+            deletedFiles: lastEntry.deletedFiles,
           },
-          ...state.future,
-        ].slice(0, state.maxHistory),
-      }));
+          ...future,
+        ].slice(0, get().maxHistory),
+      });
 
       console.log('[HistoryStore] 撤销成功:', lastEntry.description);
       return lastEntry.tree;
@@ -173,7 +175,7 @@ export const useHistoryStore = create<HistoryStore>()(
 
   // 重做操作
   redo: async () => {
-    const { future, isProcessing } = get();
+    const { future, past, isProcessing } = get();
     
     if (future.length === 0 || isProcessing) {
       return null;
@@ -189,9 +191,9 @@ export const useHistoryStore = create<HistoryStore>()(
       const mdBasePath = useRoadmapStore.getState().getMdBasePath();
       const roadmapPath = mdBasePath.split('/').pop() || '';
 
-      // 如果有删除文件信息，重新删除这些文件（重做删除操作）
+      // 重做删除操作：如果有删除文件信息，重新删除这些文件
       if (nextEntry.deletedFiles && nextEntry.deletedFiles.length > 0) {
-        console.log('[HistoryStore] 重做时重新删除文件:', nextEntry.deletedFiles.length, '个');
+        console.log('[HistoryStore] 重做删除操作，删除文件:', nextEntry.deletedFiles.length, '个');
         for (const fileInfo of nextEntry.deletedFiles) {
           const fullPath = `${mdBasePath}/${fileInfo.path}`;
           const result = await deleteFile(fullPath);
@@ -206,19 +208,19 @@ export const useHistoryStore = create<HistoryStore>()(
       // 持久化到文件
       await saveIndexJson(roadmapPath, nextEntry.tree);
 
-      // 更新状态
-      set((state) => ({
+      // 更新状态：将重做的操作移回 past 栈
+      set({
         past: [
-          ...state.past,
+          ...past,
           {
             tree: nextEntry.tree,
-            description: nextEntry.description,
+            description: nextEntry.description.replace('重做: ', ''),
             timestamp: Date.now(),
             deletedFiles: nextEntry.deletedFiles,
           },
-        ].slice(-state.maxHistory),
+        ].slice(-get().maxHistory),
         future: newFuture,
-      }));
+      });
 
       console.log('[HistoryStore] 重做成功:', nextEntry.description);
       return nextEntry.tree;

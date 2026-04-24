@@ -1,0 +1,28 @@
+/* ===== 水印配置弹窗样式 ===== */
+.watermarkConfig {
+  padding: 8px 0;
+}
+
+.watermarkConfigRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.watermarkConfigItem {
+  flex: 1;
+}
+
+.watermarkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.watermarkLabel span {
+  font-size: 14px;
+}

@@ -8,6 +8,8 @@ import { useState, useEffect, useRef } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import { Spin, message } from 'antd';
 import { readFile } from '../utils/fileSystem';
+import overlayStyles from '../styles/NodeEditorPanel.module.css';
+import styles from '../styles/SubNodePreviewPanel.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -228,40 +230,40 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="node-editor-overlay" onClick={onClose}>
+    <div className={overlayStyles.nodeEditorOverlay} onClick={onClose}>
       <div 
         ref={panelRef}
-        className={`sub-node-preview-panel ${isFullscreen ? 'fullscreen' : ''}`}
+        className={`${styles.subNodePreviewPanel} ${isFullscreen ? styles.fullscreen : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
-        <div className="editor-header">
-          <h2 className="editor-title">
+        <div className={overlayStyles.editorHeader}>
+          <h2 className={overlayStyles.editorTitle}>
             👁️ 预览：{nodeLabel}
           </h2>
-          <div className="header-actions">
+          <div className={styles.headerActions}>
             <button 
-              className="fullscreen-btn" 
+              className={styles.fullscreenBtn} 
               onClick={toggleFullscreen}
               title={isFullscreen ? '退出全屏' : '全屏'}
             >
               {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
             </button>
-            <button className="editor-close-btn" onClick={onClose}>
+            <button className={overlayStyles.editorCloseBtn} onClick={onClose}>
               ✕
             </button>
           </div>
         </div>
 
         {/* 内容区 */}
-        <div className="preview-panel-content" data-color-mode="light">
+        <div className={styles.previewPanelContent} data-color-mode="light">
           {loading ? (
-            <div className="preview-loading">
+            <div className={styles.previewLoading}>
               <Spin tip="正在加载内容..." />
             </div>
           ) : error ? (
-            <div className="preview-error">
-              <span className="error-icon">⚠️</span>
+            <div className={styles.previewError}>
+              <span className={styles.errorIcon}>⚠️</span>
               <span>{error}</span>
             </div>
           ) : (
@@ -273,11 +275,11 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
         </div>
 
         {/* 底部提示 */}
-        <div className="editor-footer">
-          <div className="footer-hint">
-            {mdPath && <span className="md-path-hint">📄 {mdPath}</span>}
+        <div className={overlayStyles.editorFooter}>
+          <div className={overlayStyles.footerHint}>
+            {mdPath && <span className={styles.mdPathHint}>📄 {mdPath}</span>}
           </div>
-          <div className="footer-actions">
+          <div className={overlayStyles.footerActions}>
             <button className="btn btn-secondary" onClick={onClose}>
               关闭
             </button>

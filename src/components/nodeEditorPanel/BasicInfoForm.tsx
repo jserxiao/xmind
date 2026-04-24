@@ -11,6 +11,7 @@ import { useNodeEditorStore, getDefaultIcon, type NodeType } from '../../store/n
 import { useCustomNodeStore } from '../../store/customNodeStore';
 import { ICON_LIST, NODE_TYPE_OPTIONS } from '../../constants';
 import CustomNodeManagerModal from '../customNodeEditor/CustomNodeManagerModal';
+import styles from '../../styles/NodeEditorPanel.module.css';
 
 const { TextArea } = Input;
 
@@ -63,10 +64,10 @@ const BasicInfoForm: React.FC = () => {
     : null;
 
   return (
-    <div className="editor-form">
+    <div className={styles.editorForm}>
       {/* 标题 */}
-      <div className="form-group">
-        <label className="form-label">{isSubNode ? '章节标题' : '标题'} *</label>
+      <div className={styles.formGroup}>
+        <label className={styles.formLabel}>{isSubNode ? '章节标题' : '标题'} *</label>
         <Input
           value={formData.label}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ label: e.target.value })}
@@ -83,8 +84,8 @@ const BasicInfoForm: React.FC = () => {
       </div>
 
       {/* 自定义节点选择 - 所有节点类型都可以选择 */}
-      <div className="form-group">
-        <label className="form-label">自定义节点样式</label>
+      <div className={styles.formGroup}>
+        <label className={styles.formLabel}>自定义节点样式</label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {selectedCustomNode ? (
             <>
@@ -156,9 +157,9 @@ const BasicInfoForm: React.FC = () => {
       {!isSubNode && (
         <>
           {/* 类型和图标 */}
-          <div className="form-row">
-            <div className="form-group form-group-half">
-              <label className="form-label">节点类型</label>
+          <div className={styles.formRow}>
+            <div className={`${styles.formGroup} ${styles.formGroupHalf}`}>
+              <label className={styles.formLabel}>节点类型</label>
               <Select
                 value={formData.type}
                 onChange={handleTypeChange}
@@ -183,8 +184,8 @@ const BasicInfoForm: React.FC = () => {
               />
             </div>
 
-            <div className="form-group form-group-half">
-              <label className="form-label">图标</label>
+            <div className={`${styles.formGroup} ${styles.formGroupHalf}`}>
+              <label className={styles.formLabel}>图标</label>
               <Select
                 value={formData.icon || '📄'}
                 onChange={(icon: string) => updateFormData({ icon })}
@@ -199,8 +200,8 @@ const BasicInfoForm: React.FC = () => {
           </div>
 
           {/* 描述 */}
-          <div className="form-group">
-            <label className="form-label">描述</label>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>描述</label>
             <TextArea
               value={formData.description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateFormData({ description: e.target.value })}
@@ -213,21 +214,21 @@ const BasicInfoForm: React.FC = () => {
 
           {/* MD路径 */}
           {formData.type !== 'link' && (
-            <div className="form-group">
-              <label className="form-label">MD 文件路径</label>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>MD 文件路径</label>
               <Input
                 value={formData.mdPath}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ mdPath: e.target.value })}
                 placeholder="例如: basic-features/defer"
               />
-              <span className="form-hint">相对于 /md/ 目录的路径，不含 .md 后缀</span>
+              <span className={styles.formHint}>相对于 /md/ 目录的路径，不含 .md 后缀</span>
             </div>
           )}
 
           {/* 外部链接 */}
           {formData.type === 'link' && (
-            <div className="form-group">
-              <label className="form-label">外部链接</label>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>外部链接</label>
               <Input
                 value={formData.url}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFormData({ url: e.target.value })}

@@ -40,7 +40,6 @@ const ShortcutKeyInput: React.FC<ShortcutKeyInputProps> = ({
 }) => {
   return (
     <div 
-      className="shortcut-key-input"
       tabIndex={0}
       autoFocus
       onKeyDown={onKeyDown}

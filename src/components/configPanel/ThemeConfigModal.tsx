@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Modal, message } from 'antd';
 import { useThemeStore, THEME_PRESETS } from '../../store/themeStore';
 import type { ThemeColors, ThemePreset } from '../../store/themeStore';
+import styles from '../../styles/ThemeConfigModal.module.css';
 
 interface ThemeConfigModalProps {
   open: boolean;
@@ -45,6 +46,8 @@ const COLOR_LABELS: Record<keyof ThemeColors, string> = {
   nodeLeaf: '叶子节点',
   nodeSelected: '选中节点',
   nodeHover: '悬停节点',
+  edge: '边线颜色',
+  edgeArrow: '边线箭头',
 };
 
 /** 颜色分组 */
@@ -78,7 +81,6 @@ const COLOR_GROUPS = [
 const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) => {
   const currentThemeId = useThemeStore((state) => state.currentThemeId);
   const useCustomColors = useThemeStore((state) => state.useCustomColors);
-  const customColors = useThemeStore((state) => state.customColors);
   const getCurrentColors = useThemeStore((state) => state.getCurrentColors);
   const setTheme = useThemeStore((state) => state.setTheme);
   const updateCustomColors = useThemeStore((state) => state.updateCustomColors);
@@ -119,22 +121,22 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
 
   // 渲染颜色输入项
   const renderColorInput = (key: keyof ThemeColors, colors: ThemeColors) => (
-    <div key={key} className="theme-color-item">
-      <label className="theme-color-label">{COLOR_LABELS[key]}</label>
-      <div className="theme-color-input-wrapper">
+    <div key={key} className={styles.themeColorItem}>
+      <label className={styles.themeColorLabel}>{COLOR_LABELS[key]}</label>
+      <div className={styles.themeColorInputWrapper}>
         <input
           type="color"
           value={colors[key]}
           onChange={(e) => handleColorChange(key, e.target.value)}
           disabled={!useCustomColors}
-          className="theme-color-picker"
+          className={styles.themeColorPicker}
         />
         <input
           type="text"
           value={colors[key]}
           onChange={(e) => handleColorChange(key, e.target.value)}
           disabled={!useCustomColors}
-          className="theme-color-text"
+          className={styles.themeColorText}
         />
       </div>
     </div>
@@ -148,48 +150,48 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
       footer={null}
       width={680}
     >
-      <div className="theme-config">
+      <div className={styles.themeConfig}>
         {/* 预设主题 */}
-        <div className="theme-section">
-          <h4 className="theme-section-title">推荐主题</h4>
-          <div className="theme-presets">
+        <div className={styles.themeSection}>
+          <h4 className={styles.themeSectionTitle}>推荐主题</h4>
+          <div className={styles.themePresets}>
             {THEME_PRESETS.map((preset) => (
               <div
                 key={preset.id}
-                className={`theme-preset-card ${currentThemeId === preset.id && !useCustomColors ? 'active' : ''}`}
+                className={`${styles.themePresetCard} ${currentThemeId === preset.id && !useCustomColors ? styles.active : ''}`}
                 onClick={() => handlePresetClick(preset)}
               >
-                <div className="theme-preset-colors">
+                <div className={styles.themePresetColors}>
                   <div
-                    className="theme-preset-color primary"
+                    className={`${styles.themePresetColor} ${styles.primary}`}
                     style={{ backgroundColor: preset.colors.primary }}
                   />
                   <div
-                    className="theme-preset-color secondary"
+                    className={`${styles.themePresetColor} ${styles.secondary}`}
                     style={{ backgroundColor: preset.colors.nodeRoot }}
                   />
                   <div
-                    className="theme-preset-color accent"
+                    className={`${styles.themePresetColor} ${styles.accent}`}
                     style={{ backgroundColor: preset.colors.success }}
                   />
                 </div>
-                <div className="theme-preset-name">{preset.name}</div>
+                <div className={styles.themePresetName}>{preset.name}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* 自定义主题 */}
-        <div className="theme-section">
-          <div className="theme-section-header">
-            <h4 className="theme-section-title">自定义主题</h4>
-            <div className="theme-section-actions">
+        <div className={styles.themeSection}>
+          <div className={styles.themeSectionHeader}>
+            <h4 className={styles.themeSectionTitle}>自定义主题</h4>
+            <div className={styles.themeSectionActions}>
               {!useCustomColors ? (
-                <button className="theme-action-btn" onClick={handleEnableCustom}>
+                <button className={styles.themeActionBtn} onClick={handleEnableCustom}>
                   启用自定义
                 </button>
               ) : (
-                <button className="theme-action-btn secondary" onClick={handleReset}>
+                <button className={`${styles.themeActionBtn} ${styles.secondary}`} onClick={handleReset}>
                   重置为默认
                 </button>
               )}
@@ -197,11 +199,11 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
           </div>
 
           {useCustomColors && (
-            <div className="theme-color-groups">
+            <div className={styles.themeColorGroups}>
               {COLOR_GROUPS.map((group) => (
-                <div key={group.title} className="theme-color-group">
-                  <h5 className="theme-group-title">{group.title}</h5>
-                  <div className="theme-color-items">
+                <div key={group.title} className={styles.themeColorGroup}>
+                  <h5 className={styles.themeGroupTitle}>{group.title}</h5>
+                  <div className={styles.themeColorItems}>
                     {group.keys.map((key) => renderColorInput(key, editingColors))}
                   </div>
                 </div>
@@ -210,7 +212,7 @@ const ThemeConfigModal: React.FC<ThemeConfigModalProps> = ({ open, onClose }) =>
           )}
 
           {!useCustomColors && (
-            <div className="theme-custom-hint">
+            <div className={styles.themeCustomHint}>
               <p>💡 点击「启用自定义」可手动配置所有颜色</p>
             </div>
           )}

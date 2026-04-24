@@ -3,13 +3,15 @@
  * 
  * 在节点上右键点击时显示，提供：
  * - 添加子节点（非 sub 类型）
- * - 编辑节点
- * - 删除节点（非 root 类型）
- * - 预览内容（sub 类型或有 mdPath 的节点）
+ * - 编辑节点（非 sub 类型）
+ * - 删除节点（非 sub 类型）
+ * - 预览内容（sub 类型）
+ * - 书签切换
  */
 
 import { useEffect, useRef } from 'react';
 import type { RoadmapNode } from '../data/roadmapData';
+import styles from '../styles/ContextMenu.module.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -24,7 +26,7 @@ export interface ContextMenuProps {
   node: RoadmapNode | null;
   /** 是否显示 */
   visible: boolean;
-  /** 是否有书签 */
+  /** 节点是否有书签 */
   hasBookmark?: boolean;
   /** 添加子节点回调 */
   onAddChild: () => void;
@@ -49,7 +51,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   y,
   node,
   visible,
-  hasBookmark,
+  hasBookmark: hasBookmarkProp = false,
   onAddChild,
   onEdit,
   onDelete,
@@ -89,7 +91,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     if (!menuRef.current) return { left: x, top: y };
 
     const menuWidth = 160;
-    const menuHeight = 140;
+    const menuHeight = 180;
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
 
@@ -111,60 +113,55 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   const position = adjustPosition();
   const isRoot = node.type === 'root';
   const isSubNode = node.type === 'sub';
-  const hasMdPath = !!node.mdPath;
-  const canPreview = isSubNode || hasMdPath;
 
   return (
     <div
       ref={menuRef}
-      className="context-menu"
+      className={styles.contextMenu}
       style={{ left: position.left, top: position.top }}
     >
-      <div className="context-menu-header">
-        <span className="context-menu-node-label">{node.label}</span>
-        <span className="context-menu-node-type">{node.type}</span>
+      <div className={styles.contextMenuHeader}>
+        <span className={styles.contextMenuNodeLabel}>{node.label}</span>
+        <span className={styles.contextMenuNodeType}>{node.type}</span>
       </div>
-      <div className="context-menu-divider" />
-      <div className="context-menu-items">
-        {/* 书签选项 */}
-        {onToggleBookmark && (
-          <button className="context-menu-item" onClick={onToggleBookmark}>
-            <span className="menu-icon">{hasBookmark ? '🔖' : '📑'}</span>
-            <span>{hasBookmark ? '移除书签' : '添加书签'}</span>
-          </button>
-        )}
-        
-        {/* sub 类型或有 mdPath 的节点显示预览选项 */}
-        {canPreview && (
-          <button className="context-menu-item" onClick={onPreview}>
-            <span className="menu-icon">👁️</span>
-            <span>预览内容</span>
-          </button>
-        )}
-        
-        {/* sub 类型节点 */}
+      <div className={styles.contextMenuDivider} />
+      <div className={styles.contextMenuItems}>
+        {/* sub 类型节点显示预览和编辑选项 */}
         {isSubNode ? (
-          <button className="context-menu-item" onClick={onEdit}>
-            <span className="menu-icon">✏️</span>
-            <span>编辑章节</span>
-          </button>
+          <>
+            <button className={styles.contextMenuItem} onClick={onPreview}>
+              <span className={styles.menuIcon}>👁️</span>
+              <span>预览内容</span>
+            </button>
+            <button className={styles.contextMenuItem} onClick={onEdit}>
+              <span className={styles.menuIcon}>✏️</span>
+              <span>编辑章节</span>
+            </button>
+          </>
         ) : (
           <>
-            <button className="context-menu-item" onClick={onAddChild}>
-              <span className="menu-icon">➕</span>
+            <button className={styles.contextMenuItem} onClick={onAddChild}>
+              <span className={styles.menuIcon}>➕</span>
               <span>添加子节点</span>
             </button>
-            <button className="context-menu-item" onClick={onEdit}>
-              <span className="menu-icon">✏️</span>
+            <button className={styles.contextMenuItem} onClick={onEdit}>
+              <span className={styles.menuIcon}>✏️</span>
               <span>编辑节点</span>
             </button>
             {!isRoot && (
-              <button className="context-menu-item context-menu-item-danger" onClick={onDelete}>
-                <span className="menu-icon">🗑️</span>
+              <button className={`${styles.contextMenuItem} ${styles.contextMenuItemDanger}`} onClick={onDelete}>
+                <span className={styles.menuIcon}>🗑️</span>
                 <span>删除节点</span>
               </button>
             )}
           </>
+        )}
+        {/* 书签切换按钮 */}
+        {onToggleBookmark && (
+          <button className={styles.contextMenuItem} onClick={onToggleBookmark}>
+            <span className={styles.menuIcon}>{hasBookmarkProp ? '🔖' : '📑'}</span>
+            <span>{hasBookmarkProp ? '移除书签' : '添加书签'}</span>
+          </button>
         )}
       </div>
     </div>

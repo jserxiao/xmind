@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Input, InputNumber, Select, Button } from 'antd';
+import { Input, InputNumber, Button } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { BaseElement } from '../../types/customNode';
 import styles from './ElementPropertyPanel.module.css';
