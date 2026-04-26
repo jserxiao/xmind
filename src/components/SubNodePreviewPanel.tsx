@@ -32,6 +32,14 @@ interface SubNodePreviewPanelProps {
   autoFullscreen?: boolean;
   /** 全屏退出回调 */
   onExitFullscreen?: () => void;
+  /** 上一个节点回调 */
+  onPrevNode?: () => void;
+  /** 下一个节点回调 */
+  onNextNode?: () => void;
+  /** 是否有上一个节点 */
+  hasPrevNode?: boolean;
+  /** 是否有下一个节点 */
+  hasNextNode?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -46,6 +54,10 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
   onClose,
   autoFullscreen = false,
   onExitFullscreen,
+  onPrevNode,
+  onNextNode,
+  hasPrevNode = false,
+  hasNextNode = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState('');
@@ -179,9 +191,27 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
       >
         {/* 标题栏 */}
         <div className={overlayStyles.editorHeader}>
-          <h2 className={overlayStyles.editorTitle}>
-            {EMOJI.EYE} 预览：{nodeLabel}
-          </h2>
+          <div className={styles.headerNav}>
+            <button 
+              className={`${styles.navBtn} ${!hasPrevNode ? styles.navBtnDisabled : ''}`}
+              onClick={onPrevNode}
+              disabled={!hasPrevNode}
+              title={hasPrevNode ? '上一个节点' : '没有上一个节点'}
+            >
+              ← 上一个
+            </button>
+            <h2 className={overlayStyles.editorTitle}>
+              {EMOJI.EYE} 预览：{nodeLabel}
+            </h2>
+            <button 
+              className={`${styles.navBtn} ${!hasNextNode ? styles.navBtnDisabled : ''}`}
+              onClick={onNextNode}
+              disabled={!hasNextNode}
+              title={hasNextNode ? '下一个节点' : '没有下一个节点'}
+            >
+              下一个 →
+            </button>
+          </div>
           <div className={styles.headerActions}>
             <button 
               className={styles.fullscreenBtn} 

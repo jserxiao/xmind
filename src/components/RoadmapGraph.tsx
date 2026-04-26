@@ -39,20 +39,23 @@ import ConfigPanel from './ConfigPanel';
 import ContextMenu from './ContextMenu';
 import NodeEditorPanel from './NodeEditorPanel';
 import SubNodePreviewPanel from './SubNodePreviewPanel';
+import MemoryMonitor from './MemoryMonitor';
 import {
-  findNodeInTree,
-  addChildNode,
-  updateNodeInTree,
-  createNodeFromFormData,
-  updateIndexJson,
-  saveMdFile,
-  findAncestorMdPath,
-  findParentWithMdPath,
-  addSectionToMdFile,
-  executeNodeDelete,
-  executeBatchNodeDelete,
-  reorderNodeChildren,
-  saveSubNodeSection,
+findNodeInTree,
+addChildNode,
+updateNodeInTree,
+createNodeFromFormData,
+updateIndexJson,
+saveMdFile,
+findAncestorMdPath,
+findParentWithMdPath,
+addSectionToMdFile,
+executeNodeDelete,
+executeBatchNodeDelete,
+reorderNodeChildren,
+saveSubNodeSection,
+getPrevNextNode,
+preorderTraversal,
 } from '../utils/nodeUtils';
 import styles from '../styles/RoadmapGraph.module.css';
 
@@ -153,22 +156,26 @@ const [rawData, setRawData] = useState<RoadmapNode | null>(null);
   // ── 数据引用（用于事件回调中获取最新数据） ──
   const rawDataRef = useRef<RoadmapNode | null>(null);
 
-  // ── 右键菜单状态 ──
-  const [contextMenu, setContextMenu] = useState<{
-    visible: boolean;
-    x: number;
-    y: number;
-    node: RoadmapNode | null;
-  }>({ visible: false, x: 0, y: 0, node: null });
+// ── 右键菜单状态 ──
+const [contextMenu, setContextMenu] = useState<{
+visible: boolean;
+x: number;
+y: number;
+node: RoadmapNode | null;
+}>({ visible: false, x: 0, y: 0, node: null });
 
-  // ── 子节点预览状态 ──
-  const [previewPanel, setPreviewPanel] = useState<{
-    visible: boolean;
-    nodeLabel: string;
-    mdPath: string | null;
-    sectionTitle: string;
-    autoFullscreen: boolean;
-  }>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '', autoFullscreen: false });
+// ── 选中节点状态（用于上一个/下一个导航）──
+const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+// ── 子节点预览状态 ──
+const [previewPanel, setPreviewPanel] = useState<{
+visible: boolean;
+nodeLabel: string;
+mdPath: string | null;
+sectionTitle: string;
+autoFullscreen: boolean;
+nodeId: string | null;  // 保存节点 ID，用于关闭时聚焦
+}>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '', autoFullscreen: false, nodeId: null });
 
   // ── 路由导航 ──
   const navigate = useNavigate();
@@ -342,31 +349,47 @@ nodeRendererRef.current.registerAll();
           onDoubleClickPreview: (data) => {
             // 双击预览：打开预览面板并自动进入全屏
             const currentData = rawDataRef.current;
+            console.log('[DEBUG] onDoubleClickPreview called:', {
+              dataNodeId: data.nodeId,
+              dataLabel: data.label,
+              selectedNodeId,
+              currentDataId: currentData?.id,
+            });
             if (!currentData) return;
             
             const node = findNodeInTree(currentData, data.nodeId);
+            console.log('[DEBUG] Found node:', {
+              nodeId: node?.id,
+              nodeLabel: node?.label,
+              nodeType: node?.type,
+              nodeMdPath: node?.mdPath,
+            });
             if (node) {
               const isSubNode = node.type === 'sub';
               if (isSubNode) {
                 const mdPath = findAncestorMdPath(node.id, currentData);
                 // 使用 store 方法获取完整路径
                 const fullMdPath = mdPath ? getFullMdPath(mdPath) : null;
+                console.log('[DEBUG] Sub node preview:', { mdPath, fullMdPath, sectionTitle: node.label });
                 setPreviewPanel({
                   visible: true,
                   nodeLabel: node.label,
                   mdPath: fullMdPath,
                   sectionTitle: node.label,
                   autoFullscreen: true,
+                  nodeId: node.id,
                 });
               } else if (node.mdPath) {
                 // 使用 store 方法获取完整路径
                 const fullMdPath = getFullMdPath(node.mdPath);
+                console.log('[DEBUG] Non-sub node preview:', { fullMdPath });
                 setPreviewPanel({
                   visible: true,
                   nodeLabel: node.label,
                   mdPath: fullMdPath,
                   sectionTitle: '',
                   autoFullscreen: true,
+                  nodeId: node.id,
                 });
               }
             }
@@ -508,17 +531,105 @@ nodeRendererRef.current.registerAll();
   }, []);
 
   /** 聚焦到指定节点 */
-  const focusNode = useCallback((nodeId: string) => {
-    eventHandlerRef.current?.focusNode(nodeId);
-    // 聚焦后添加高亮效果
-    setTimeout(() => {
-      eventHandlerRef.current?.highlightNode(nodeId, 2500);
-    }, 600);
-  }, []);
+const focusNode = useCallback((nodeId: string) => {
+eventHandlerRef.current?.focusNode(nodeId);
+// 聚焦后添加高亮效果
+setTimeout(() => {
+eventHandlerRef.current?.highlightNode(nodeId, 2500);
+}, 600);
+// 更新选中节点
+setSelectedNodeId(nodeId);
+}, []);
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // 导出功能（懒加载导出模块）
-  // ───────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
+// 上一个/下一个节点导航
+// ───────────────────────────────────────────────────────────────────────────
+
+// 计算上一个/下一个节点信息
+const prevNodeId = useMemo(() => {
+if (!rawData || !selectedNodeId) return null;
+const result = getPrevNextNode(selectedNodeId, rawData);
+return result.prev;
+}, [rawData, selectedNodeId]);
+
+const nextNodeId = useMemo(() => {
+if (!rawData || !selectedNodeId) return null;
+const result = getPrevNextNode(selectedNodeId, rawData);
+return result.next;
+}, [rawData, selectedNodeId]);
+
+// 上一个节点
+const handlePrevNode = useCallback(() => {
+if (!prevNodeId || !rawData) return;
+focusNode(prevNodeId);
+}, [prevNodeId, rawData, focusNode]);
+
+// 下一个节点
+const handleNextNode = useCallback(() => {
+if (!nextNodeId || !rawData) return;
+focusNode(nextNodeId);
+}, [nextNodeId, rawData, focusNode]);
+
+// ───────────────────────────────────────────────────────────────────────────
+// 预览面板中的上一个/下一个节点导航
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * 检查节点是否可以预览
+ */
+const canPreviewNode = useCallback((node: RoadmapNode): boolean => {
+  // sub 节点可以预览（通过祖先节点的 mdPath）
+  if (node.type === 'sub') {
+    // 需要使用 rawData 来查找祖先节点
+    return rawData ? !!findAncestorMdPath(node.id, rawData) : false;
+  }
+  // 有 mdPath 的节点可以预览
+  return !!node.mdPath;
+}, [rawData]);
+
+/**
+ * 查找下一个可预览的节点
+ */
+const findNextPreviewableNode = useCallback((startNodeId: string, direction: 'next' | 'prev'): string | null => {
+  if (!rawData) return null;
+  
+  const allNodes = preorderTraversal(rawData);
+  const currentIndex = allNodes.findIndex(n => n.id === startNodeId);
+  if (currentIndex === -1) return null;
+  
+  // 根据方向查找
+  const step = direction === 'next' ? 1 : -1;
+  let index = currentIndex + step;
+  
+  while (index >= 0 && index < allNodes.length) {
+    const node = allNodes[index];
+    if (canPreviewNode(node)) {
+      return node.id;
+    }
+    index += step;
+  }
+  
+  return null;
+}, [rawData, canPreviewNode]);
+
+// 计算预览面板中当前节点的上一个/下一个可预览节点
+const prevNodeIdForPreview = useMemo(() => {
+  if (!rawData || !previewPanel.nodeId) return null;
+  return findNextPreviewableNode(previewPanel.nodeId, 'prev');
+}, [rawData, previewPanel.nodeId, findNextPreviewableNode]);
+
+const nextNodeIdForPreview = useMemo(() => {
+  if (!rawData || !previewPanel.nodeId) return null;
+  return findNextPreviewableNode(previewPanel.nodeId, 'next');
+}, [rawData, previewPanel.nodeId, findNextPreviewableNode]);
+
+// 预览面板中的上一个/下一个节点 - 稍后在 openPreviewPanel 之后定义
+const handlePrevNodeInPreviewRef = useRef<(() => void) | null>(null);
+const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
+
+// ───────────────────────────────────────────────────────────────────────────
+// 导出功能（懒加载导出模块）
+// ───────────────────────────────────────────────────────────────────────────
 
   /** 导出为 JPG */
   const handleExportJPG = useCallback(async () => {
@@ -683,6 +794,7 @@ nodeRendererRef.current.registerAll();
         mdPath: fullMdPath,
         sectionTitle: node.label,
         autoFullscreen: false,
+        nodeId: node.id,
       });
     } else if (node.mdPath) {
       // 有 mdPath 的节点（leaf/link）：直接预览整个文件
@@ -693,6 +805,7 @@ nodeRendererRef.current.registerAll();
         mdPath: fullMdPath,
         sectionTitle: '', // 空字符串表示预览整个文件
         autoFullscreen: false,
+        nodeId: node.id,
       });
     }
     
@@ -711,6 +824,32 @@ nodeRendererRef.current.registerAll();
   const handlePreviewSubNodeFromNav = useCallback((node: RoadmapNode) => {
     openPreviewPanel(node);
   }, [openPreviewPanel]);
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 预览面板导航操作（依赖 openPreviewPanel，必须在其之后定义）
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /** 预览面板中的上一个节点 */
+  const handlePrevNodeInPreview = useCallback(() => {
+    if (!prevNodeIdForPreview || !rawData) return;
+    const node = findNodeInTree(rawData, prevNodeIdForPreview);
+    if (node) {
+      openPreviewPanel(node);
+    }
+  }, [prevNodeIdForPreview, rawData, openPreviewPanel]);
+
+  /** 预览面板中的下一个节点 */
+  const handleNextNodeInPreview = useCallback(() => {
+    if (!nextNodeIdForPreview || !rawData) return;
+    const node = findNodeInTree(rawData, nextNodeIdForPreview);
+    if (node) {
+      openPreviewPanel(node);
+    }
+  }, [nextNodeIdForPreview, rawData, openPreviewPanel]);
+
+  // 更新 refs 供 SubNodePreviewPanel 使用
+  handlePrevNodeInPreviewRef.current = handlePrevNodeInPreview;
+  handleNextNodeInPreviewRef.current = handleNextNodeInPreview;
 
   /** 关闭预览面板 */
   const handleClosePreview = useCallback(() => {
@@ -1223,30 +1362,33 @@ nodeRendererRef.current.registerAll();
   return (
     <div className={styles.graphContainer}>
       {/* 左侧配置栏 */}
-      <ConfigPanel
-        rawData={rawData}
-        onFocusNode={focusNode}
-        onFitView={fitView}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onResetZoom={resetZoom}
-        onExportJPG={handleExportJPG}
-        onExportPDF={handleExportPDF}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        canUndo={canUndo()}
-        canRedo={canRedo()}
-        onAddNode={handleAddNodeFromNav}
-        onEditNode={handleEditNodeFromNav}
-        onDeleteNode={handleDeleteNodeFromNav}
-        onPreviewSubNode={handlePreviewSubNodeFromNav}
-        onBatchDeleteNodes={handleBatchDeleteNodes}
-        onReorderNodes={handleReorderNodes}
-        onJumpToHistory={handleJumpToHistory}
-      />
+<ConfigPanel
+rawData={rawData}
+onFocusNode={focusNode}
+onFitView={fitView}
+onZoomIn={zoomIn}
+onZoomOut={zoomOut}
+onResetZoom={resetZoom}
+onExportJPG={handleExportJPG}
+onExportPDF={handleExportPDF}
+onPrevNode={handlePrevNode}
+onNextNode={handleNextNode}
+hasPrevNode={!!prevNodeId}
+hasNextNode={!!nextNodeId}
+onAddNode={handleAddNodeFromNav}
+onEditNode={handleEditNodeFromNav}
+onDeleteNode={handleDeleteNodeFromNav}
+onPreviewSubNode={handlePreviewSubNodeFromNav}
+onBatchDeleteNodes={handleBatchDeleteNodes}
+onReorderNodes={handleReorderNodes}
+onJumpToHistory={handleJumpToHistory}
+/>
 
       {/* 右侧画布区域（全屏） */}
       <div className={styles.graphStage}>
+        {/* 内存监控 */}
+        <MemoryMonitor />
+        
         {/* 加载状态 */}
         {loading && (
           <div className={styles.graphLoading}>
@@ -1278,15 +1420,19 @@ nodeRendererRef.current.registerAll();
       {isEditorOpen && <NodeEditorPanel onSave={handleSaveNode} />}
 
       {/* 子节点预览面板 */}
-      <SubNodePreviewPanel
-        isOpen={previewPanel.visible}
-        nodeLabel={previewPanel.nodeLabel}
-        mdPath={previewPanel.mdPath}
-        sectionTitle={previewPanel.sectionTitle}
-        autoFullscreen={previewPanel.autoFullscreen}
-        onClose={handleClosePreview}
-        onExitFullscreen={handleExitFullscreen}
-      />
+<SubNodePreviewPanel
+isOpen={previewPanel.visible}
+nodeLabel={previewPanel.nodeLabel}
+mdPath={previewPanel.mdPath}
+sectionTitle={previewPanel.sectionTitle}
+autoFullscreen={previewPanel.autoFullscreen}
+onClose={handleClosePreview}
+onExitFullscreen={handleExitFullscreen}
+onPrevNode={handlePrevNodeInPreview}
+onNextNode={handleNextNodeInPreview}
+hasPrevNode={!!prevNodeIdForPreview}
+hasNextNode={!!nextNodeIdForPreview}
+/>
     </div>
   );
 };

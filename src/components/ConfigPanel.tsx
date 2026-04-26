@@ -11,7 +11,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Input, Spin, Dropdown, Modal, Tree, message, Tooltip, Select, Upload } from 'antd';
 import type { TreeProps, TreeDataNode } from 'antd';
-import { SearchOutlined, UndoOutlined, RedoOutlined, OrderedListOutlined, SettingOutlined } from '@ant-design/icons';
+import { SearchOutlined, LeftOutlined, RightOutlined, OrderedListOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   DndContext,
   closestCenter,
@@ -78,11 +78,11 @@ interface ConfigPanelProps {
   onResetZoom: () => void;
   onExportJPG: () => void;
   onExportPDF: () => void;
-  /** 撤销/恢复操作 */
-  onUndo?: () => void;
-  onRedo?: () => void;
-  canUndo?: boolean;
-  canRedo?: boolean;
+  /** 上一个/下一个节点操作 */
+  onPrevNode?: () => void;
+  onNextNode?: () => void;
+  hasPrevNode?: boolean;
+  hasNextNode?: boolean;
   /** 节点编辑操作 */
   onAddNode?: (parentId: string, parentNode: RoadmapNode | null) => void;
   onEditNode?: (node: RoadmapNode) => void;
@@ -110,10 +110,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onResetZoom,
   onExportJPG,
   onExportPDF,
-  onUndo,
-  onRedo,
-  canUndo = false,
-  canRedo = false,
+  onPrevNode,
+  onNextNode,
+  hasPrevNode = false,
+  hasNextNode = false,
   onAddNode,
   onEditNode,
   onDeleteNode,
@@ -650,22 +650,22 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           
           <div className={styles.toolbarDivider} />
           
-          <Tooltip title={canUndo ? '撤销 (Ctrl+Z)' : '没有可撤销的操作'}>
+          <Tooltip title={hasPrevNode ? '上一个节点' : '没有上一个节点'}>
             <button 
-              onClick={onUndo} 
-              className={`${styles.toolbarBtn} ${!canUndo ? styles.toolbarBtnDisabled : ''}`}
-              disabled={!canUndo}
+              onClick={onPrevNode} 
+              className={`${styles.toolbarBtn} ${!hasPrevNode ? styles.toolbarBtnDisabled : ''}`}
+              disabled={!hasPrevNode}
             >
-              <UndoOutlined />
+              <LeftOutlined />
             </button>
           </Tooltip>
-          <Tooltip title={canRedo ? '恢复 (Ctrl+Y)' : '没有可恢复的操作'}>
+          <Tooltip title={hasNextNode ? '下一个节点' : '没有下一个节点'}>
             <button 
-              onClick={onRedo} 
-              className={`${styles.toolbarBtn} ${!canRedo ? styles.toolbarBtnDisabled : ''}`}
-              disabled={!canRedo}
+              onClick={onNextNode} 
+              className={`${styles.toolbarBtn} ${!hasNextNode ? styles.toolbarBtnDisabled : ''}`}
+              disabled={!hasNextNode}
             >
-              <RedoOutlined />
+              <RightOutlined />
             </button>
           </Tooltip>
           

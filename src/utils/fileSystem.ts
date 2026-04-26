@@ -3,9 +3,14 @@
  * 
  * 使用 File System Access API 直接操作本地文件
  * 支持 Chrome、Edge 等现代浏览器
+ * 
+ * 优化特性：
+ * - MD 文件内容缓存，避免重复读取
+ * - index.json 缓存，提升加载速度
  */
 
 import type { RoadmapMeta } from '../store/roadmapStore';
+import { mdContentCache, indexJsonCache, createCacheKey } from './cache';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -260,23 +265,50 @@ export async function verifyDirectoryHandle(handle: FileSystemDirectoryHandle): 
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 读取文件内容
+ * 读取文件内容（带缓存）
  * @param path 相对于根目录的文件路径
+ * @param useCache 是否使用缓存，默认 true
  */
-export async function readFile(path: string): Promise<ApiResult & { content?: string }> {
+export async function readFile(
+  path: string,
+  useCache: boolean = true
+): Promise<ApiResult & { content?: string }> {
   try {
     if (!directoryHandle) {
       return { success: false, message: '请先选择工作目录' };
+    }
+
+    // 检查缓存
+    const cacheKey = createCacheKey('file', path);
+    if (useCache) {
+      const cachedContent = mdContentCache.get(cacheKey);
+      if (cachedContent !== null) {
+        return { success: true, message: '文件读取成功（缓存）', content: cachedContent };
+      }
     }
 
     const fileHandle = await getFileHandle(directoryHandle, path);
     const file = await fileHandle.getFile();
     const content = await file.text();
 
+    // 存入缓存
+    if (useCache) {
+      mdContentCache.set(cacheKey, content);
+    }
+
     return { success: true, message: '文件读取成功', content };
   } catch (err: any) {
     return { success: false, message: `读取文件失败: ${err.message}` };
   }
+}
+
+/**
+ * 使文件缓存失效
+ * @param path 文件路径
+ */
+export function invalidateFileCache(path: string): void {
+  const cacheKey = createCacheKey('file', path);
+  mdContentCache.delete(cacheKey);
 }
 
 /**
@@ -316,6 +348,10 @@ export async function writeFile(path: string, content: string): Promise<ApiResul
     await writable.write(content);
     await writable.close();
 
+    // 更新缓存
+    const cacheKey = createCacheKey('file', path);
+    mdContentCache.set(cacheKey, content);
+
     return { success: true, message: '文件保存成功', path };
   } catch (err: any) {
     return { success: false, message: `保存文件失败: ${err.message}` };
@@ -345,6 +381,10 @@ export async function deleteFile(path: string): Promise<ApiResult> {
 
     const { dirHandle, fileName } = await getParentDirectoryAndFileName(directoryHandle, path);
     await dirHandle.removeEntry(fileName);
+
+    // 清除缓存
+    const cacheKey = createCacheKey('file', path);
+    mdContentCache.delete(cacheKey);
 
     return { success: true, message: '文件已删除' };
   } catch (err: any) {
@@ -607,15 +647,38 @@ export async function deleteMdFile(mdPath: string): Promise<ApiResult> {
 }
 
 /**
- * 读取 index.json
+ * 读取 index.json（带缓存）
  */
 export async function readIndexJson(folderName: string): Promise<ApiResult & { data?: any }> {
-  return readJsonFile(`${folderName}/index.json`);
+  const cacheKey = createCacheKey('index', folderName);
+  
+  // 检查缓存
+  const cached = indexJsonCache.get(cacheKey);
+  if (cached !== null) {
+    return { success: true, message: '读取成功（缓存）', data: cached };
+  }
+  
+  const result = await readJsonFile(`${folderName}/index.json`);
+  
+  // 存入缓存
+  if (result.success && result.data) {
+    indexJsonCache.set(cacheKey, result.data);
+  }
+  
+  return result;
 }
 
 /**
  * 保存 index.json
  */
 export async function saveIndexJson(folderName: string, data: any): Promise<ApiResult> {
-  return writeJsonFile(`${folderName}/index.json`, data);
+  const result = await writeJsonFile(`${folderName}/index.json`, data);
+  
+  // 更新缓存
+  if (result.success) {
+    const cacheKey = createCacheKey('index', folderName);
+    indexJsonCache.set(cacheKey, data);
+  }
+  
+  return result;
 }

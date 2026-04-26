@@ -39,6 +39,60 @@ export interface NodeDeleteContext {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * 前序遍历获取所有节点列表
+ * @param root 根节点
+ * @returns 节点数组（前序遍历顺序）
+ */
+export function preorderTraversal(root: RoadmapNode): RoadmapNode[] {
+  const result: RoadmapNode[] = [];
+  
+  function traverse(node: RoadmapNode) {
+    result.push(node);
+    if (node.children) {
+      for (const child of node.children) {
+        traverse(child);
+      }
+    }
+  }
+  
+  traverse(root);
+  return result;
+}
+
+/**
+ * 获取当前节点的上一个/下一个节点
+ * @param currentNodeId 当前节点 ID
+ * @param root 根节点
+ * @returns { prev: 上一个节点 ID | null, next: 下一个节点 ID | null }
+ */
+export function getPrevNextNode(
+  currentNodeId: string,
+  root: RoadmapNode
+): { prev: string | null; next: string | null } {
+  const nodes = preorderTraversal(root);
+  const currentIndex = nodes.findIndex(n => n.id === currentNodeId);
+  
+  if (currentIndex === -1) {
+    return { prev: null, next: null };
+  }
+  
+  return {
+    prev: currentIndex > 0 ? nodes[currentIndex - 1].id : null,
+    next: currentIndex < nodes.length - 1 ? nodes[currentIndex + 1].id : null,
+  };
+}
+
+/**
+ * 根据节点 ID 获取节点信息
+ * @param nodeId 节点 ID
+ * @param root 根节点
+ * @returns 节点信息，如果没找到返回 null
+ */
+export function getNodeById(nodeId: string, root: RoadmapNode): RoadmapNode | null {
+  return findNodeInTree(root, nodeId);
+}
+
+/**
  * 查找节点的父节点
  * @param nodeId 目标节点 ID
  * @param root 根节点

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Select } from 'antd';
 import RoadmapGraph from '../components/RoadmapGraph';
 import { useRoadmapStore } from '../store/roadmapStore';
+import ErrorBoundary from '../components/ErrorBoundary';
 import styles from '../styles/RoadmapPage.module.css';
 
 const RoadmapPage: React.FC = () => {
@@ -106,7 +107,9 @@ const RoadmapPage: React.FC = () => {
 
       {/* 思维导图 */}
       <main className={styles.roadmapPageContent}>
-        <RoadmapGraph />
+        <ErrorBoundary name="RoadmapGraph">
+          <RoadmapGraph />
+        </ErrorBoundary>
       </main>
     </div>
   );
