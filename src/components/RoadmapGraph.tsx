@@ -40,6 +40,7 @@ import ContextMenu from './ContextMenu';
 import NodeEditorPanel from './NodeEditorPanel';
 import SubNodePreviewPanel from './SubNodePreviewPanel';
 import MemoryMonitor from './MemoryMonitor';
+import { AIGeneratorModal } from './aiGenerator';
 import {
 findNodeInTree,
 addChildNode,
@@ -152,6 +153,20 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 const [loading, setLoading] = useState(true);
 const [rawData, setRawData] = useState<RoadmapNode | null>(null);
 
+// 计算节点总数
+const totalNodes = useMemo(() => {
+  if (!rawData) return 0;
+  const countNodes = (node: RoadmapNode): number => {
+    let count = 1;
+    if (node.children) {
+      for (const child of node.children) {
+        count += countNodes(child);
+      }
+    }
+    return count;
+  };
+  return countNodes(rawData);
+}, [rawData]);
   
   // ── 数据引用（用于事件回调中获取最新数据） ──
   const rawDataRef = useRef<RoadmapNode | null>(null);
@@ -176,6 +191,11 @@ sectionTitle: string;
 autoFullscreen: boolean;
 nodeId: string | null;  // 保存节点 ID，用于关闭时聚焦
 }>({ visible: false, nodeLabel: '', mdPath: null, sectionTitle: '', autoFullscreen: false, nodeId: null });
+
+// ── AI 生成状态 ──
+const [aiModalVisible, setAIModalVisible] = useState(false);
+const [aiTargetNode, setAITargetNode] = useState<RoadmapNode | null>(null);
+const [aiContext, setAIContext] = useState<string[]>([]);
 
   // ── 路由导航 ──
   const navigate = useNavigate();
@@ -202,8 +222,10 @@ nodeId: string | null;  // 保存节点 ID，用于关闭时聚焦
   const pushHistory = useHistoryStore((state) => state.pushHistory);
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
-  const canUndo = useHistoryStore((state) => state.canUndo);
-  const canRedo = useHistoryStore((state) => state.canRedo);
+  // 使用 selector 订阅 past/future 长度，确保 canUndo/canRedo 响应式更新
+  const pastLength = useHistoryStore((state) => state.past.length);
+  const futureLength = useHistoryStore((state) => state.future.length);
+  const isHistoryProcessing = useHistoryStore((state) => state.isProcessing);
   
   // 书签 Store - 使用 ref 避免无限循环
   const bookmarkIdsRef = useRef<Set<string>>(new Set());
@@ -766,14 +788,92 @@ const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
   }, []);
 
   /** 切换书签 */
-  const handleToggleBookmark = useCallback(() => {
-    const node = contextMenu.node;
-    if (!node) return;
-    
-    const added = toggleBookmark(node.id, node.label.replace(/\n/g, ' ').slice(0, 50));
-    message.success(added ? '已添加书签' : '已移除书签');
-    setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, [contextMenu.node, toggleBookmark]);
+const handleToggleBookmark = useCallback(() => {
+const node = contextMenu.node;
+if (!node) return;
+
+const added = toggleBookmark(node.id, node.label.replace(/\n/g, ' ').slice(0, 50));
+message.success(added ? '已添加书签' : '已移除书签');
+setContextMenu((prev) => ({ ...prev, visible: false }));
+}, [contextMenu.node, toggleBookmark]);
+
+// ───────────────────────────────────────────────────────────────────────────
+// AI 生成功能
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * 获取节点的祖先路径
+ */
+const getNodeContext = useCallback((node: RoadmapNode): string[] => {
+  if (!rawData) return [];
+  const path: string[] = [];
+  
+  const findPath = (current: RoadmapNode, targetId: string, ancestors: string[]): boolean => {
+    if (current.id === targetId) {
+      path.push(...ancestors);
+      return true;
+    }
+    if (current.children) {
+      for (const child of current.children) {
+        if (findPath(child, targetId, [...ancestors, current.label])) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  
+  findPath(rawData, node.id, []);
+  return path;
+}, [rawData]);
+
+/**
+ * 打开 AI 生成弹窗
+ */
+const handleAIGenerate = useCallback(() => {
+  const node = contextMenu.node;
+  if (!node) return;
+  
+  setAITargetNode(node);
+  setAIContext(getNodeContext(node));
+  setAIModalVisible(true);
+  setContextMenu((prev) => ({ ...prev, visible: false }));
+}, [contextMenu.node, getNodeContext]);
+
+/**
+ * 应用 AI 生成的节点
+ */
+const handleAIApply = useCallback(async (generatedNodes: any[]) => {
+  if (!aiTargetNode || !rawData) return;
+  
+  const roadmapPath = getMdBasePath().split('/').pop() || '';
+  let newTree = rawData;
+  const addedCount = generatedNodes.length;
+  
+  for (const genNode of generatedNodes) {
+    const newNode: RoadmapNode = {
+      id: genNode.id || `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label: genNode.label,
+      type: genNode.type || 'leaf',
+      description: genNode.description,
+      mdPath: genNode.mdPath,
+      children: genNode.type === 'branch' ? [] : undefined,
+    };
+    newTree = addChildNode(newTree, aiTargetNode.id, newNode);
+  }
+  
+  // 更新状态
+  setRawData(newTree);
+  rawDataRef.current = newTree;
+  
+  // 保存到文件
+  await updateIndexJson(roadmapPath, newTree);
+  
+  // 记录历史
+  pushHistory(newTree, `AI 生成 ${addedCount} 个子节点`);
+  
+  message.success(`已添加 ${addedCount} 个节点`);
+}, [aiTargetNode, rawData, getMdBasePath, pushHistory]);
 
   /**
    * 内部函数：打开预览面板
@@ -1119,7 +1219,7 @@ const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
 
   /** 处理撤销操作 */
   const handleUndo = useCallback(async () => {
-    if (!canUndo() || !rawData) return;
+    if (pastLength === 0 || !rawData || isHistoryProcessing) return;
     
     const hideLoading = message.loading('正在撤销...', 0);
     
@@ -1144,11 +1244,11 @@ const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
       message.error('撤销失败');
       console.error('[RoadmapGraph] 撤销失败:', error);
     }
-  }, [canUndo, undo, rawData]);
+  }, [pastLength, undo, rawData, isHistoryProcessing]);
 
   /** 处理重做操作 */
   const handleRedo = useCallback(async () => {
-    if (!canRedo() || !rawData) return;
+    if (futureLength === 0 || !rawData || isHistoryProcessing) return;
     
     const hideLoading = message.loading('正在重做...', 0);
     
@@ -1173,7 +1273,7 @@ const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
       message.error('重做失败');
       console.error('[RoadmapGraph] 重做失败:', error);
     }
-  }, [canRedo, redo, rawData]);
+  }, [futureLength, redo, rawData, isHistoryProcessing]);
 
   /** 处理跳转到指定历史状态 */
   const handleJumpToHistory = useCallback((tree: RoadmapNode) => {
@@ -1191,8 +1291,8 @@ const handleNextNodeInPreviewRef = useRef<(() => void) | null>(null);
   useUndoRedoShortcuts({
     onUndo: handleUndo,
     onRedo: handleRedo,
-    canUndo: canUndo(),
-    canRedo: canRedo(),
+    canUndo: pastLength > 0 && !isHistoryProcessing,
+    canRedo: futureLength > 0 && !isHistoryProcessing,
     enabled: !isEditorOpen, // 编辑面板打开时不触发
   });
 
@@ -1387,7 +1487,7 @@ onJumpToHistory={handleJumpToHistory}
       {/* 右侧画布区域（全屏） */}
       <div className={styles.graphStage}>
         {/* 内存监控 */}
-        <MemoryMonitor />
+        <MemoryMonitor totalNodes={totalNodes} />
         
         {/* 加载状态 */}
         {loading && (
@@ -1413,6 +1513,7 @@ onJumpToHistory={handleJumpToHistory}
         onDelete={handleDeleteNode}
         onPreview={handlePreviewSubNode}
         onToggleBookmark={handleToggleBookmark}
+        onAIGenerate={handleAIGenerate}
         onClose={handleCloseContextMenu}
       />
 
@@ -1433,6 +1534,16 @@ onNextNode={handleNextNodeInPreview}
 hasPrevNode={!!prevNodeIdForPreview}
 hasNextNode={!!nextNodeIdForPreview}
 />
+
+      {/* AI 生成弹窗 */}
+      <AIGeneratorModal
+        visible={aiModalVisible}
+        node={aiTargetNode}
+        context={aiContext}
+        roadmapTheme={rawData?.label || '思维导图'}
+        onClose={() => setAIModalVisible(false)}
+        onApply={handleAIApply}
+      />
     </div>
   );
 };

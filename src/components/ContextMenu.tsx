@@ -39,6 +39,8 @@ export interface ContextMenuProps {
   onPreview?: () => void;
   /** 切换书签回调 */
   onToggleBookmark?: () => void;
+  /** AI 生成子节点回调 */
+  onAIGenerate?: () => void;
   /** 关闭菜单回调 */
   onClose: () => void;
 }
@@ -58,6 +60,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   onDelete,
   onPreview,
   onToggleBookmark,
+  onAIGenerate,
   onClose,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -145,6 +148,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
               <span className={styles.menuIcon}>{EMOJI.PLUS}</span>
               <span>添加子节点</span>
             </button>
+            {onAIGenerate && (
+              <button className={styles.contextMenuItem} onClick={onAIGenerate}>
+                <span className={styles.menuIcon}>🤖</span>
+                <span>AI 生成子节点</span>
+              </button>
+            )}
             <button className={styles.contextMenuItem} onClick={onEdit}>
               <span className={styles.menuIcon}>{EMOJI.EDIT}</span>
               <span>编辑节点</span>

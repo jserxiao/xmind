@@ -124,7 +124,51 @@
               "type": "link",
               "url": "https://geddyj.com/go-categories/",
               "mdPath": "go-books/go-categories.md",
-              "description": "按类别学习"
+              "description": "按类别学习",
+              "children": [
+                {
+                  "id": "ai-1777217937784-0",
+                  "label": "基础语法",
+                  "type": "leaf",
+                  "description": "变量、常量、数据类型、运算符等",
+                  "mdPath": "basic-features/syntax"
+                },
+                {
+                  "id": "ai-1777217937784-1",
+                  "label": "控制结构",
+                  "type": "leaf",
+                  "description": "条件语句、循环语句等",
+                  "mdPath": "basic-features/control-structures"
+                },
+                {
+                  "id": "ai-1777217937784-2",
+                  "label": "函数与方法",
+                  "type": "leaf",
+                  "description": "函数定义、参数、返回值、方法等",
+                  "mdPath": "basic-features/functions-methods"
+                },
+                {
+                  "id": "ai-1777217937784-3",
+                  "label": "数据结构",
+                  "type": "leaf",
+                  "description": "数组、切片、映射、结构体等",
+                  "mdPath": "basic-features/data-structures"
+                },
+                {
+                  "id": "ai-1777217937784-4",
+                  "label": "接口与错误处理",
+                  "type": "leaf",
+                  "description": "接口定义、实现、错误处理模式",
+                  "mdPath": "basic-features/interfaces-errors"
+                },
+                {
+                  "id": "ai-1777217937784-5",
+                  "label": "并发编程",
+                  "type": "leaf",
+                  "description": "goroutine、channel、sync包等",
+                  "mdPath": "basic-features/concurrency"
+                }
+              ]
             }
           ]
         },

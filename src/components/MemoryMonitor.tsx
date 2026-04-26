@@ -29,6 +29,8 @@ interface MemoryMonitorProps {
   updateInterval?: number;
   /** 是否显示详细信息 */
   showDetails?: boolean;
+  /** 节点总数 */
+  totalNodes?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -38,6 +40,7 @@ interface MemoryMonitorProps {
 const MemoryMonitor: React.FC<MemoryMonitorProps> = ({
   updateInterval = 2000,
   showDetails = false,
+  totalNodes = 0,
 }) => {
   const [memoryInfo, setMemoryInfo] = useState<MemoryInfo>({
     usedMB: 0,
@@ -293,9 +296,23 @@ const MemoryMonitor: React.FC<MemoryMonitorProps> = ({
             justifyContent: 'space-between',
             fontSize: '12px',
             color: '#666',
+            marginBottom: '4px',
           }}>
             <span>已用: <strong style={{ color: barColor }}>{memoryInfo.usedMB} MB</strong></span>
             <span>限制: <strong>{memoryInfo.totalMB} MB</strong></span>
+          </div>
+          
+          {/* 节点统计 */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            color: '#666',
+            padding: '6px 0',
+            borderTop: '1px dashed #e8e8e8',
+          }}>
+            <span>🗂️ 节点总数</span>
+            <strong style={{ color: '#1890ff' }}>{totalNodes} 个</strong>
           </div>
           
           {/* 提示 */}
