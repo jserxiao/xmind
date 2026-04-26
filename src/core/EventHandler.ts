@@ -161,21 +161,10 @@ export class EventHandler {
       const model = item.getModel();
       const targetName = target?.get('name') || '';
 
-      // 1. 详情图标点击 -> 导航
-      if (this.isDetailIcon(targetName)) {
-        this.handleDetailClick(model);
-        return;
-      }
-
-      // 2. 展开/收起按钮点击
+      // 展开/收起按钮点击
       if (this.isToggleButton(targetName)) {
         this.handleToggleClick(model.id);
         return;
-      }
-
-      // 3. 叶子/链接节点主体点击 -> 导航
-      if (this.shouldNavigateToDetail(model)) {
-        this.handleDetailClick(model);
       }
     });
   }
@@ -196,38 +185,6 @@ export class EventHandler {
    */
   private isToggleButton(targetName: string): boolean {
     return targetName.includes('toggle');
-  }
-
-  /**
-   * 判断是否应该导航到详情页
-   * @param model 节点模型
-   * @returns 是否应该导航
-   */
-  private shouldNavigateToDetail(model: NodeModel): boolean {
-    return (
-      !model.children?.length &&
-      (model.originalType === 'leaf' || model.originalType === 'link')
-    );
-  }
-
-  /**
-   * 处理详情点击
-   * @param model 节点模型
-   */
-  private handleDetailClick(model: NodeModel): void {
-    // 如果有 MD 文件路径，导航到详情页
-    if (model.mdPath && this.onNavigate) {
-      this.onNavigate({
-        mdPath: model.mdPath,
-        label: model.label,
-        description: model.description,
-        url: model.url,
-      });
-    }
-    // 如果有外部链接，在新窗口打开
-    else if (model.url) {
-      window.open(model.url, '_blank');
-    }
   }
 
   /**

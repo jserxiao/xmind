@@ -30,7 +30,7 @@ import { useUndoRedoShortcuts, useKeyboardShortcuts } from '../hooks/useKeyboard
 import { useShortcutStore } from '../store/shortcutStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
-import { getDirectoryHandle } from '../utils/fileSystem';
+import { getDirectoryHandle, waitForDirectoryHandleInit } from '../utils/fileSystem';
 import type { NodeModel } from '../core/GraphManager';
 import { GraphManager } from '../core/GraphManager';
 import { NodeRenderer } from '../core/NodeRenderer';
@@ -145,9 +145,10 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const eventHandlerRef = useRef<EventHandler | null>(null);
   const nodeRendererRef = useRef<NodeRenderer | null>(null);
 
-  // ── 状态管理 ──
-  const [loading, setLoading] = useState(true);
-  const [rawData, setRawData] = useState<RoadmapNode | null>(null);
+// ── 状态管理 ──
+const [loading, setLoading] = useState(true);
+const [rawData, setRawData] = useState<RoadmapNode | null>(null);
+
   
   // ── 数据引用（用于事件回调中获取最新数据） ──
   const rawDataRef = useRef<RoadmapNode | null>(null);
@@ -204,6 +205,12 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const setCurrentRoadmapId = useBookmarkStore((state) => state.setCurrentRoadmapId);
   const getBookmarks = useBookmarkStore((state) => state.getBookmarks);
   const updateBookmarkNodeId = useBookmarkStore((state) => state.updateBookmarkNodeId);
+  // 使用 JSON.stringify 避免无限循环
+  const bookmarksJson = useBookmarkStore((state) => {
+    const bookmarks = state.bookmarks[state.currentRoadmapId || ''] || [];
+    return JSON.stringify(bookmarks);
+  });
+  const currentBookmarksList = useMemo(() => JSON.parse(bookmarksJson), [bookmarksJson]);
   
   // 水印 Store
   const watermarkConfig = useWatermarkStore((state) => state.config);
@@ -213,15 +220,15 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   
   // 更新书签 ID 集合
   useEffect(() => {
-    const bookmarks = getBookmarks();
-    bookmarkIdsRef.current = new Set(bookmarks.map(b => b.nodeId));
+    const currentBookmarks = getBookmarks();
+    bookmarkIdsRef.current = new Set(currentBookmarks.map(b => b.nodeId));
     
     // 监听书签变化，重新渲染画布
     if (graphManagerRef.current && rawData) {
       const treeData = convertToTreeData(rawData, bookmarkIdsRef.current);
       graphManagerRef.current.setData(treeData);
     }
-  }, [getBookmarks, rawData]);
+  }, [currentBookmarksList, rawData]);
   
   // 同步书签 Store 的 currentRoadmapId
   useEffect(() => {
@@ -256,6 +263,9 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
      */
     const init = async () => {
       try {
+        // 等待目录句柄初始化完成（从 IndexedDB 恢复）
+        await waitForDirectoryHandleInit();
+        
         // 检查是否有有效的目录句柄
         if (!getDirectoryHandle()) {
           setLoading(false);
@@ -283,12 +293,12 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         rawDataRef.current = enriched;
 
         // 3. 注册自定义节点
-        if (!nodeRendererRef.current) {
-          nodeRendererRef.current = new NodeRenderer();
-        }
-        nodeRendererRef.current.registerAll();
+if (!nodeRendererRef.current) {
+  nodeRendererRef.current = new NodeRenderer();
+}
+nodeRendererRef.current.registerAll();
 
-        // 4. 创建图管理器
+// 4. 创建图管理器
         const container = containerRef.current!;
         graphManagerRef.current = new GraphManager({
           container,

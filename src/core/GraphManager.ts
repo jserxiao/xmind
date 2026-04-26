@@ -37,6 +37,10 @@ export interface NodeModel {
   children?: NodeModel[];
   collapsed?: boolean;
   size?: [number, number];
+  /** 节点 x 坐标 */
+  x?: number;
+  /** 节点 y 坐标 */
+  y?: number;
   /** 是否有书签标记 */
   hasBookmark?: boolean;
   /** 自定义节点 ID */

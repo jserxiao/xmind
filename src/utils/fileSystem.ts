@@ -25,6 +25,9 @@ const DB_NAME = 'mindmap-fs';
 const STORE_NAME = 'handles';
 const HANDLE_KEY = 'directoryHandle';
 
+// 句柄初始化 Promise（用于等待异步恢复完成）
+let initPromise: Promise<void> | null = null;
+
 /**
  * 打开 IndexedDB 数据库
  */
@@ -152,7 +155,18 @@ async function initHandleFromIndexedDB(): Promise<void> {
 }
 
 // 立即初始化（模块加载时执行）
-initHandleFromIndexedDB();
+initPromise = initHandleFromIndexedDB();
+
+/**
+ * 等待目录句柄初始化完成
+ * 用于确保在访问目录句柄前，IndexedDB 恢复操作已完成
+ */
+export async function waitForDirectoryHandleInit(): Promise<void> {
+  if (initPromise) {
+    await initPromise;
+    initPromise = null; // 只等待一次
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 目录选择与管理

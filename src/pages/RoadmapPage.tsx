@@ -1,9 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Select } from 'antd';
 import RoadmapGraph from '../components/RoadmapGraph';
 import { useRoadmapStore } from '../store/roadmapStore';
-import { getDirectoryHandle } from '../utils/fileSystem';
 import styles from '../styles/RoadmapPage.module.css';
 
 const RoadmapPage: React.FC = () => {
@@ -17,36 +16,36 @@ const RoadmapPage: React.FC = () => {
   const clearCurrentRoadmap = useRoadmapStore((state) => state.clearCurrentRoadmap);
   const availableRoadmaps = useRoadmapStore((state) => state.availableRoadmaps);
 
-  // 同步 URL 中的 roadmapId 到 store
-  // 只有当 URL 的 roadmapId 和 store 的 currentRoadmapId 不一致时才同步
+  // 标记是否正在离开页面（返回列表页）
+  const isLeavingRef = useRef(false);
+
+  // 刷新页面时，恢复当前思维导图
+  // 逻辑：如果 URL 有 roadmapId 但 store 中没有 currentRoadmapId，说明是刷新页面，尝试恢复
   useEffect(() => {
-    // 如果 store 中没有 currentRoadmapId，说明用户要返回列表，不同步
-    if (!currentRoadmapId) return;
+    // 如果正在离开页面，不恢复状态
+    if (isLeavingRef.current) return;
     
-    // URL 和 store 一致，无需同步
-    if (roadmapId === currentRoadmapId) return;
+    if (!roadmapId) return;
     
-    // URL 变化了，需要同步到 store
-    if (roadmapId) {
-      const roadmap = availableRoadmaps.find(r => r.id === roadmapId);
-      if (roadmap) {
-        setCurrentRoadmap(roadmap);
-      } else {
-        // 找不到对应的思维导图，返回列表页
-        navigate('/');
-      }
+    // 如果 store 中有 currentRoadmapId 且与 URL 一致，说明状态正常，无需处理
+    if (currentRoadmapId && roadmapId === currentRoadmapId) return;
+    
+    // 如果 store 中有 currentRoadmapId 但与 URL 不一致，说明是切换，也不在这里处理
+    if (currentRoadmapId && roadmapId !== currentRoadmapId) return;
+    
+    // store 中没有 currentRoadmapId，说明是刷新页面，尝试从缓存恢复
+    const roadmap = availableRoadmaps.find(r => r.id === roadmapId);
+    if (roadmap) {
+      setCurrentRoadmap(roadmap);
+    } else {
+      // 找不到对应的思维导图，返回列表页
+      navigate('/');
     }
   }, [roadmapId, currentRoadmapId, availableRoadmaps, setCurrentRoadmap, navigate]);
 
-  // 如果没有选择目录，跳转到主页
-  useEffect(() => {
-    if (!getDirectoryHandle()) {
-      navigate('/');
-    }
-  }, [navigate]);
-
   // 处理返回列表页
   const handleBackToList = () => {
+    isLeavingRef.current = true;  // 标记正在离开
     clearCurrentRoadmap();
     navigate('/');
   };
