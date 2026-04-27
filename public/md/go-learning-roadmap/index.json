@@ -730,11 +730,15 @@
                   "id": "gmp__面试常见问题",
                   "label": "面试常见问题",
                   "type": "sub"
+                },
+                {
+                  "id": "gmp_sub__gmp调度流程",
+                  "label": "GMP调度流程",
+                  "type": "sub",
+                  "description": "详细解释GMP模型中Goroutine的调度流程，包括P的本地队列和全局队列的调度、系统调用时的阻塞与恢复、以及M的复用机制。掌握调度流程有助于理解Go的高并发性能和调度策略。",
+                  "children": []
                 }
-              ],
-              "customNodeId": "custom-node-1777019429371-r7tw2ce",
-              "customFill": "#e6f7ff",
-              "customStroke": "#1890ff"
+              ]
             },
             {
               "id": "scheduler",

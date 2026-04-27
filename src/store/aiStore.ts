@@ -3,12 +3,41 @@
  * 
  * 管理 AI 服务的配置信息
  * 支持 OpenAI、Anthropic、DeepSeek 等多种提供商
+ * API Key 使用加密存储
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { StateStorage } from 'zustand/middleware';
 import type { AIConfig, AIProvider } from '../types/ai';
 import { AI_DEFAULT_CONFIGS } from '../types/ai';
+import { secureStorage as baseSecureStorage } from '../hooks/useSecureStorage';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 加密存储引擎（复用 useSecureStorage）
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 安全存储引擎
+ * 复用 useSecureStorage 的加密实现，适配 Zustand StateStorage 接口
+ */
+const secureStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    // 移除 secure_ 前缀，因为 baseSecureStorage 会自动添加
+    const keyWithoutPrefix = name.replace(/^secure_/, '');
+    return baseSecureStorage.getItem(keyWithoutPrefix);
+  },
+  
+  setItem: async (name: string, value: string): Promise<void> => {
+    const keyWithoutPrefix = name.replace(/^secure_/, '');
+    await baseSecureStorage.setItem(keyWithoutPrefix, value);
+  },
+  
+  removeItem: (name: string): void => {
+    const keyWithoutPrefix = name.replace(/^secure_/, '');
+    baseSecureStorage.removeItem(keyWithoutPrefix);
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Store 类型定义
@@ -129,7 +158,8 @@ export const useAIStore = create<AIStore>()(
       },
     }),
     {
-      name: 'ai-config-storage',
+      name: 'ai-config-secure',
+      storage: createJSONStorage(() => secureStorage),
       // 只持久化配置信息
       partialize: (state) => ({
         config: state.config,

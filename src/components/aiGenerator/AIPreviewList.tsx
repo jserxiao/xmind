@@ -5,8 +5,8 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Checkbox, Button, Tag, Empty, Tooltip } from 'antd';
-import { CheckOutlined, CloseOutlined, ReloadOutlined, BranchesOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Checkbox, Button, Tag, Empty, Tooltip, Select, Space } from 'antd';
+import { CheckOutlined, CloseOutlined, ReloadOutlined, BranchesOutlined, FileTextOutlined, FileAddOutlined, FolderOutlined } from '@ant-design/icons';
 import type { GeneratedNode } from '../../types/ai';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -20,6 +20,8 @@ interface AIPreviewListProps {
   onApply: (nodes: GeneratedNode[]) => void;
   /** 重新生成 */
   onRegenerate: () => void;
+  /** 父节点是否有 MD 文件 */
+  parentHasMd?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -30,9 +32,21 @@ const AIPreviewList: React.FC<AIPreviewListProps> = ({
   nodes,
   onApply,
   onRegenerate,
+  parentHasMd = false,
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(nodes.filter(n => n.selected).map(n => n.id))
+  );
+
+  // 节点的 MD 插入位置设置（允许用户覆盖 AI 建议）
+  const [mdInsertPositions, setMdInsertPositions] = useState<Record<string, 'new' | 'parent' | 'none'>>(
+    () => {
+      const positions: Record<string, 'new' | 'parent' | 'none'> = {};
+      nodes.forEach(n => {
+        positions[n.id] = n.mdInsertPosition || 'new';
+      });
+      return positions;
+    }
   );
 
   // 全选/取消全选
@@ -57,11 +71,23 @@ const AIPreviewList: React.FC<AIPreviewListProps> = ({
     setSelectedIds(newSet);
   };
 
-  // 选中的节点
-  const selectedNodes = useMemo(
-    () => nodes.filter(n => selectedIds.has(n.id)),
-    [nodes, selectedIds]
-  );
+  // 选中的节点（包含更新后的 mdInsertPosition）
+  const selectedNodes = useMemo(() => {
+    return nodes
+      .filter(n => selectedIds.has(n.id))
+      .map(n => ({
+        ...n,
+        mdInsertPosition: mdInsertPositions[n.id] || n.mdInsertPosition,
+      }));
+  }, [nodes, selectedIds, mdInsertPositions]);
+
+  // 更新节点的 MD 插入位置
+  const handleMdInsertPositionChange = (nodeId: string, position: 'new' | 'parent' | 'none') => {
+    setMdInsertPositions(prev => ({
+      ...prev,
+      [nodeId]: position,
+    }));
+  };
 
   return (
     <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
@@ -87,7 +113,10 @@ const AIPreviewList: React.FC<AIPreviewListProps> = ({
             node={node}
             index={index}
             selected={selectedIds.has(node.id)}
+            parentHasMd={parentHasMd}
+            mdInsertPosition={mdInsertPositions[node.id] || node.mdInsertPosition}
             onToggle={() => handleToggle(node.id)}
+            onMdInsertPositionChange={handleMdInsertPositionChange}
           />
         ))}
       </div>
@@ -123,13 +152,29 @@ interface NodeCardProps {
   node: GeneratedNode;
   index: number;
   selected: boolean;
+  parentHasMd: boolean;
+  mdInsertPosition: 'new' | 'parent' | 'none';
   onToggle: () => void;
+  onMdInsertPositionChange: (nodeId: string, position: 'new' | 'parent' | 'none') => void;
 }
 
-const NodeCard: React.FC<NodeCardProps> = ({ node, index, selected, onToggle }) => {
+const NodeCard: React.FC<NodeCardProps> = ({ 
+  node, 
+  index, 
+  selected, 
+  parentHasMd,
+  mdInsertPosition,
+  onToggle,
+  onMdInsertPositionChange,
+}) => {
+  // 阻止事件冒泡的处理器
+  const stopPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
   return (
     <div
-      onClick={onToggle}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -139,15 +184,21 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, index, selected, onToggle }) 
         background: selected ? '#e6f7ff' : '#fafafa',
         border: `1px solid ${selected ? '#91d5ff' : '#e8e8e8'}`,
         borderRadius: 6,
-        cursor: 'pointer',
         transition: 'all 0.2s',
       }}
     >
-      {/* 选择框 */}
-      <Checkbox checked={selected} style={{ marginTop: 2 }} />
+      {/* 选择框 - 点击切换选中状态 */}
+      <Checkbox 
+        checked={selected} 
+        style={{ marginTop: 2, cursor: 'pointer' }}
+        onClick={onToggle}
+      />
 
-      {/* 内容 */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* 内容区域 - 点击也可以切换选中状态 */}
+      <div 
+        style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+        onClick={onToggle}
+      >
         {/* 标题行 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           {node.type === 'branch' ? (
@@ -171,10 +222,34 @@ const NodeCard: React.FC<NodeCardProps> = ({ node, index, selected, onToggle }) 
           </div>
         )}
 
-        {/* 关联文件 */}
-        {node.mdPath && (
-          <div style={{ fontSize: 11, color: '#999' }}>
-            📄 {node.mdPath}
+        {/* MD 插入位置选择（仅当选中时显示） */}
+        {selected && (
+          <div 
+            style={{ marginTop: 8 }} 
+            onClick={stopPropagation}
+            onMouseDown={stopPropagation}
+          >
+            <Space size={4}>
+              <span style={{ fontSize: 11, color: '#999' }}>MD 文件：</span>
+              <Select
+                size="small"
+                value={mdInsertPosition}
+                onChange={(value) => onMdInsertPositionChange(node.id, value)}
+                style={{ width: 140 }}
+                onClick={stopPropagation}
+                onMouseDown={stopPropagation}
+                options={[
+                  { value: 'new', label: <><FileAddOutlined /> 新建文件</> },
+                  ...(parentHasMd ? [{ value: 'parent', label: <><FolderOutlined /> 插入父级 MD</> }] : []),
+                  { value: 'none', label: <><CloseOutlined /> 不需要 MD</> },
+                ]}
+              />
+            </Space>
+            {mdInsertPosition === 'parent' && node.mdInsertAfter && (
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>
+                建议插入位置：{node.mdInsertAfter} 之后
+              </div>
+            )}
           </div>
         )}
 

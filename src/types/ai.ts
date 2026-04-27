@@ -43,6 +43,11 @@ export interface AIGenerateRequest {
   };
   /** 上下文信息（祖先节点路径） */
   context: string[];
+  /** 现有子节点列表（避免生成重复内容） */
+  existingChildren?: Array<{
+    label: string;
+    type: string;
+  }>;
   /** 用户自定义要求 */
   userPrompt?: string;
   /** 生成数量 */
@@ -59,7 +64,7 @@ export interface GeneratedNode {
   label: string;
   /** 节点类型 */
   type: 'branch' | 'leaf';
-  /** 描述 */
+  /** 描述（50-150字的详细描述） */
   description?: string;
   /** 建议关联的 MD 文件路径 */
   mdPath?: string;
@@ -67,6 +72,20 @@ export interface GeneratedNode {
   reasoning?: string;
   /** 是否被选中（用于批量操作） */
   selected?: boolean;
+  /** 
+   * MD 内容插入位置建议
+   * - 'new': 创建新的 MD 文件
+   * - 'parent': 插入到父节点的 MD 文件中
+   * - 'none': 不需要 MD 文件
+   */
+  mdInsertPosition?: 'new' | 'parent' | 'none';
+  /** 当 mdInsertPosition 为 'parent' 时，建议插入的位置（章节标题） */
+  mdInsertAfter?: string;
+  /** 
+   * MD 章节内容（仅当 mdInsertPosition 为 'parent' 时使用）
+   * 包含完整的 Markdown 格式内容，如核心概念、要点列表、代码示例等
+   */
+  mdContent?: string;
 }
 
 /** AI 响应 */

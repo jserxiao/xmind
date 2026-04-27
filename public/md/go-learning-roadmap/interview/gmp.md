@@ -78,3 +78,45 @@ runtime.GOMAXPROCS(4)
 // 或通过环境变量
 // GOMAXPROCS=4 ./myapp
 ```
+
+
+## GMP调度流程
+GMP调度流程是Go调度器的核心机制，它通过M（操作系统线程）、P（处理器）、G（Goroutine）三者的协作实现高效的并发调度。
+
+**关键要点：**
+
+- **P的本地队列与全局队列**：每个P维护一个本地G队列（容量256），所有P共享一个全局G队列。本地队列优先调度，减少锁竞争。
+- **调度循环**：M通过P获取G执行，当P的本地队列为空时，会从全局队列或其他P的本地队列偷取G（work stealing）。
+- **系统调用处理**：当G发起系统调用时，M会与P解绑，P等待新的M来执行其他G，系统调用返回后G重新进入P的队列。
+- **抢占调度**：Go 1.14后引入基于信号的抢占调度，防止长时间运行的G阻塞其他G。
+
+**代码示例：**
+
+```go
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"sync"
+)
+
+func main() {
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			fmt.Printf("Goroutine %d is running on P %d\n", id, runtime.GOMAXPROCS(0))
+			runtime.Gosched() // 主动让出P，模拟调度
+		}(i)
+	}
+	wg.Wait()
+}
+```
+
+**注意事项：**
+
+- 合理设置GOMAXPROCS（默认等于CPU核数）可以最大化利用多核。
+- 避免在Goroutine中执行长时间的计算或阻塞操作，防止P被长时间占用。
+- 使用`runtime.Gosched()`主动让出P，但不要过度依赖。

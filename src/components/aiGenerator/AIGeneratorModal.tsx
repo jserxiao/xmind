@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Input, Slider, Button, message, Spin, Alert } from 'antd';
-import { ThunderboltOutlined, SettingOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAIStore } from '../../store/aiStore';
 import { getAIService } from '../../services/aiService';
 import AIPreviewList from './AIPreviewList';
@@ -27,6 +27,8 @@ interface AIGeneratorModalProps {
   context: string[];
   /** 思维导图主题 */
   roadmapTheme: string;
+  /** 现有子节点（避免生成重复内容） */
+  existingChildren?: Array<{ label: string; type: string }>;
   /** 关闭回调 */
   onClose: () => void;
   /** 应用生成的节点 */
@@ -42,6 +44,7 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
   node,
   context,
   roadmapTheme,
+  existingChildren,
   onClose,
   onApply,
 }) => {
@@ -95,6 +98,7 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
           mdPath: node.mdPath,
         },
         context,
+        existingChildren,
         userPrompt: userPrompt.trim() || undefined,
         count: count === 'auto' ? undefined : count,
         roadmapTheme,
@@ -137,6 +141,8 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
 
   // 关闭弹窗
   const handleClose = () => {
+    // 取消正在进行的 AI 请求
+    getAIService()?.cancel();
     setGeneratedNodes([]);
     setUserPrompt('');
     onClose();
@@ -270,6 +276,7 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
                 nodes={generatedNodes}
                 onApply={handleApply}
                 onRegenerate={handleGenerate}
+                parentHasMd={!!node?.mdPath}
               />
             )}
           </div>

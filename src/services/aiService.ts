@@ -28,6 +28,7 @@ const API_ENDPOINTS: Record<string, string> = {
  */
 export class AIService {
   private config: AIConfig;
+  private abortController: AbortController | null = null;
 
   constructor(config: AIConfig) {
     this.config = config;
@@ -41,12 +42,26 @@ export class AIService {
   }
 
   /**
+   * 取消当前正在进行的请求
+   */
+  cancel(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  /**
    * 生成子节点
    */
   async generateNodes(request: AIGenerateRequest): Promise<AIGenerateResponse> {
     try {
+      // 取消之前的请求
+      this.cancel();
+      this.abortController = new AbortController();
+
       const prompt = buildGeneratePrompt(request);
-      const response = await this.callAI(prompt);
+      const response = await this.callAI(prompt, this.abortController.signal);
       const nodes = parseAIResponse(response);
       const usage = extractTokenUsage(response);
 
@@ -68,36 +83,38 @@ export class AIService {
         } : undefined,
       };
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { success: false, nodes: [], error: '请求已取消' };
+      }
       console.error('[AI] 生成失败:', error);
       return {
         success: false,
         nodes: [],
         error: error instanceof Error ? error.message : '生成失败，请检查网络连接',
       };
+    } finally {
+      this.abortController = null;
     }
   }
 
   /**
    * 调用 AI API
    */
-  private async callAI(prompt: string): Promise<unknown> {
+  private async callAI(prompt: string, signal?: AbortSignal): Promise<unknown> {
     const { provider, baseUrl } = this.config;
-    
-    // 确定端点
+
     const url = baseUrl || API_ENDPOINTS[provider];
 
     if (!url) {
       throw new Error('请配置 API 地址');
     }
 
-    // OpenAI 兼容格式（OpenAI、DeepSeek、自定义）
     if (['openai', 'deepseek', 'custom'].includes(provider)) {
-      return this.callOpenAICompatible(url, prompt);
+      return this.callOpenAICompatible(url, prompt, signal);
     }
 
-    // Anthropic 格式
     if (provider === 'anthropic') {
-      return this.callAnthropic(url, prompt);
+      return this.callAnthropic(url, prompt, signal);
     }
 
     throw new Error(`不支持的 AI 提供商: ${provider}`);
@@ -106,7 +123,7 @@ export class AIService {
   /**
    * OpenAI 兼容 API 调用
    */
-  private async callOpenAICompatible(url: string, prompt: string): Promise<unknown> {
+  private async callOpenAICompatible(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {
@@ -115,6 +132,7 @@ export class AIService {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
+      signal,
       body: JSON.stringify({
         model,
         messages: [
@@ -143,7 +161,7 @@ export class AIService {
   /**
    * Anthropic API 调用
    */
-  private async callAnthropic(url: string, prompt: string): Promise<unknown> {
+  private async callAnthropic(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {
@@ -153,6 +171,7 @@ export class AIService {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
+      signal,
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
@@ -180,19 +199,29 @@ export class AIService {
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await this.callAI('请回复"连接成功"三个字，不要有其他内容。');
-      
-      // 检查响应是否正常
+      this.cancel();
+      this.abortController = new AbortController();
+
+      const response = await this.callAI(
+        '请回复"连接成功"三个字，不要有其他内容。',
+        this.abortController.signal
+      );
+
       if (response) {
         return { success: true, message: 'API 连接正常' };
       }
-      
+
       return { success: false, message: 'API 响应异常' };
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { success: false, message: '测试已取消' };
+      }
       return {
         success: false,
         message: error instanceof Error ? error.message : '连接失败',
       };
+    } finally {
+      this.abortController = null;
     }
   }
 }

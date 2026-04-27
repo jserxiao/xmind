@@ -92,6 +92,10 @@ export class EventHandler {
   /** 是否正在执行动画 */
   private isAnimating: boolean = false;
 
+  /** 聚焦动画定时器 ID */
+  private focusTimer1: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+
   /** 当前高亮的节点 ID */
   private highlightedNodeId: string | null = null;
 
@@ -142,6 +146,15 @@ export class EventHandler {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
+    }
+    // 清除聚焦动画定时器
+    if (this.focusTimer1) {
+      clearTimeout(this.focusTimer1);
+      this.focusTimer1 = null;
+    }
+    if (this.focusTimer2) {
+      clearTimeout(this.focusTimer2);
+      this.focusTimer2 = null;
     }
     console.log('[EventHandler] 所有事件已解绑');
   }
@@ -432,11 +445,13 @@ export class EventHandler {
     this.graphManager.focusNode(nodeId, true);
 
     // 步骤2: focusItem 动画结束后，以画布中心为锚点放大
-    setTimeout(() => {
+    this.focusTimer1 = setTimeout(() => {
+      this.focusTimer1 = null;
       this.graphManager.zoomTo(targetZoom, { x: cx, y: cy }, true);
 
       // 解锁动画状态
-      setTimeout(() => {
+      this.focusTimer2 = setTimeout(() => {
+        this.focusTimer2 = null;
         this.isAnimating = false;
 
         // 如果队列中还有请求，继续处理
@@ -521,8 +536,9 @@ export class EventHandler {
   destroy(): void {
     this.unbindAll();
     this.focusQueue = [];
+    this.isAnimating = false;
     this.onNavigate = undefined;
-    
+
     // 清理高亮效果
     this.clearHighlight();
     

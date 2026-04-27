@@ -16,9 +16,7 @@ interface CacheEntry<T> {
   timestamp: number;
   /** 过期时间（毫秒），0 表示永不过期 */
   ttl: number;
-  /** 访问次数（用于 LRU 淘汰） */
-  accessCount: number;
-  /** 最后访问时间 */
+  /** 最后访问时间（用于 LRU 淘汰） */
   lastAccessTime: number;
 }
 
@@ -73,8 +71,7 @@ export class Cache<T> {
       return null;
     }
 
-    // 更新访问统计（用于 LRU）
-    entry.accessCount++;
+    // 更新最后访问时间（用于 LRU 淘汰）
     entry.lastAccessTime = Date.now();
 
     this.log(`缓存命中: ${key}`);
@@ -97,7 +94,6 @@ export class Cache<T> {
       data,
       timestamp: Date.now(),
       ttl: ttl ?? this.defaultTtl,
-      accessCount: 1,
       lastAccessTime: Date.now(),
     };
 

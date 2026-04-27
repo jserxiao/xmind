@@ -366,7 +366,13 @@ export class GraphManager {
     if (!this.graph) return;
     this.graph.changeData(data);
     this.graph.layout(false);
-    this.graph.fitView(15);
+    // G6 的 layout 是异步的，changeData 后立即 fitView 会在旧布局上计算边界框。
+    // 单帧 rAF 不足以等 layout 完成，双帧 rAF 确保 G6 已计算完节点位置后再适配视口。
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.graph?.fitView(15);
+      });
+    });
   }
 
   /**

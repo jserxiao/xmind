@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Button, message, Divider, Alert } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { useAIStore } from '../../store/aiStore';
-import { getAIService } from '../../services/aiService';
+import { getAIService, AIService } from '../../services/aiService';
 import { AI_PROVIDER_NAMES, AI_MODELS, AI_DEFAULT_CONFIGS } from '../../types/ai';
 import type { AIProvider, AIConfig } from '../../types/ai';
 
@@ -97,7 +97,6 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ visible, onClose }) => {
       setTestResult(null);
 
       // 创建临时服务实例测试
-      const { AIService } = await import('../../services/aiService');
       const testService = new AIService(testConfig);
       const result = await testService.testConnection();
 
@@ -268,11 +267,12 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ visible, onClose }) => {
 
       {/* 帮助信息 */}
       <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 6, fontSize: 12, color: '#666' }}>
-        <strong>💡 提示：</strong>
+        <strong>提示：</strong>
         <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
           <li>推荐使用 DeepSeek（国产，价格低）或 GPT-4o-mini</li>
-          <li>API 密钥仅存储在本地浏览器，不会上传服务器</li>
-          <li>每次生成成本约 ¥0.01，非常便宜</li>
+          <li>API 密钥使用 AES-256 加密后存储在本地浏览器中</li>
+          <li>密钥不会上传到任何服务器，仅在本地使用</li>
+          <li>每次生成成本约 0.01 元，非常便宜</li>
         </ul>
       </div>
     </Modal>

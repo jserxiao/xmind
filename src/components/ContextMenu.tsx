@@ -3,8 +3,8 @@
  * 
  * 在节点上右键点击时显示，提供：
  * - 添加子节点（非 sub 类型）
- * - 编辑节点（非 sub 类型）
- * - 删除节点（非 sub 类型）
+ * - 编辑节点
+ * - 删除节点（包括 sub 类型，会删除 MD 文件中的章节）
  * - 预览内容（sub 类型）
  * - 书签切换
  */
@@ -130,7 +130,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
       </div>
       <div className={styles.contextMenuDivider} />
       <div className={styles.contextMenuItems}>
-        {/* sub 类型节点显示预览和编辑选项 */}
+        {/* sub 类型节点显示预览、编辑和删除选项 */}
         {isSubNode ? (
           <>
             <button className={styles.contextMenuItem} onClick={onPreview}>
@@ -140,6 +140,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
             <button className={styles.contextMenuItem} onClick={onEdit}>
               <span className={styles.menuIcon}>{EMOJI.EDIT}</span>
               <span>编辑章节</span>
+            </button>
+            <button className={`${styles.contextMenuItem} ${styles.contextMenuItemDanger}`} onClick={onDelete}>
+              <span className={styles.menuIcon}>{EMOJI.DELETE}</span>
+              <span>删除章节</span>
             </button>
           </>
         ) : (

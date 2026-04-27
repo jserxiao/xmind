@@ -348,9 +348,13 @@ export async function readIndexJson(folderName: string): Promise<ApiResult & { d
 
 /**
  * 保存 MD 文件内容
+ * @param mdPath MD 文件路径（相对路径，可能含或不含 .md 后缀）
+ * @param content 文件内容
  */
 export async function saveMdFile(mdPath: string, content: string): Promise<ApiResult> {
-  return writeFile(`${mdPath}.md`, content);
+  // 移除可能存在的 .md 后缀，避免双后缀问题
+  const pathWithoutMd = mdPath.replace(/\.md$/, '');
+  return writeFile(`${pathWithoutMd}.md`, content);
 }
 
 /**
@@ -617,7 +621,7 @@ export function deleteSection(mdContent: string, sectionTitle: string): string {
 
 /**
  * 从 MD 文件中删除指定章节
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀，可能含或不含 .md 后缀）
  * @param sectionTitle 章节标题
  * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  */
@@ -627,13 +631,16 @@ export async function deleteSectionFromMdFile(
   roadmapPath?: string
 ): Promise<ApiResult> {
   try {
-    // 构建完整的 MD 文件路径
-    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    // 移除 mdPath 中可能存在的 .md 后缀，避免双后缀问题
+    const cleanMdPath = mdPath.replace(/\.md$/, '');
+    
+    // 构建完整的 MD 文件路径（不含 .md 后缀）
+    const fullPath = roadmapPath ? `${roadmapPath}/${cleanMdPath}` : cleanMdPath;
     
     // 先获取 MD 文件内容
     const readResult = await readMdFile(fullPath);
     if (!readResult.success || !readResult.content) {
-      return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
+      return { success: false, message: `无法加载 MD 文件: ${cleanMdPath}` };
     }
     
     let mdContent = readResult.content;
@@ -641,7 +648,7 @@ export async function deleteSectionFromMdFile(
     // 删除章节
     mdContent = deleteSection(mdContent, sectionTitle);
     
-    // 保存文件（使用完整路径）
+    // 保存文件（使用完整路径，saveMdFile 会自动添加 .md 后缀）
     return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `删除章节失败: ${error}` };
@@ -650,7 +657,7 @@ export async function deleteSectionFromMdFile(
 
 /**
  * 在 MD 文件中添加新章节
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
+ * @param mdPath MD 文件路径（相对路径，不含思维导图前缀，可能含或不含 .md 后缀）
  * @param sectionTitle 章节标题
  * @param content 章节内容（可选）
  * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
@@ -662,13 +669,16 @@ export async function addSectionToMdFile(
   roadmapPath?: string
 ): Promise<ApiResult> {
   try {
-    // 构建完整的 MD 文件路径
-    const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
+    // 移除 mdPath 中可能存在的 .md 后缀，避免双后缀问题
+    const cleanMdPath = mdPath.replace(/\.md$/, '');
+    
+    // 构建完整的 MD 文件路径（不含 .md 后缀）
+    const fullPath = roadmapPath ? `${roadmapPath}/${cleanMdPath}` : cleanMdPath;
     
     // 先获取 MD 文件内容
     const readResult = await readMdFile(fullPath);
     if (!readResult.success || !readResult.content) {
-      return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
+      return { success: false, message: `无法加载 MD 文件: ${cleanMdPath}` };
     }
     
     let mdContent = readResult.content;
@@ -688,7 +698,7 @@ export async function addSectionToMdFile(
     mdContent = mdContent.replace(/\n{3,}$/, '\n');
     mdContent += newSection;
     
-    // 保存文件（使用完整路径）
+    // 保存文件（使用完整路径，saveMdFile 会自动添加 .md 后缀）
     return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `添加章节失败: ${error}` };
