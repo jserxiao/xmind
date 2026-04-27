@@ -150,6 +150,35 @@ export function findAncestorMdPath(nodeId: string, root: RoadmapNode): string | 
   return findMdPath(nodeId);
 }
 
+/**
+ * 获取节点从根节点开始的路径（节点名称数组）
+ * @param nodeId 目标节点 ID
+ * @param root 根节点
+ * @returns 从根节点到目标节点的名称路径数组
+ */
+export function getNodePath(nodeId: string, root: RoadmapNode): string[] {
+  const path: string[] = [];
+  
+  const findPath = (current: RoadmapNode, targetId: string): boolean => {
+    if (current.id === targetId) {
+      path.push(current.label);
+      return true;
+    }
+    if (current.children) {
+      for (const child of current.children) {
+        if (findPath(child, targetId)) {
+          path.unshift(current.label);
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  
+  findPath(root, nodeId);
+  return path;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点操作
 // ═══════════════════════════════════════════════════════════════════════════════

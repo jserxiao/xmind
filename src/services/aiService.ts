@@ -6,7 +6,7 @@
  */
 
 import type { AIConfig, AIGenerateRequest, AIGenerateResponse } from '../types/ai';
-import { buildGeneratePrompt, parseAIResponse, extractTokenUsage } from '../utils/aiPrompts';
+import { buildGeneratePrompt, parseAIResponse, extractTokenUsage, buildEnhanceContentPrompt, parseEnhanceContentResponse } from '../utils/aiPrompts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // API 端点配置
@@ -98,6 +98,53 @@ export class AIService {
   }
 
   /**
+   * 完善 Markdown 内容
+   * @param currentContent 当前 MD 内容
+   * @param nodePath 节点的上级路径
+   * @param nodeName 当前节点名称
+   * @param roadmapTheme 思维导图主题
+   */
+  async enhanceContent(
+    currentContent: string,
+    nodePath: string[],
+    nodeName: string,
+    roadmapTheme: string
+  ): Promise<{ success: boolean; content?: string; error?: string }> {
+    try {
+      // 取消之前的请求
+      this.cancel();
+      this.abortController = new AbortController();
+
+      const prompt = buildEnhanceContentPrompt(currentContent, nodePath, nodeName, roadmapTheme);
+      const response = await this.callAIEnhance(prompt, this.abortController.signal);
+      const content = parseEnhanceContentResponse(response);
+
+      if (!content) {
+        return {
+          success: false,
+          error: 'AI 未能生成有效的内容，请重试',
+        };
+      }
+
+      return {
+        success: true,
+        content,
+      };
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { success: false, error: '请求已取消' };
+      }
+      console.error('[AI] 完善内容失败:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '完善内容失败，请检查网络连接',
+      };
+    } finally {
+      this.abortController = null;
+    }
+  }
+
+  /**
    * 调用 AI API
    */
   private async callAI(prompt: string, signal?: AbortSignal): Promise<unknown> {
@@ -118,6 +165,103 @@ export class AIService {
     }
 
     throw new Error(`不支持的 AI 提供商: ${provider}`);
+  }
+
+  /**
+   * 调用 AI API（用于完善内容，使用不同的系统提示）
+   */
+  private async callAIEnhance(prompt: string, signal?: AbortSignal): Promise<unknown> {
+    const { provider, baseUrl } = this.config;
+
+    const url = baseUrl || API_ENDPOINTS[provider];
+
+    if (!url) {
+      throw new Error('请配置 API 地址');
+    }
+
+    if (['openai', 'deepseek', 'custom'].includes(provider)) {
+      return this.callOpenAICompatibleEnhance(url, prompt, signal);
+    }
+
+    if (provider === 'anthropic') {
+      return this.callAnthropicEnhance(url, prompt, signal);
+    }
+
+    throw new Error(`不支持的 AI 提供商: ${provider}`);
+  }
+
+  /**
+   * OpenAI 兼容 API 调用（用于完善内容）
+   */
+  private async callOpenAICompatibleEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+    const { apiKey, model, maxTokens, temperature } = this.config;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      signal,
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个专业的技术文档编辑助手，擅长完善和优化技术文档内容。请直接输出完善后的 Markdown 内容，不要添加任何额外的解释。',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        max_tokens: maxTokens,
+        temperature,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error?.message || `API 错误: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Anthropic API 调用（用于完善内容）
+   */
+  private async callAnthropicEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+    const { apiKey, model, maxTokens, temperature } = this.config;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      signal,
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        temperature,
+        system: '你是一个专业的技术文档编辑助手，擅长完善和优化技术文档内容。请直接输出完善后的 Markdown 内容，不要添加任何额外的解释。',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error?.message || `API 错误: ${response.status}`);
+    }
+
+    return response.json();
   }
 
   /**

@@ -78,7 +78,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
         
         {/* 操作按钮 */}
         <div className={styles.treeNodeActions}>
-          {/* sub 类型节点显示预览和编辑按钮 */}
+          {/* sub 类型节点显示预览、编辑和删除按钮 */}
           {isSubNode ? (
             <>
               {onPreviewSubNode && (
@@ -103,6 +103,18 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                   title="编辑章节"
                 >
                   {EMOJI.EDIT}
+                </button>
+              )}
+              {onDeleteNode && (
+                <button
+                  className={`${styles.treeActionBtn} ${styles.treeActionBtnDanger}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteNode(node);
+                  }}
+                  title="删除章节"
+                >
+                  {EMOJI.DELETE}
                 </button>
               )}
             </>

@@ -649,7 +649,7 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onClose={handleCloseContextMenu}
       />
 
-      {isEditorOpen && <NodeEditorPanel onSave={handleSaveNode} />}
+      {isEditorOpen && <NodeEditorPanel onSave={handleSaveNode} rawData={rawData} />}
 
       <SubNodePreviewPanel
         isOpen={previewPanel.visible}

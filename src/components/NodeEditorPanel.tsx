@@ -15,6 +15,7 @@ import { EMOJI } from '../constants/icons';
 import BasicInfoForm from './nodeEditorPanel/BasicInfoForm';
 import ContentEditor from './nodeEditorPanel/ContentEditor';
 import styles from '../styles/NodeEditorPanel.module.css';
+import type { RoadmapNode } from '../data/roadmapData';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 组件
@@ -23,9 +24,11 @@ import styles from '../styles/NodeEditorPanel.module.css';
 interface NodeEditorPanelProps {
   /** 保存回调 */
   onSave?: () => void;
+  /** 节点树数据（用于获取节点路径） */
+  rawData?: RoadmapNode | null;
 }
 
-const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
+const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave, rawData }) => {
   const {
     isOpen,
     mode,
@@ -84,7 +87,7 @@ const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave }) => {
     {
       key: 'content',
       label: `${EMOJI.NOTE} 内容编辑`,
-      children: <ContentEditor />,
+      children: <ContentEditor rawData={rawData} />,
     },
   ];
 

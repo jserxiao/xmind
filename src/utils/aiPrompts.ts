@@ -303,6 +303,100 @@ interface AnthropicResponse {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
+ * 构建完善 Markdown 内容的 Prompt
+ * @param currentContent 当前 MD 内容
+ * @param nodePath 节点的上级路径
+ * @param nodeName 当前节点名称
+ * @param roadmapTheme 思维导图主题
+ */
+export function buildEnhanceContentPrompt(
+  currentContent: string,
+  nodePath: string[],
+  nodeName: string,
+  roadmapTheme: string
+): string {
+  const pathStr = nodePath.length > 0 ? nodePath.join(' → ') : nodeName;
+
+  return `你是一个专业的技术文档编辑助手，擅长完善和优化技术文档内容。
+
+## 当前思维导图主题
+${roadmapTheme}
+
+## 当前知识点路径
+${pathStr}
+
+## 当前节点名称
+${nodeName}
+
+## 现有内容
+\`\`\`markdown
+${currentContent || '（当前内容为空）'}
+\`\`\`
+
+## 完善要求
+1. 保持现有内容的核心结构和要点，不要大幅改变原有内容
+2. 根据知识点路径和节点名称，补充缺失的内容：
+   - 核心概念的解释
+   - 关键要点（使用列表形式）
+   - 代码示例（如果是技术内容，提供简洁的代码片段）
+   - 注意事项或最佳实践
+3. 如果现有内容已经比较完整，可以：
+   - 优化语言表达
+   - 补充细节说明
+   - 添加更多实用示例
+4. 保持 Markdown 格式的规范性
+5. 内容应该专业、实用、易于理解
+6. **不要添加标题行**（系统已有标题），直接输出正文内容
+7. 内容长度建议 300-800 字，根据内容复杂度灵活调整
+
+## 输出格式
+请直接输出完善后的 Markdown 正文内容，不要包含标题行，不要有任何额外的解释或说明。
+
+现在请输出完善后的内容：`;
+}
+
+/**
+ * 解析完善内容的 AI 响应
+ */
+export function parseEnhanceContentResponse(response: unknown): string {
+  try {
+    let content: string;
+    
+    // OpenAI 格式
+    if (isOpenAIResponse(response)) {
+      content = response.choices[0].message.content;
+    }
+    // Anthropic 格式
+    else if (isAnthropicResponse(response)) {
+      content = response.content[0].text;
+    }
+    // 直接字符串
+    else if (typeof response === 'string') {
+      content = response;
+    }
+    else {
+      throw new Error('无法识别的响应格式');
+    }
+
+    // 清理可能的 markdown 代码块标记
+    content = content.trim();
+    if (content.startsWith('```markdown')) {
+      content = content.slice(11);
+    } else if (content.startsWith('```')) {
+      content = content.slice(3);
+    }
+    if (content.endsWith('```')) {
+      content = content.slice(0, -3);
+    }
+    
+    return content.trim();
+  } catch (error) {
+    console.error('[AI] 解析完善内容响应失败:', error);
+    return '';
+  }
+}
+
+/**
  * 从响应中提取 Token 使用量
  */
 export function extractTokenUsage(response: unknown): {

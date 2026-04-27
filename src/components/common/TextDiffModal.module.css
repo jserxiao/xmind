@@ -1,0 +1,186 @@
+/* ===== 文本差异对比弹窗样式 ===== */
+
+.diffModal :global(.ant-modal-body) {
+  padding: 0;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.diffStats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.statAdded {
+  color: #52c41a;
+}
+
+.statRemoved {
+  color: #ff4d4f;
+}
+
+.statModified {
+  color: #faad14;
+}
+
+.footerButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.diffContainer {
+  display: flex;
+  flex-direction: column;
+  height: 60vh;
+  min-height: 300px;
+  border: 1px solid var(--border-color, #e8e8e8);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 16px;
+}
+
+.diffHeader {
+  display: flex;
+  background: var(--bg-tertiary, #f5f5f5);
+  border-bottom: 1px solid var(--border-color, #e8e8e8);
+}
+
+.diffColumn {
+  flex: 1;
+  min-width: 0;
+}
+
+.columnHeader {
+  display: block;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  border-right: 1px solid var(--border-color, #e8e8e8);
+}
+
+.diffColumn:last-child .columnHeader {
+  border-right: none;
+}
+
+.diffContent {
+  flex: 1;
+  overflow: auto;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.diffRow {
+  display: flex;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.diffRow:last-child {
+  border-bottom: none;
+}
+
+.diffRow.added {
+  background: rgba(82, 196, 26, 0.08);
+}
+
+.diffRow.removed {
+  background: rgba(255, 77, 79, 0.08);
+}
+
+.diffRow.modified {
+  background: rgba(250, 173, 20, 0.08);
+}
+
+.diffCell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  border-right: 1px solid var(--border-color, #f0f0f0);
+  overflow: hidden;
+}
+
+.diffCell:last-child {
+  border-right: none;
+}
+
+.lineNumber {
+  display: inline-block;
+  min-width: 40px;
+  padding: 0 8px;
+  background: var(--bg-tertiary, #fafafa);
+  color: var(--text-tertiary, #999);
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color, #e8e8e8);
+}
+
+.lineContent {
+  flex: 1;
+  padding: 0 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-primary, #333);
+}
+
+.highlightAdded {
+  background: rgba(82, 196, 26, 0.2);
+}
+
+.highlightRemoved {
+  background: rgba(255, 77, 79, 0.2);
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: var(--text-tertiary, #999);
+  font-size: 14px;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .diffContainer {
+    border-color: #424242;
+  }
+
+  .diffHeader {
+    background: #2a2a2a;
+    border-color: #424242;
+  }
+
+  .columnHeader {
+    color: #e0e0e0;
+    border-color: #424242;
+  }
+
+  .diffContent {
+    background: #1e1e1e;
+  }
+
+  .diffRow {
+    border-color: #333;
+  }
+
+  .lineNumber {
+    background: #2a2a2a;
+    color: #666;
+    border-color: #424242;
+  }
+
+  .lineContent {
+    color: #e0e0e0;
+  }
+}

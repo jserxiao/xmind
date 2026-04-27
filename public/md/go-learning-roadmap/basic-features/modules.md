@@ -107,9 +107,60 @@ export GOPRIVATE=git.company.com
 | 阿里 | https://mirrors.aliyun.com/goproxy/ |
 
 ## 最佳实践
+Go Modules 的最佳实践不仅关乎工具的正确使用，更关乎团队协作与项目长期维护。遵循以下原则可以显著减少依赖冲突和构建问题：
 
-1. **始终使用 `go mod tidy`** 保持依赖整洁
-2. **提交 `go.mod` 和 `go.sum`** 到版本控制
-3. **不要直接修改 `go.sum`**
-4. **使用语义化版本** 发布自己的模块
-5. **定期更新依赖** `go get -u ./...` 然后 `go mod tidy`
+1. **始终使用 `go mod tidy` 保持依赖整洁**  
+   - 该命令会移除 `go.mod` 和 `go.sum` 中不再需要的依赖，并添加缺失的间接依赖。  
+   - **建议**：在每次提交代码前运行一次，确保依赖列表与代码实际引用一致。  
+   ```bash
+   go mod tidy
+   ```
+
+2. **提交 `go.mod` 和 `go.sum` 到版本控制**  
+   - 这两个文件是构建的精确记录，必须入库以确保所有协作者和 CI/CD 环境使用相同的依赖版本。  
+   - **注意**：不要将 `vendor` 目录提交，除非项目有特殊离线部署需求。
+
+3. **不要直接修改 `go.sum`**  
+   - `go.sum` 由 Go 工具链自动维护，手动修改会导致哈希校验失败。  
+   - 若出现不一致，应运行 `go mod tidy` 或 `go mod verify` 自动修复。
+
+4. **使用语义化版本发布自己的模块**  
+   - 遵循 `vMAJOR.MINOR.PATCH` 格式，例如 `v1.2.3`。  
+   - 破坏性变更（API 不兼容）必须升级主版本号，如 `v1.x.x` → `v2.0.0`。  
+   - 发布示例：  
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+5. **定期更新依赖**  
+   - 使用 `go get -u ./...` 更新所有依赖到最新次版本或补丁版本，然后运行 `go mod tidy` 清理。  
+   ```bash
+   go get -u ./...
+   go mod tidy
+   ```
+   - **谨慎**：对于主版本升级（如 `v1` → `v2`），需手动修改 import 路径并充分测试。
+
+6. **使用 `go mod vendor` 管理私有依赖**  
+   - 如果项目依赖私有仓库或需要离线构建，可创建 `vendor` 目录：  
+   ```bash
+   go mod vendor
+   ```
+   - 构建时需添加 `-mod=vendor` 标志：  
+   ```bash
+   go build -mod=vendor ./...
+   ```
+
+7. **保持模块路径唯一且有意义**  
+   - 模块路径通常使用仓库 URL，如 `github.com/username/project`，避免使用 `example.com` 等占位符。
+
+8. **使用 `go mod verify` 验证依赖完整性**  
+   - 定期运行该命令检查下载的依赖是否被篡改或损坏：  
+   ```bash
+   go mod verify
+   ```
+
+9. **避免使用 `replace` 指令过度**  
+   - `replace` 可用于本地调试，但不应长期保留在 `go.mod` 中，以免影响其他开发者。
+
+遵循这些实践可以确保依赖管理清晰、可重复，减少“在我机器上可以运行”的问题。
