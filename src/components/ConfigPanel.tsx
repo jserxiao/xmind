@@ -31,6 +31,7 @@ import { useConfigStore } from '../store/configStore';
 import { useBookmarkStore } from '../store/bookmarkStore';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { useMinimapStore } from '../store/minimapStore';
+import { useConnectionStore } from '../store/connectionStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import {
   collectNodesWithMdPath,
@@ -58,7 +59,7 @@ import {
   type RoadmapNodeData,
 } from '../utils/backup';
 import { writeJsonFile, getDirectoryHandle } from '../utils/fileSystem';
-import { EMOJI } from '../constants/icons';
+import { EMOJI, ConnectionIcon, ConnectionActiveIcon, ConnectionPreviewIcon } from '../constants/icons';
 import styles from '../styles/ConfigPanel.module.css';
 import treeStyles from '../styles/TreePanel.module.css';
 
@@ -186,6 +187,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   // 小地图 Store
   const minimapConfig = useMinimapStore((state) => state.config);
   const toggleMinimap = useMinimapStore((state) => state.toggleEnabled);
+  
+  // 连线模式 Store
+  const connectionMode = useConnectionStore((state) => state.connectionMode);
+  const toggleConnectionMode = useConnectionStore((state) => state.toggleConnectionMode);
   
   // 获取当前思维导图的配置
   const currentConfig = getCurrentConfig();
@@ -710,6 +715,23 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               {EMOJI.MAP}
             </button>
           </Tooltip>
+          
+          {/* 连线模式按钮 */}
+          <Tooltip title={
+            connectionMode === 'idle' ? '开启连线模式' : 
+            connectionMode === 'active' ? '预览连线' : 
+            '取消连线'
+          }>
+            <button 
+              className={`${styles.toolbarBtn} ${connectionMode !== 'idle' ? styles.connectionBtnActive : ''}`}
+              onClick={toggleConnectionMode}
+            >
+              {connectionMode === 'idle' && <ConnectionIcon size={14} />}
+              {connectionMode === 'active' && <ConnectionActiveIcon size={14} />}
+              {connectionMode === 'preview' && <ConnectionPreviewIcon size={14} />}
+            </button>
+          </Tooltip>
+          
           <Dropdown menu={{ items: batchMenuItems }} trigger={['click']}>
             <button className={styles.toolbarBtn}>⚡ 操作</button>
           </Dropdown>

@@ -12,6 +12,7 @@ import G6 from '@antv/g6';
 import { useConfigStore } from '../store/configStore';
 import { useThemeStore } from '../store/themeStore';
 import { useCustomNodeStore } from '../store/customNodeStore';
+import { useConnectionStore, type ConnectionMode } from '../store/connectionStore';
 import type { RoadmapConfig } from '../store/configStore';
 import type { ThemeColors } from '../store/themeStore';
 import type { CustomNodeConfig } from '../types/customNode';
@@ -66,6 +67,59 @@ function getThemeColors(): ThemeColors {
  */
 function getCustomNodeConfig(customNodeId: string): CustomNodeConfig | undefined {
   return useCustomNodeStore.getState().getCustomNode(customNodeId);
+}
+
+/**
+ * 获取连线模式
+ * 从 connectionStore 获取
+ */
+function getConnectionMode(): ConnectionMode {
+  return useConnectionStore.getState().connectionMode;
+}
+
+/**
+ * 连线模式下的节点样式（灰白虚线）
+ */
+const CONNECTION_MODE_STYLES = {
+  fill: '#f5f5f5',
+  stroke: '#d9d9d9',
+  lineDash: [4, 4],
+  lineWidth: 2,
+  shadowBlur: 0,
+};
+
+/**
+ * 应用连线模式样式
+ * 如果处于连线模式，返回灰白虚线样式；否则返回原始样式
+ */
+function applyConnectionModeStyle(originalStyle: {
+  fill: string;
+  stroke: string;
+  lineWidth?: number;
+  radius?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  lineDash?: number[];
+}): {
+  fill: string;
+  stroke: string;
+  lineWidth: number;
+  radius?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  lineDash?: number[];
+} {
+  const mode = getConnectionMode();
+  
+  if (mode === 'active' || mode === 'preview') {
+    return {
+      ...originalStyle,
+      ...CONNECTION_MODE_STYLES,
+      radius: originalStyle.radius,
+    };
+  }
+  
+  return originalStyle;
 }
 
 /**
@@ -154,6 +208,9 @@ export class NodeRenderer {
         const { textStyles, elementPositions } = config;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'root', themedNodeStyles);
 
+        // 应用连线模式样式
+        const rootStyle = applyConnectionModeStyle(themedNodeStyles.root);
+
         // 绘制主盒子
         const box = group.addShape('rect', {
           attrs: {
@@ -162,11 +219,12 @@ export class NodeRenderer {
             width: w,
             height: h,
             radius: themedNodeStyles.root.radius,
-            fill: themedNodeStyles.root.fill,
-            stroke: themedNodeStyles.root.stroke,
-            lineWidth: themedNodeStyles.root.lineWidth,
-            shadowColor: themedNodeStyles.root.shadowColor,
-            shadowBlur: themedNodeStyles.root.shadowBlur,
+            fill: rootStyle.fill,
+            stroke: rootStyle.stroke,
+            lineWidth: rootStyle.lineWidth,
+            lineDash: rootStyle.lineDash,
+            shadowColor: rootStyle.shadowColor,
+            shadowBlur: rootStyle.shadowBlur,
             cursor: 'pointer',
           },
           name: 'root-box',

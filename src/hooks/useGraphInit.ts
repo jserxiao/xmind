@@ -24,6 +24,7 @@ import { useRoadmapStore } from '../store/roadmapStore';
 import { useWatermarkStore } from '../store/watermarkStore';
 import { useMinimapStore } from '../store/minimapStore';
 import { useThemeStore } from '../store/themeStore';
+import { useConnectionStore } from '../store/connectionStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
 import { getDirectoryHandle, waitForDirectoryHandleInit } from '../utils/fileSystem';
@@ -360,6 +361,21 @@ export function useGraphInit({
     });
     graph.layout();
   }, [currentThemeId, themeColors, loading]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 连线模式变化监听
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 连线模式切换时：隐藏/显示边，更新节点样式
+
+  const connectionMode = useConnectionStore((state) => state.connectionMode);
+
+  useEffect(() => {
+    if (!graphManagerRef.current || loading) return;
+    
+    // 设置连线模式（隐藏/显示边，刷新节点样式）
+    graphManagerRef.current.setConnectionMode(connectionMode);
+    
+  }, [connectionMode, loading]);
 
   return {
     graphManagerRef,

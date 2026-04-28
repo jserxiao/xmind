@@ -24,6 +24,7 @@ import { useNodeEditorStore } from '../store/nodeEditorStore';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { useHistoryStore } from '../store/historyStore';
 import { useBookmarkStore } from '../store/bookmarkStore';
+import { useConnectionStore } from '../store/connectionStore';
 import type { RoadmapNode } from '../data/roadmapData';
 import { loadRoadmapData, enrichWithSubNodes } from '../data/roadmapData';
 import type { GraphManager } from '../core/GraphManager';
@@ -43,6 +44,8 @@ import {
   executeBatchNodeDelete,
   reorderNodeChildren,
   saveSubNodeSection,
+  type ConnectionData,
+  type BookmarkData,
 } from '../utils/nodeUtils';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -134,10 +137,22 @@ export function useNodeSave({
     const treeData = convertToTreeData(newTree, bookmarkIdsRef.current);
     graphManagerRef.current?.setData(treeData);
 
-    // 步骤 3：持久化到文件系统的 index.json
+    // 步骤 3：获取连线和书签数据并持久化到文件系统的 index.json
     const mdBasePath = getMdBasePath();
     const roadmapPath = mdBasePath.split('/').pop() || '';
-    return updateIndexJson(roadmapPath, newTree);
+    
+    // 从 connectionStore 获取当前思维导图的连线数据
+    const connections = useConnectionStore.getState().getConnections(roadmapPath);
+    
+    // 从 bookmarkStore 获取当前思维导图的书签数据
+    const bookmarks = useBookmarkStore.getState().getBookmarks();
+    
+    return updateIndexJson(
+      roadmapPath, 
+      newTree, 
+      connections as ConnectionData[],
+      bookmarks as BookmarkData[]
+    );
   }, [setRawData, rawDataRef, graphManagerRef, bookmarkIdsRef, getMdBasePath]);
 
   // ═══════════════════════════════════════════════════════════════════════════════

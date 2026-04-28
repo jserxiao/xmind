@@ -347,13 +347,46 @@ export function createNodeFromFormData(formData: NodeFormData, parentId?: string
 // index.json 更新
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** 连线数据类型（用于 index.json） */
+export interface ConnectionData {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  type: 'related' | 'prerequisite' | 'extends' | 'contrasts';
+  label?: string;
+  createdAt: number;
+}
+
+/** 书签数据类型（用于 index.json） */
+export interface BookmarkData {
+  nodeId: string;
+  nodeLabel: string;
+  createdAt: number;
+  note?: string;
+}
+
 /**
  * 更新 index.json 文件
  * @param folderName 思维导图文件夹名称
  * @param data 节点树数据
+ * @param connections 连线数据（可选）
+ * @param bookmarks 书签数据（可选）
  */
-export async function updateIndexJson(folderName: string, data: RoadmapNode): Promise<ApiResult> {
-  return writeJsonFile(`${folderName}/index.json`, data);
+export async function updateIndexJson(
+  folderName: string, 
+  data: RoadmapNode,
+  connections?: ConnectionData[],
+  bookmarks?: BookmarkData[]
+): Promise<ApiResult> {
+  // 将连线和书签数据合并到 root 节点中
+  const dataToSave: RoadmapNode = {
+    ...data,
+    // 只在 root 节点存储连线数据
+    connections: connections && connections.length > 0 ? connections : undefined,
+    // 只在 root 节点存储书签数据
+    bookmarks: bookmarks && bookmarks.length > 0 ? bookmarks : undefined,
+  };
+  return writeJsonFile(`${folderName}/index.json`, dataToSave);
 }
 
 /**

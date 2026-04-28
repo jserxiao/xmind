@@ -10,6 +10,7 @@
 import { GraphManager } from './GraphManager';
 import type { NodeModel } from './GraphManager';
 import { TEXT_TRUNCATE } from '../constants';
+import { useConnectionStore } from '../store/connectionStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 类型定义
@@ -102,6 +103,15 @@ export class EventHandler {
   /** 高亮效果定时器 */
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** 连线绘制临时线条 DOM */
+  private connectionLineEl: SVGLineElement | null = null;
+  
+  /** 连线绘制 SVG 容器 */
+  private connectionSvgEl: SVGSVGElement | null = null;
+  
+  /** 是否正在绘制连线 */
+  private isDrawingConnection: boolean = false;
+
   /**
    * 构造函数
    * @param config 配置选项
@@ -126,7 +136,23 @@ export class EventHandler {
     this.bindNodeHover();
     this.bindNodeContextMenu();
     this.bindNodeDoubleClick();
+    this.bindConnectionEvents();
+    this.bindViewportChange();
     console.log('[EventHandler] 所有事件已绑定');
+  }
+
+  /**
+   * 绑定视图变化事件（用于更新连线位置）
+   */
+  private bindViewportChange(): void {
+    const graph = this.graphManager.getGraph();
+    if (!graph) return;
+
+    // 监听缩放事件
+    graph.on('viewportchange', (evt: any) => {
+      // 视图变化时更新连线位置
+      this.graphManager.updateConnectionLinesPosition();
+    });
   }
 
   /**
@@ -141,6 +167,8 @@ export class EventHandler {
       graph.off('node:mousemove');
       graph.off('node:contextmenu');
       graph.off('node:dblclick');
+      graph.off('node:mousedown');
+      graph.off('viewportchange');
     }
     // 取消未执行的动画帧
     if (this.rafId) {
@@ -527,6 +555,194 @@ export class EventHandler {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // 连线绘制方法
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 绑定连线绘制事件
+   */
+  private bindConnectionEvents(): void {
+    // 节点 mousedown - 开始连线
+    this.graphManager.on('node:mousedown', (evt: any) => {
+      console.log('[EventHandler] node:mousedown 触发', evt);
+      const mode = useConnectionStore.getState().connectionMode;
+      console.log('[EventHandler] 当前连线模式:', mode);
+      if (mode !== 'active') return;
+      if (!evt.item) return;
+
+      const model = evt.item.getModel();
+      const targetName = evt.target?.get('name') || '';
+      
+      // 排除展开/收起按钮
+      if (this.isToggleButton(targetName)) return;
+
+      // 开始绘制连线
+      this.startConnectionDrawing(model.id, evt);
+    });
+
+    // 画布 mousemove - 更新连线位置
+    this.container.addEventListener('mousemove', this.handleConnectionMouseMove);
+
+    // 画布 mouseup - 结束连线
+    this.container.addEventListener('mouseup', this.handleConnectionMouseUp);
+    
+    console.log('[EventHandler] 连线事件已绑定');
+  }
+
+  /**
+   * 开始绘制连线
+   */
+  private startConnectionDrawing(sourceId: string, evt: any): void {
+    const center = this.graphManager.getNodeCenter(sourceId);
+    if (!center) return;
+
+    this.isDrawingConnection = true;
+    useConnectionStore.getState().startDrawing(sourceId);
+
+    // 创建 SVG 容器
+    this.createConnectionSvg();
+
+    // 创建临时连线
+    if (this.connectionSvgEl) {
+      const graph = this.graphManager.getGraph();
+      const point = graph?.getCanvasByPoint(center.x, center.y);
+      
+      if (point) {
+        this.connectionLineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        this.connectionLineEl.setAttribute('x1', String(point.x));
+        this.connectionLineEl.setAttribute('y1', String(point.y));
+        this.connectionLineEl.setAttribute('x2', String(point.x));
+        this.connectionLineEl.setAttribute('y2', String(point.y));
+        this.connectionLineEl.setAttribute('stroke', '#52c41a');
+        this.connectionLineEl.setAttribute('stroke-width', '2');
+        this.connectionLineEl.setAttribute('stroke-dasharray', '5,5');
+        this.connectionLineEl.setAttribute('stroke-linecap', 'round');
+        
+        this.connectionSvgEl.appendChild(this.connectionLineEl);
+      }
+    }
+
+    console.log(`[EventHandler] 开始绘制连线，起点: ${sourceId}`);
+  }
+
+  /**
+   * 创建连线 SVG 容器
+   */
+  private createConnectionSvg(): void {
+    if (this.connectionSvgEl) return;
+
+    this.connectionSvgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this.connectionSvgEl.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    `;
+    
+    // 将 SVG 插入到 canvas 元素之前，确保线条渲染在节点下方
+    const canvas = this.container.querySelector('canvas');
+    if (canvas) {
+      this.container.insertBefore(this.connectionSvgEl, canvas);
+    } else {
+      this.container.appendChild(this.connectionSvgEl);
+    }
+  }
+
+  /**
+   * 处理连线 mousemove
+   */
+  private handleConnectionMouseMove = (evt: MouseEvent): void => {
+    if (!this.isDrawingConnection || !this.connectionLineEl) return;
+
+    const rect = this.container.getBoundingClientRect();
+    const x = evt.clientX - rect.left;
+    const y = evt.clientY - rect.top;
+
+    this.connectionLineEl.setAttribute('x2', String(x));
+    this.connectionLineEl.setAttribute('y2', String(y));
+
+    // 更新 store 中的鼠标位置
+    useConnectionStore.getState().updateMousePosition(x, y);
+  };
+
+  /**
+   * 处理连线 mouseup
+   */
+  private handleConnectionMouseUp = (evt: MouseEvent): void => {
+    // 只有在绘制连线状态时才处理
+    if (!this.isDrawingConnection) return;
+
+    // 检查是否点击了右键菜单或其子元素（右键菜单应该在 body 下，不在容器内）
+    const target = evt.target as HTMLElement;
+    const isContextMenuClick = target.closest('.ant-dropdown, .ant-modal, .ant-menu');
+    if (isContextMenuClick) {
+      // 如果点击的是菜单/弹窗，取消连线绘制但不处理连线逻辑
+      this.isDrawingConnection = false;
+      useConnectionStore.getState().cancelDrawing();
+      this.clearConnectionLine();
+      console.log('[EventHandler] 点击菜单，取消连线绘制');
+      return;
+    }
+
+    this.isDrawingConnection = false;
+
+    const graph = this.graphManager.getGraph();
+    
+    // 将画布坐标转换为图坐标
+    const point = graph?.getPointByClient(evt.clientX, evt.clientY);
+    
+    // 查找该位置的节点
+    let targetNodeId: string | null = null;
+    if (point && graph) {
+      const nodes = graph.getNodes();
+      for (const node of nodes) {
+        const bbox = node.getBBox();
+        if (
+          point.x >= bbox.minX &&
+          point.x <= bbox.maxX &&
+          point.y >= bbox.minY &&
+          point.y <= bbox.maxY
+        ) {
+          targetNodeId = node.getModel().id;
+          break;
+        }
+      }
+    }
+
+    // 结束连线绘制
+    useConnectionStore.getState().endDrawing(targetNodeId);
+
+    // 清理临时连线
+    this.clearConnectionLine();
+
+    console.log(`[EventHandler] 结束连线绘制，目标: ${targetNodeId || '无'}`);
+  };
+
+  /**
+   * 清理临时连线
+   */
+  private clearConnectionLine(): void {
+    if (this.connectionLineEl && this.connectionSvgEl) {
+      this.connectionSvgEl.removeChild(this.connectionLineEl);
+      this.connectionLineEl = null;
+    }
+  }
+
+  /**
+   * 移除连线 SVG 容器
+   */
+  private removeConnectionSvg(): void {
+    this.clearConnectionLine();
+    if (this.connectionSvgEl) {
+      this.container.removeChild(this.connectionSvgEl);
+      this.connectionSvgEl = null;
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // 生命周期方法
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -541,6 +757,11 @@ export class EventHandler {
 
     // 清理高亮效果
     this.clearHighlight();
+    
+    // 清理连线绘制
+    this.container.removeEventListener('mousemove', this.handleConnectionMouseMove);
+    this.container.removeEventListener('mouseup', this.handleConnectionMouseUp);
+    this.removeConnectionSvg();
     
     // 清理 tooltip
     if (this.tooltipEl) {

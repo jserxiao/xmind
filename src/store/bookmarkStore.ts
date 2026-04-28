@@ -68,6 +68,9 @@ interface BookmarkStore {
   
   /** 更新书签的节点 ID（用于 sub 节点标题变化时） */
   updateBookmarkNodeId: (oldNodeId: string, newNodeId: string, newNodeLabel: string) => void;
+  
+  /** 批量设置书签（从 index.json 加载时使用） */
+  setBookmarks: (roadmapId: string, bookmarks: Bookmark[]) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -213,6 +216,16 @@ export const useBookmarkStore = create<BookmarkStore>()(
           });
           console.log(`[BookmarkStore] 更新书签节点 ID: ${oldNodeId} -> ${newNodeId}`);
         }
+      },
+      
+      setBookmarks: (roadmapId, bookmarksToSet) => {
+        console.log(`[BookmarkStore] 设置书签: ${roadmapId}, ${bookmarksToSet.length} 个`);
+        set((state) => ({
+          bookmarks: {
+            ...state.bookmarks,
+            [roadmapId]: bookmarksToSet,
+          },
+        }));
       },
     }),
     {

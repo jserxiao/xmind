@@ -8,6 +8,7 @@
 
 import G6, { TreeGraph } from '@antv/g6';
 import { useConfigStore } from '../store/configStore';
+import { useConnectionStore, type ConnectionMode, type NodeRelation } from '../store/connectionStore';
 import type { WatermarkConfig } from '../store/watermarkStore';
 import type { MinimapConfig } from '../store/minimapStore';
 
@@ -639,6 +640,298 @@ export class GraphManager {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
+  // 连线模式方法
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 设置连线模式
+   * @param mode 连线模式：idle/active/preview
+   */
+  setConnectionMode(mode: ConnectionMode): void {
+    if (!this.graph || this.destroyed) return;
+
+    console.log(`[GraphManager] 设置连线模式: ${mode}`);
+
+    if (mode === 'idle') {
+      // 恢复正常模式：显示边，启用画布拖拽，刷新节点样式
+      this.showAllEdges();
+      this.enableDragCanvas();
+      this.refresh();
+    } else if (mode === 'active' || mode === 'preview') {
+      // 连线模式（active 或 preview）：隐藏边，允许画布拖拽（但只在空白区域），刷新节点样式（灰白虚线）
+      this.hideAllEdges();
+      // 不禁用拖拽，改为在事件处理中控制
+      this.refresh();
+    }
+  }
+
+  /**
+   * 启用画布拖拽
+   */
+  enableDragCanvas(): void {
+    if (!this.graph) return;
+    // 检查是否已经存在 drag-canvas 行为
+    const modes = this.graph.get('modes');
+    const defaultBehaviors = modes?.default || [];
+    const hasDragCanvas = defaultBehaviors.some((b: any) => 
+      b.type === 'drag-canvas' || b === 'drag-canvas'
+    );
+    
+    if (!hasDragCanvas) {
+      // 启用 drag-canvas 行为
+      this.graph.addBehaviors([{
+        type: 'drag-canvas',
+        enableOptimize: false,
+      }], 'default');
+    }
+  }
+
+  /**
+   * 禁用画布拖拽
+   */
+  disableDragCanvas(): void {
+    if (!this.graph) return;
+    // 移除 drag-canvas 行为
+    try {
+      this.graph.removeBehaviors(['drag-canvas'], 'default');
+    } catch (e) {
+      // 忽略行为不存在的错误
+    }
+  }
+
+  /**
+   * 隐藏所有边
+   */
+  hideAllEdges(): void {
+    if (!this.graph) return;
+    
+    const edges = this.graph.getEdges();
+    edges.forEach((edge: any) => {
+      edge.hide();
+    });
+    console.log(`[GraphManager] 已隐藏 ${edges.length} 条边`);
+  }
+
+  /**
+   * 显示所有边
+   */
+  showAllEdges(): void {
+    if (!this.graph) return;
+    
+    const edges = this.graph.getEdges();
+    edges.forEach((edge: any) => {
+      edge.show();
+    });
+    console.log(`[GraphManager] 已显示 ${edges.length} 条边`);
+  }
+
+  /**
+   * 获取节点的中心点坐标（画布坐标）
+   * @param nodeId 节点 ID
+   * @returns 中心点坐标 {x, y}
+   */
+  getNodeCenter(nodeId: string): { x: number; y: number } | null {
+    if (!this.graph) return null;
+    
+    const item = this.graph.findById(nodeId);
+    if (!item) return null;
+
+    const bbox = item.getBBox();
+    
+    return {
+      x: bbox.centerX,
+      y: bbox.centerY,
+    };
+  }
+
+  /** 自定义连线 SVG 容器 */
+  private connectionLinesContainer: SVGSVGElement | null = null;
+
+  /** 当前渲染的连线数据（用于更新位置） */
+  private currentConnections: NodeRelation[] = [];
+
+  /** 删除图标回调映射 */
+  private deleteIconCallbacks: Map<string, () => void> = new Map();
+
+  /** 当前 roadmapId */
+  private currentRoadmapId: string | null = null;
+
+  /**
+   * 设置当前 roadmapId
+   * @param roadmapId 思维导图 ID
+   */
+  setCurrentRoadmapId(roadmapId: string | null): void {
+    this.currentRoadmapId = roadmapId;
+  }
+
+  /**
+   * 渲染自定义连线
+   * @param connections 连线数据数组
+   */
+  renderConnectionLines(connections: NodeRelation[]): void {
+    if (!this.graph || this.destroyed) return;
+
+    // 清除之前的连线和事件监听器
+    this.clearConnectionLines();
+
+    if (connections.length === 0) return;
+
+    // 保存当前连线数据
+    this.currentConnections = connections;
+
+    // 创建 SVG 容器
+    this.connectionLinesContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    this.connectionLinesContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    `;
+
+    // 渲染每条连线
+    connections.forEach((conn) => {
+      const sourceCenter = this.getNodeCenter(conn.sourceId);
+      const targetCenter = this.getNodeCenter(conn.targetId);
+
+      if (sourceCenter && targetCenter) {
+        // 转换为画布像素坐标
+        const sourcePoint = this.graph!.getCanvasByPoint(sourceCenter.x, sourceCenter.y);
+        const targetPoint = this.graph!.getCanvasByPoint(targetCenter.x, targetCenter.y);
+
+        // 创建一个 group 来包含线条和删除图标
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.setAttribute('data-connection-id', conn.id);
+
+        // 创建直线（使用 line 元素替代贝塞尔曲线）
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', String(sourcePoint.x));
+        line.setAttribute('y1', String(sourcePoint.y));
+        line.setAttribute('x2', String(targetPoint.x));
+        line.setAttribute('y2', String(targetPoint.y));
+        line.setAttribute('stroke', '#52c41a');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('opacity', '0.8');
+        
+        // 添加虚线效果
+        line.setAttribute('stroke-dasharray', '5,5');
+        
+        group.appendChild(line);
+
+        // 在目标节点处添加小圆点
+        const endCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        endCircle.setAttribute('cx', String(targetPoint.x));
+        endCircle.setAttribute('cy', String(targetPoint.y));
+        endCircle.setAttribute('r', '4');
+        endCircle.setAttribute('fill', '#52c41a');
+        
+        group.appendChild(endCircle);
+
+        // 计算线条中点
+        const midX = (sourcePoint.x + targetPoint.x) / 2;
+        const midY = (sourcePoint.y + targetPoint.y) / 2;
+
+        // 创建删除图标容器（可点击）
+        const deleteIconGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        deleteIconGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
+        deleteIconGroup.style.cursor = 'pointer';
+        deleteIconGroup.style.pointerEvents = 'auto'; // 允许点击事件
+
+        // 创建背景圆
+        const deleteBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        deleteBg.setAttribute('r', '10');
+        deleteBg.setAttribute('fill', '#ff4d4f');
+        deleteBg.setAttribute('stroke', '#fff');
+        deleteBg.setAttribute('stroke-width', '2');
+        deleteIconGroup.appendChild(deleteBg);
+
+        // 创建 X 图标（使用 path）
+        const deleteX = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        deleteX.setAttribute('d', 'M-4,-4 L4,4 M4,-4 L-4,4');
+        deleteX.setAttribute('stroke', '#fff');
+        deleteX.setAttribute('stroke-width', '2');
+        deleteX.setAttribute('stroke-linecap', 'round');
+        deleteIconGroup.appendChild(deleteX);
+
+        group.appendChild(deleteIconGroup);
+
+        // 添加点击事件监听器
+        const handleDeleteClick = (e: Event) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.handleDeleteConnection(conn.id);
+        };
+        
+        deleteIconGroup.addEventListener('click', handleDeleteClick);
+        
+        // 保存回调引用以便清理
+        this.deleteIconCallbacks.set(conn.id, () => {
+          deleteIconGroup.removeEventListener('click', handleDeleteClick);
+        });
+
+        this.connectionLinesContainer!.appendChild(group);
+
+        console.log(`[GraphManager] 渲染连线: ${conn.sourceId} -> ${conn.targetId}`);
+      }
+    });
+
+    // 将 SVG 插入到 canvas 元素之前，确保线条渲染在节点下方
+    const canvas = this.container.querySelector('canvas');
+    if (canvas) {
+      this.container.insertBefore(this.connectionLinesContainer, canvas);
+    } else {
+      this.container.appendChild(this.connectionLinesContainer);
+    }
+    console.log(`[GraphManager] 已渲染 ${connections.length} 条连线`);
+  }
+
+  /**
+   * 处理删除连线
+   * @param connectionId 连线 ID
+   */
+  private handleDeleteConnection(connectionId: string): void {
+    console.log(`[GraphManager] 删除连线: ${connectionId}`);
+    
+    // 使用保存的 roadmapId 从 store 中删除连线
+    if (this.currentRoadmapId) {
+      useConnectionStore.getState().removeConnection(this.currentRoadmapId, connectionId);
+    }
+  }
+
+  /**
+   * 清除自定义连线
+   */
+  clearConnectionLines(): void {
+    // 清理所有事件监听器
+    this.deleteIconCallbacks.forEach((cleanup) => cleanup());
+    this.deleteIconCallbacks.clear();
+    
+    if (this.connectionLinesContainer) {
+      this.container.removeChild(this.connectionLinesContainer);
+      this.connectionLinesContainer = null;
+    }
+    this.currentConnections = [];
+  }
+
+  /**
+   * 更新连线位置（缩放/平移后调用）
+   * 重新渲染所有连线以匹配新的视图位置
+   */
+  updateConnectionLinesPosition(): void {
+    if (!this.graph || this.destroyed || this.currentConnections.length === 0) return;
+    
+    // 检查当前是否处于连线模式（只在 active/preview 模式下更新）
+    const connectionMode = useConnectionStore.getState().connectionMode;
+    if (connectionMode === 'idle') return;
+    
+    // 重新渲染连线
+    this.renderConnectionLines(this.currentConnections);
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // 生命周期方法
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -647,6 +940,9 @@ export class GraphManager {
    */
   destroy(): void {
     if (this.destroyed) return;
+
+    // 清理自定义连线
+    this.clearConnectionLines();
 
     if (this.graph) {
       this.graph.destroy();

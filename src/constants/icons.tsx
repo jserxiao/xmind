@@ -274,3 +274,64 @@ export const FitViewIcon: React.FC<SvgIconProps> = ({ size = 16, className, styl
     <line x1="3" y1="15" x2="21" y2="15" />
   </svg>
 );
+
+/** 连线图标 */
+export const ConnectionIcon: React.FC<SvgIconProps> = ({ size = 16, className, style }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+  >
+    <circle cx="5" cy="12" r="3" />
+    <circle cx="19" cy="12" r="3" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+  </svg>
+);
+
+/** 连线激活图标 */
+export const ConnectionActiveIcon: React.FC<SvgIconProps> = ({ size = 16, className, style }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+  >
+    <circle cx="5" cy="12" r="3" fill="currentColor" />
+    <circle cx="19" cy="12" r="3" fill="currentColor" />
+    <line x1="8" y1="12" x2="16" y2="12" strokeDasharray="3 3" />
+  </svg>
+);
+
+/** 连线预览图标 */
+export const ConnectionPreviewIcon: React.FC<SvgIconProps> = ({ size = 16, className, style }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+  >
+    <circle cx="5" cy="12" r="3" fill="currentColor" />
+    <circle cx="19" cy="12" r="3" fill="currentColor" />
+    <line x1="8" y1="12" x2="16" y2="12" strokeWidth="3" />
+    <circle cx="12" cy="12" r="2" fill="currentColor" />
+  </svg>
+);

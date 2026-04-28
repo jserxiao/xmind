@@ -28,13 +28,14 @@
  */
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { message } from 'antd';
+import { message, Modal } from 'antd';
 import { useConfigStore } from '../store/configStore';
 import { useNodeEditorStore } from '../store/nodeEditorStore';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { useHistoryStore } from '../store/historyStore';
 import { useBookmarkStore } from '../store/bookmarkStore';
 import { useShortcutStore } from '../store/shortcutStore';
+import { useConnectionStore } from '../store/connectionStore';
 import { useUndoRedoShortcuts, useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useGraphInit } from '../hooks/useGraphInit';
 import { useNodeSave } from '../hooks/useNodeSave';
@@ -122,6 +123,19 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const getBookmarks = useBookmarkStore((state) => state.getBookmarks);
   const currentBookmarkIndex = useBookmarkStore((state) => state.currentBookmarkIndex);
   const setCurrentBookmarkIndex = useBookmarkStore((state) => state.setCurrentBookmarkIndex);
+
+  // 连线 Store
+  const previewConnection = useConnectionStore((state) => state.previewConnection);
+  const confirmPreviewConnection = useConnectionStore((state) => state.confirmPreviewConnection);
+  const cancelPreviewConnection = useConnectionStore((state) => state.cancelPreviewConnection);
+  const addConnection = useConnectionStore((state) => state.addConnection);
+  const getConnections = useConnectionStore((state) => state.getConnections);
+
+  // 连线数据的 JSON 版本（用于监听变化）
+  const connectionsJson = useConnectionStore((state) => {
+    const conns = state.connections[currentRoadmapId || ''] || [];
+    return JSON.stringify(conns);
+  });
 
   // 书签 ID 集合 ref：避免将 Set 放入 state 导致不必要的渲染。
   // 书签变化时重新生成 ref.current 并推送新 treeData 到画布（触发节点高亮更新）。
@@ -223,6 +237,32 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const zoomIn = useCallback(() => { graphManagerRef.current?.zoomIn(); }, []);
   const zoomOut = useCallback(() => { graphManagerRef.current?.zoomOut(); }, []);
   const resetZoom = useCallback(() => { graphManagerRef.current?.resetZoom(); }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 连线渲染
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 连线数据变化时渲染到画布
+  // 只在连线模式（active/preview）下显示自定义连线，idle 模式下隐藏
+
+  const connectionMode = useConnectionStore((state) => state.connectionMode);
+
+  useEffect(() => {
+    if (!graphManagerRef.current || loading) return;
+
+    // 设置当前 roadmapId
+    graphManagerRef.current.setCurrentRoadmapId(currentRoadmapId);
+
+    // 解析当前连线数据
+    const currentConnections = currentRoadmapId ? getConnections(currentRoadmapId) : [];
+    
+    // 只在连线模式（active/preview）下渲染自定义连线
+    if (connectionMode === 'active' || connectionMode === 'preview') {
+      graphManagerRef.current.renderConnectionLines(currentConnections);
+    } else {
+      // idle 模式下清除自定义连线显示
+      graphManagerRef.current.clearConnectionLines();
+    }
+  }, [connectionsJson, currentRoadmapId, loading, connectionMode, getConnections]);
 
   // 聚焦 + 高亮节点：focusNode 将节点移到视口中心并放大，
   // highlightNode 在节点上叠加高亮动画并 2.5s 后消失。
@@ -505,6 +545,69 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   }, [bookmarks, currentBookmarkIndex, focusNode, setCurrentBookmarkIndex]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // 连线预览确认
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 当用户绘制连线后，显示确认弹窗让用户确认是否添加连线
+
+  const [connectionConfirmModal, setConnectionConfirmModal] = useState<{
+    visible: boolean;
+    sourceId: string;
+    targetId: string;
+    sourceLabel: string;
+    targetLabel: string;
+  }>({ visible: false, sourceId: '', targetId: '', sourceLabel: '', targetLabel: '' });
+
+  // 监听预览连线变化
+  useEffect(() => {
+    if (previewConnection && rawData) {
+      // 查找节点标签
+      const findNode = (node: RoadmapNode, id: string): RoadmapNode | null => {
+        if (node.id === id) return node;
+        if (node.children) {
+          for (const child of node.children) {
+            const found = findNode(child, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const sourceNode = findNode(rawData, previewConnection.sourceId);
+      const targetNode = findNode(rawData, previewConnection.targetId);
+
+      if (sourceNode && targetNode) {
+        setConnectionConfirmModal({
+          visible: true,
+          sourceId: previewConnection.sourceId,
+          targetId: previewConnection.targetId,
+          sourceLabel: sourceNode.label.replace(/\n/g, ' ').slice(0, 30),
+          targetLabel: targetNode.label.replace(/\n/g, ' ').slice(0, 30),
+        });
+      }
+    }
+  }, [previewConnection, rawData]);
+
+  // 确认连线
+  const handleConfirmConnection = useCallback(() => {
+    if (connectionConfirmModal.sourceId && connectionConfirmModal.targetId && currentRoadmapId) {
+      addConnection(currentRoadmapId, {
+        sourceId: connectionConfirmModal.sourceId,
+        targetId: connectionConfirmModal.targetId,
+        type: 'related',
+      });
+      message.success('连线已添加');
+    }
+    confirmPreviewConnection();
+    setConnectionConfirmModal((prev) => ({ ...prev, visible: false }));
+  }, [connectionConfirmModal, currentRoadmapId, addConnection, confirmPreviewConnection]);
+
+  // 取消连线
+  const handleCancelConnection = useCallback(() => {
+    cancelPreviewConnection();
+    setConnectionConfirmModal((prev) => ({ ...prev, visible: false }));
+  }, [cancelPreviewConnection]);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // 撤销 / 重做
   // ═══════════════════════════════════════════════════════════════════════════════
   // historyStore.undo() 返回操作前的树快照，同时将当前状态推入 future 栈。
@@ -685,6 +788,46 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
         onClose={() => setAIModalVisible(false)}
         onApply={handleAIApplyWrapper}
       />
+
+      {/* 连线确认弹窗 */}
+      <Modal
+        title="确认连线"
+        open={connectionConfirmModal.visible}
+        onOk={handleConfirmConnection}
+        onCancel={handleCancelConnection}
+        okText="确认"
+        cancelText="取消"
+        width={400}
+      >
+        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+          <p style={{ marginBottom: 16, color: '#666' }}>确定要创建这条连线吗？</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            <span style={{ 
+              padding: '8px 16px', 
+              background: '#e6f7ff', 
+              borderRadius: 6,
+              maxWidth: 150,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {connectionConfirmModal.sourceLabel}
+            </span>
+            <span style={{ color: '#52c41a', fontSize: 20 }}>→</span>
+            <span style={{ 
+              padding: '8px 16px', 
+              background: '#f6ffed', 
+              borderRadius: 6,
+              maxWidth: 150,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {connectionConfirmModal.targetLabel}
+            </span>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

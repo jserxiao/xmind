@@ -519,3 +519,10 @@
   justify-content: center;
   font-size: 14px;
 }
+
+/* 连线模式按钮 */
+.connectionBtnActive {
+  background: var(--success-light, #e6f7ff);
+  border-color: var(--success-color, #52c41a);
+  color: var(--success-color, #52c41a);
+}

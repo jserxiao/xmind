@@ -3,6 +3,20 @@
 
 import { readJsonFile, readFile, getDirectoryHandle } from '../utils/fileSystem';
 
+/** 节点关联关系 */
+export interface NodeRelation {
+  /** 关联 ID */
+  id: string;
+  /** 目标节点 ID */
+  targetId: string;
+  /** 关系类型 */
+  type: 'related' | 'prerequisite' | 'extends' | 'contrasts';
+  /** 关系描述 */
+  label?: string;
+  /** 关系强度 (0-1) */
+  strength?: number;
+}
+
 export interface RoadmapNode {
   id: string;
   label: string;
@@ -21,11 +35,37 @@ export interface RoadmapNode {
   customNodeId?: string;
   customFill?: string;
   customStroke?: string;
+  // === 知识图谱扩展 ===
+  // 节点关联关系（连线）- 存储在 root 节点中
+  connections?: Array<{
+    id: string;
+    sourceId: string;
+    targetId: string;
+    type: 'related' | 'prerequisite' | 'extends' | 'contrasts';
+    label?: string;
+    createdAt: number;
+  }>;
+  // 书签数据 - 存储在 root 节点中
+  bookmarks?: Array<{
+    nodeId: string;
+    nodeLabel: string;
+    createdAt: number;
+    note?: string;
+  }>;
+  // 节点关联关系（已废弃，保留兼容）
+  relations?: NodeRelation[];
+  // 标签
+  tags?: string[];
+  // 难度等级
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  // 学习状态
+  status?: 'not_started' | 'learning' | 'mastered' | 'needs_review';
 }
 
 /**
  * 异步加载指定思维导图的 index.json 配置文件
  * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
+ * @returns 返回节点树数据，连线和书签数据会自动同步到对应的 store
  */
 export async function loadRoadmapData(roadmapPath: string): Promise<RoadmapNode> {
   try {
@@ -36,6 +76,23 @@ export async function loadRoadmapData(roadmapPath: string): Promise<RoadmapNode>
     const result = await readJsonFile<RoadmapNode>(`${roadmapPath}/index.json`);
     if (result.success && result.data) {
       console.log(`[roadmap] ${roadmapPath}/index.json loaded`);
+      
+      // 从 root 节点加载连线数据到 connectionStore
+      if (result.data.connections && result.data.connections.length > 0) {
+        // 动态导入避免循环依赖
+        const { useConnectionStore } = await import('../store/connectionStore');
+        useConnectionStore.getState().setConnections(roadmapPath, result.data.connections);
+        console.log(`[roadmap] 加载了 ${result.data.connections.length} 条连线`);
+      }
+      
+      // 从 root 节点加载书签数据到 bookmarkStore
+      if (result.data.bookmarks && result.data.bookmarks.length > 0) {
+        // 动态导入避免循环依赖
+        const { useBookmarkStore } = await import('../store/bookmarkStore');
+        useBookmarkStore.getState().setBookmarks(roadmapPath, result.data.bookmarks);
+        console.log(`[roadmap] 加载了 ${result.data.bookmarks.length} 个书签`);
+      }
+      
       return result.data;
     }
     throw new Error(result.message || '加载失败');
