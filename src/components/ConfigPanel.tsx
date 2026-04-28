@@ -129,6 +129,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [mdSearchResults, setMdSearchResults] = useState<MdSearchResult[]>([]);
   const [isSearchingMd, setIsSearchingMd] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // 批量删除相关状态
   const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
@@ -289,6 +290,27 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       </>
     );
   }, []);
+
+  // ── 监听搜索聚焦快捷键 ──
+  useEffect(() => {
+    const handleFocusSearch = () => {
+      // 切换到导航面板
+      setActiveTab('nav');
+      // 展开面板（如果收起）
+      if (!panelExpanded) {
+        togglePanel();
+      }
+      // 延迟聚焦，确保面板已展开
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    };
+
+    window.addEventListener('shortcut:focusSearch', handleFocusSearch);
+    return () => {
+      window.removeEventListener('shortcut:focusSearch', handleFocusSearch);
+    };
+  }, [panelExpanded, togglePanel]);
   
   // ── 将节点数据转换为 Tree 结构(用于批量删除弹窗) ──
   const treeData = useMemo(() => {
@@ -726,6 +748,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             {/* 搜索框 */}
             <div className={treeStyles.treeSearchBox}>
               <Input
+                ref={searchInputRef as any}
                 placeholder="搜索节点或文档内容..."
                 prefix={<SearchOutlined />}
                 suffix={isSearchingMd ? <Spin size="small" /> : null}
@@ -758,9 +781,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                   highlightText={highlightText}
                 />
               </div>
+            ) : searchKeyword ? (
+              <div className={styles.configLoading}>
+                未找到匹配的节点
+              </div>
             ) : (
               <div className={styles.configLoading}>
-                {searchKeyword ? '未找到匹配的节点' : '加载中...'}
+                加载中...
               </div>
             )}
           </div>

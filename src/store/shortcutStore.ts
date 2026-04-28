@@ -16,21 +16,18 @@ import { persist } from 'zustand/middleware';
 export type ShortcutAction = 
   | 'undo'          // 撤销
   | 'redo'          // 重做
-  | 'save'          // 保存
-  | 'search'        // 搜索
-  | 'addNode'       // 添加节点
-  | 'deleteNode'    // 删除节点
-  | 'editNode'      // 编辑节点
   | 'zoomIn'        // 放大
   | 'zoomOut'       // 缩小
   | 'resetZoom'     // 重置缩放
   | 'fitView'       // 适应视图
   | 'togglePanel'   // 切换面板
+  | 'focusSearch'   // 聚焦搜索框
   | 'exportJPG'     // 导出JPG
   | 'exportPDF'     // 导出PDF
-  | 'toggleBookmark' // 切换书签
-  | 'nextBookmark'   // 下一个书签
-  | 'prevBookmark';  // 上一个书签
+  | 'prevNode'      // 上一个节点
+  | 'nextNode'      // 下一个节点
+  | 'nextBookmark'  // 下一个书签
+  | 'prevBookmark'; // 上一个书签
 
 /** 快捷键配置 */
 export interface ShortcutConfig {
@@ -45,7 +42,7 @@ export interface ShortcutConfig {
   /** 是否启用 */
   enabled: boolean;
   /** 分类 */
-  category: 'edit' | 'view' | 'node' | 'export';
+  category: 'edit' | 'view' | 'navigation' | 'export';
 }
 
 /** 快捷键 Store 状态 */
@@ -74,6 +71,9 @@ interface ShortcutStore {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 编辑操作
+  // ═══════════════════════════════════════════════════════════════════════════════
   undo: {
     action: 'undo',
     key: 'ctrl+z',
@@ -90,46 +90,10 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
     enabled: true,
     category: 'edit',
   },
-  save: {
-    action: 'save',
-    key: 'ctrl+s',
-    name: '保存',
-    description: '保存当前思维导图',
-    enabled: true,
-    category: 'edit',
-  },
-  search: {
-    action: 'search',
-    key: 'ctrl+f',
-    name: '搜索',
-    description: '搜索节点内容',
-    enabled: true,
-    category: 'edit',
-  },
-  addNode: {
-    action: 'addNode',
-    key: 'ctrl+n',
-    name: '添加节点',
-    description: '添加新节点',
-    enabled: true,
-    category: 'node',
-  },
-  deleteNode: {
-    action: 'deleteNode',
-    key: 'delete',
-    name: '删除节点',
-    description: '删除选中的节点',
-    enabled: true,
-    category: 'node',
-  },
-  editNode: {
-    action: 'editNode',
-    key: 'enter',
-    name: '编辑节点',
-    description: '编辑选中的节点',
-    enabled: true,
-    category: 'node',
-  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 视图操作
+  // ═══════════════════════════════════════════════════════════════════════════════
   zoomIn: {
     action: 'zoomIn',
     key: 'ctrl+=',
@@ -164,12 +128,60 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
   },
   togglePanel: {
     action: 'togglePanel',
-    key: 'ctrl+shift+b',
+    key: 'ctrl+b',
     name: '切换面板',
     description: '显示/隐藏侧边面板',
     enabled: true,
     category: 'view',
   },
+  focusSearch: {
+    action: 'focusSearch',
+    key: 'ctrl+f',
+    name: '搜索',
+    description: '聚焦到搜索框',
+    enabled: true,
+    category: 'view',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 导航操作
+  // ═══════════════════════════════════════════════════════════════════════════════
+  prevNode: {
+    action: 'prevNode',
+    key: 'arrowleft',
+    name: '上一个节点',
+    description: '跳转到上一个节点',
+    enabled: true,
+    category: 'navigation',
+  },
+  nextNode: {
+    action: 'nextNode',
+    key: 'arrowright',
+    name: '下一个节点',
+    description: '跳转到下一个节点',
+    enabled: true,
+    category: 'navigation',
+  },
+  prevBookmark: {
+    action: 'prevBookmark',
+    key: 'ctrl+shift+arrowleft',
+    name: '上一个书签',
+    description: '跳转到上一个书签节点',
+    enabled: true,
+    category: 'navigation',
+  },
+  nextBookmark: {
+    action: 'nextBookmark',
+    key: 'ctrl+shift+arrowright',
+    name: '下一个书签',
+    description: '跳转到下一个书签节点',
+    enabled: true,
+    category: 'navigation',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 导出操作
+  // ═══════════════════════════════════════════════════════════════════════════════
   exportJPG: {
     action: 'exportJPG',
     key: 'ctrl+shift+j',
@@ -185,30 +197,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, ShortcutConfig> = {
     description: '导出为PDF文档',
     enabled: true,
     category: 'export',
-  },
-  toggleBookmark: {
-    action: 'toggleBookmark',
-    key: 'ctrl+b',
-    name: '切换书签',
-    description: '为当前节点添加或移除书签',
-    enabled: true,
-    category: 'node',
-  },
-  nextBookmark: {
-    action: 'nextBookmark',
-    key: 'ctrl+]',
-    name: '下一个书签',
-    description: '跳转到下一个书签节点',
-    enabled: true,
-    category: 'node',
-  },
-  prevBookmark: {
-    action: 'prevBookmark',
-    key: 'ctrl+[',
-    name: '上一个书签',
-    description: '跳转到上一个书签节点',
-    enabled: true,
-    category: 'node',
   },
 };
 
@@ -271,6 +259,33 @@ export const useShortcutStore = create<ShortcutStore>()(
       partialize: (state) => ({
         shortcuts: state.shortcuts,
       }),
+      // 合并策略：确保新增的默认快捷键配置被添加进来
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as { shortcuts?: Record<string, ShortcutConfig> };
+        const merged = { ...currentState };
+        
+        if (persisted?.shortcuts) {
+          // 从 localStorage 恢复已保存的配置
+          merged.shortcuts = { ...persisted.shortcuts } as Record<ShortcutAction, ShortcutConfig>;
+          
+          // 确保所有默认快捷键都存在（处理新增的快捷键）
+          for (const [action, config] of Object.entries(DEFAULT_SHORTCUTS)) {
+            if (!(action in merged.shortcuts)) {
+              (merged.shortcuts as Record<string, ShortcutConfig>)[action] = config;
+            }
+          }
+          
+          // 移除已废弃的快捷键配置
+          const validActions = Object.keys(DEFAULT_SHORTCUTS);
+          for (const action of Object.keys(merged.shortcuts)) {
+            if (!validActions.includes(action)) {
+              delete (merged.shortcuts as Record<string, ShortcutConfig>)[action];
+            }
+          }
+        }
+        
+        return merged;
+      },
     }
   )
 );
@@ -286,7 +301,7 @@ export function getCategoryName(category: ShortcutConfig['category']): string {
   const names = {
     edit: '编辑',
     view: '视图',
-    node: '节点',
+    navigation: '导航',
     export: '导出',
   };
   return names[category];

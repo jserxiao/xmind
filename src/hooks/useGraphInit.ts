@@ -162,35 +162,47 @@ export function useGraphInit({
 
     const init = async () => {
       try {
+        console.log('[useGraphInit] 开始初始化...');
+        
         // 等待 IndexedDB 异步恢复目录句柄（页面刷新后重建 FileSystemDirectoryHandle）
         await waitForDirectoryHandleInit();
+        console.log('[useGraphInit] IndexedDB 初始化完成');
 
         // 没有目录句柄说明用户还未选择工作目录，停止加载
-        if (!getDirectoryHandle()) {
+        const dirHandle = getDirectoryHandle();
+        console.log('[useGraphInit] 目录句柄:', dirHandle ? '存在' : '不存在');
+        if (!dirHandle) {
+          console.warn('[useGraphInit] 没有目录句柄，停止加载');
           setLoading(false);
           return;
         }
 
         // 获取当前思维导图在文件系统中的路径
         const mdBasePath = getMdBasePath();
+        console.log('[useGraphInit] mdBasePath:', mdBasePath || '(空)');
         if (!mdBasePath) {
+          console.warn('[useGraphInit] 没有 mdBasePath，停止加载');
           setLoading(false);
           return;
         }
 
         // 步骤 1：加载 index.json 获取节点树
         const roadmapPath = mdBasePath.split('/').pop() || '';
+        console.log('[useGraphInit] roadmapPath:', roadmapPath);
         const root = await loadRoadmapData(roadmapPath);
+        console.log('[useGraphInit] 加载的节点数据:', root ? '成功' : '失败');
         if (destroyed) return;
 
         // 步骤 2：enrich — 为有 mdPath 的 leaf/link 节点解析 MD 中的 ## 标题，
         //         生成动态 sub 子节点并挂载到 children
         const enriched = await enrichWithSubNodes(root, roadmapPath);
+        console.log('[useGraphInit] enrich 完成，节点数:', enriched ? '有数据' : '无数据');
         if (destroyed) return;
 
         // 保存原始数据（ref + state 双写：state 驱动渲染，ref 供回调读取最新值）
         setRawData(enriched);
         rawDataRef.current = enriched;
+        console.log('[useGraphInit] 数据已设置到 state');
 
         // 步骤 3：注册 5 种自定义 G6 节点（root-node、branch-node 等）
         //         NodeRenderer 只创建一次，因为 registerNode 是全局副作用
@@ -256,6 +268,7 @@ export function useGraphInit({
         }, 100);
 
         setLoading(false);
+        console.log('[useGraphInit] 初始化完成');
       } catch (err) {
         console.error('[useGraphInit] 初始化失败:', err);
         setLoading(false);

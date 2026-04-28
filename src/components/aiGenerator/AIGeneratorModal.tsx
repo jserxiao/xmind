@@ -170,7 +170,7 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
         onCancel={handleClose}
         footer={null}
         width={520}
-        destroyOnClose
+        destroyOnHidden
       >
         {/* 未配置提示 */}
         {!isConfigured && (

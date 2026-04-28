@@ -575,6 +575,11 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
     useConfigStore.getState().togglePanel();
   }, []);
 
+  // 聚焦搜索框：通过触发自定义事件，让 ConfigPanel 监听并聚焦
+  const handleFocusSearch = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('shortcut:focusSearch'));
+  }, []);
+
   const shortcuts = useShortcutStore((state) => state.shortcuts);
   const getShortcutKey = (action: string): string => {
     return shortcuts[action as keyof typeof shortcuts]?.key || '';
@@ -582,13 +587,19 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 
   useKeyboardShortcuts(
     [
+      // 视图操作
       { key: getShortcutKey('zoomIn'), callback: zoomIn, description: '放大' },
       { key: getShortcutKey('zoomOut'), callback: zoomOut, description: '缩小' },
       { key: getShortcutKey('resetZoom'), callback: resetZoom, description: '重置缩放' },
       { key: getShortcutKey('fitView'), callback: fitView, description: '适应视图' },
       { key: getShortcutKey('togglePanel'), callback: handleTogglePanel, description: '切换面板' },
-      { key: getShortcutKey('nextBookmark'), callback: handleNextBookmark, description: '下一个书签' },
+      { key: getShortcutKey('focusSearch'), callback: handleFocusSearch, description: '聚焦搜索' },
+      // 导航操作
+      { key: getShortcutKey('prevNode'), callback: handlePrevNode, description: '上一个节点' },
+      { key: getShortcutKey('nextNode'), callback: handleNextNode, description: '下一个节点' },
       { key: getShortcutKey('prevBookmark'), callback: handlePrevBookmark, description: '上一个书签' },
+      { key: getShortcutKey('nextBookmark'), callback: handleNextBookmark, description: '下一个书签' },
+      // 导出操作
       { key: getShortcutKey('exportJPG'), callback: handleExportJPG, description: '导出JPG' },
       { key: getShortcutKey('exportPDF'), callback: handleExportPDF, description: '导出PDF' },
     ],

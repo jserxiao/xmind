@@ -139,7 +139,7 @@ const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ visible, onClose }) => {
       onCancel={onClose}
       footer={null}
       width={480}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}

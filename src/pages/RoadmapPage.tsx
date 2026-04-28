@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Select } from 'antd';
 import RoadmapGraph from '../components/RoadmapGraph';
 import { useRoadmapStore } from '../store/roadmapStore';
+import { getDirectoryHandle, waitForDirectoryHandleInit } from '../utils/fileSystem';
+import ReconnectDirectoryModal from '../components/ReconnectDirectoryModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 import styles from '../styles/RoadmapPage.module.css';
 
@@ -19,6 +21,30 @@ const RoadmapPage: React.FC = () => {
 
   // 标记是否正在离开页面（返回列表页）
   const isLeavingRef = useRef(false);
+  
+  // 检查目录句柄是否存在
+  const [isCheckingHandle, setIsCheckingHandle] = useState(true);
+  const [showDirModal, setShowDirModal] = useState(false);
+  
+  // 重新连接后的刷新 key，用于强制重新渲染 RoadmapGraph
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 检查目录句柄是否存在
+  useEffect(() => {
+    const checkHandle = async () => {
+      await waitForDirectoryHandleInit();
+      const handle = getDirectoryHandle();
+      const hasHandle = !!handle;
+      setIsCheckingHandle(false);
+      
+      // 如果没有目录句柄，显示选择目录弹窗
+      if (!hasHandle) {
+        console.warn('[RoadmapPage] 没有目录句柄，显示选择目录弹窗');
+        setShowDirModal(true);
+      }
+    };
+    checkHandle();
+  }, []);
 
   // 刷新页面时，恢复当前思维导图
   // 逻辑：如果 URL 有 roadmapId 但 store 中没有 currentRoadmapId，说明是刷新页面，尝试恢复
@@ -59,6 +85,34 @@ const RoadmapPage: React.FC = () => {
       navigate(`/roadmap/${newRoadmapId}`);
     }
   };
+
+  // 重新连接成功后的回调
+  const handleReconnected = useCallback(() => {
+    setShowDirModal(false);
+    // 强制刷新画布组件
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // 如果正在检查目录句柄，显示加载状态
+  if (isCheckingHandle) {
+    return (
+      <div className={styles.roadmapPage}>
+        <header className={styles.roadmapPageHeader}>
+          <button className={styles.backToListBtn} onClick={handleBackToList}>
+            ← 返回列表
+          </button>
+          <h1 className={styles.roadmapTitle}>检查中...</h1>
+          <div className={styles.headerSpacer}></div>
+        </header>
+        <main className={styles.roadmapPageContent}>
+          <div className="loading-state">
+            <div className="loading-spinner"></div>
+            <p>正在检查目录权限...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // 如果没有设置当前思维导图，显示加载状态
   if (!directoryName || !currentRoadmap) {
@@ -108,9 +162,17 @@ const RoadmapPage: React.FC = () => {
       {/* 思维导图 */}
       <main className={styles.roadmapPageContent}>
         <ErrorBoundary name="RoadmapGraph">
-          <RoadmapGraph />
+          <RoadmapGraph key={refreshKey} />
         </ErrorBoundary>
       </main>
+
+      {/* 重新连接目录弹窗 */}
+      <ReconnectDirectoryModal
+        open={showDirModal}
+        roadmapId={roadmapId}
+        onConnected={handleReconnected}
+        onBackToHome={handleBackToList}
+      />
     </div>
   );
 };
