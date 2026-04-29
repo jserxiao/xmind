@@ -1831,5 +1831,21 @@
         }
       ]
     }
+  ],
+  "connections": [
+    {
+      "sourceId": "goroutine__调度模型__gmp",
+      "targetId": "goroutine__控制_goroutine_数量",
+      "type": "related",
+      "id": "conn_1777424709643_mrvupjg",
+      "createdAt": 1777424709644
+    }
+  ],
+  "bookmarks": [
+    {
+      "nodeId": "ai-1777259595742-0",
+      "nodeLabel": "G-M-P 交互流程",
+      "createdAt": 1777260347497
+    }
   ]
 }

@@ -251,6 +251,23 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
 
     // 设置当前 roadmapId
     graphManagerRef.current.setCurrentRoadmapId(currentRoadmapId);
+    
+    // 设置删除连线回调（记录历史）
+    graphManagerRef.current.setOnDeleteConnection(() => {
+      if (!rawData || !currentRoadmapId) return;
+      
+      // 记录历史：保存当前的节点树、连线、书签状态
+      const currentConnections = getConnections(currentRoadmapId);
+      const currentBookmarks = getBookmarks();
+      useHistoryStore.getState().pushHistory(
+        rawData,
+        '删除连线',
+        undefined,
+        currentConnections,
+        currentBookmarks,
+        currentRoadmapId
+      );
+    });
 
     // 解析当前连线数据
     const currentConnections = currentRoadmapId ? getConnections(currentRoadmapId) : [];
@@ -262,7 +279,33 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
       // idle 模式下清除自定义连线显示
       graphManagerRef.current.clearConnectionLines();
     }
-  }, [connectionsJson, currentRoadmapId, loading, connectionMode, getConnections]);
+  }, [connectionsJson, currentRoadmapId, loading, connectionMode, getConnections, rawData, getBookmarks]);
+
+  // 连线数据变化时自动保存到 index.json
+  // 使用 ref 标记是否是初始化加载（避免加载数据时触发保存）
+  const isConnectionLoadedRef = useRef(false);
+  
+  useEffect(() => {
+    // 跳过初始化加载
+    if (!isConnectionLoadedRef.current) {
+      isConnectionLoadedRef.current = true;
+      return;
+    }
+    
+    // 只在有数据时保存
+    if (!rawData || !currentRoadmapId) return;
+    
+    const saveConnectionsToIndexJson = async () => {
+      const connections = getConnections(currentRoadmapId);
+      const bookmarks = getBookmarks();
+      
+      const { updateIndexJson } = await import('../utils/nodeUtils');
+      await updateIndexJson(currentRoadmapId, rawData, connections, bookmarks);
+      console.log(`[RoadmapGraph] 已保存连线数据到 index.json`);
+    };
+    
+    saveConnectionsToIndexJson();
+  }, [connectionsJson]);
 
   // 聚焦 + 高亮节点：focusNode 将节点移到视口中心并放大，
   // highlightNode 在节点上叠加高亮动画并 2.5s 后消失。
@@ -590,16 +633,28 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   // 确认连线
   const handleConfirmConnection = useCallback(() => {
     if (connectionConfirmModal.sourceId && connectionConfirmModal.targetId && currentRoadmapId) {
+      // 记录历史：保存当前的节点树、连线、书签状态
+      const currentConnections = getConnections(currentRoadmapId);
+      const currentBookmarks = getBookmarks();
+      useHistoryStore.getState().pushHistory(
+        rawData!,
+        '添加连线',
+        undefined,
+        currentConnections,
+        currentBookmarks,
+        currentRoadmapId
+      );
+      
       addConnection(currentRoadmapId, {
         sourceId: connectionConfirmModal.sourceId,
         targetId: connectionConfirmModal.targetId,
         type: 'related',
       });
-      message.success('连线已添加');
+      message.success('连线已添加（可撤销）');
     }
     confirmPreviewConnection();
     setConnectionConfirmModal((prev) => ({ ...prev, visible: false }));
-  }, [connectionConfirmModal, currentRoadmapId, addConnection, confirmPreviewConnection]);
+  }, [connectionConfirmModal, currentRoadmapId, addConnection, confirmPreviewConnection, rawData, getConnections, getBookmarks]);
 
   // 取消连线
   const handleCancelConnection = useCallback(() => {

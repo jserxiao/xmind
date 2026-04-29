@@ -755,11 +755,22 @@ export class GraphManager {
 
   /** 当前 roadmapId */
   private currentRoadmapId: string | null = null;
+  
+  /** 删除连线时的回调（用于通知外部记录历史） */
+  private onDeleteConnection: ((connectionId: string) => void) | null = null;
 
   /**
-   * 设置当前 roadmapId
-   * @param roadmapId 思维导图 ID
-   */
+  * 设置删除连线回调
+  * @param callback 回调函数
+  */
+  setOnDeleteConnection(callback: ((connectionId: string) => void) | null): void {
+    this.onDeleteConnection = callback;
+  }
+
+  /**
+  * 设置当前 roadmapId
+  * @param roadmapId 思维导图 ID
+  */
   setCurrentRoadmapId(roadmapId: string | null): void {
     this.currentRoadmapId = roadmapId;
   }
@@ -889,16 +900,21 @@ export class GraphManager {
   }
 
   /**
-   * 处理删除连线
-   * @param connectionId 连线 ID
-   */
+  * 处理删除连线
+  * @param connectionId 连线 ID
+  */
   private handleDeleteConnection(connectionId: string): void {
     console.log(`[GraphManager] 删除连线: ${connectionId}`);
     
-    // 使用保存的 roadmapId 从 store 中删除连线
-    if (this.currentRoadmapId) {
-      useConnectionStore.getState().removeConnection(this.currentRoadmapId, connectionId);
+    if (!this.currentRoadmapId) return;
+    
+    // 通知外部记录历史（删除前）
+    if (this.onDeleteConnection) {
+      this.onDeleteConnection(connectionId);
     }
+    
+    // 执行删除
+    useConnectionStore.getState().removeConnection(this.currentRoadmapId, connectionId);
   }
 
   /**

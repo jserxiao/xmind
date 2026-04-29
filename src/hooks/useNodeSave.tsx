@@ -121,6 +121,38 @@ export function useNodeSave({
   const pushHistory = useHistoryStore((state) => state.pushHistory);
   const hasBookmark = useBookmarkStore((state) => state.hasBookmark);
   const updateBookmarkNodeId = useBookmarkStore((state) => state.updateBookmarkNodeId);
+  const getBookmarks = useBookmarkStore((state) => state.getBookmarks);
+  const getConnections = useConnectionStore((state) => state.getConnections);
+  const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 辅助函数：记录历史（包含连线、书签、节点树）
+  // ═══════════════════════════════════════════════════════════════════════════════
+  
+  /**
+  * 记录操作历史（包含完整状态）
+  * @param tree 节点树
+  * @param description 操作描述
+  * @param deletedFiles 被删除的文件列表
+  */
+  const recordHistory = useCallback((
+    tree: RoadmapNode,
+    description: string,
+    deletedFiles?: Array<{ path: string; content: string }>
+  ) => {
+    const roadmapPath = getMdBasePath().split('/').pop() || '';
+    const currentConnections = getConnections(roadmapPath);
+    const currentBookmarks = getBookmarks();
+    
+    pushHistory(
+      tree,
+      description,
+      deletedFiles,
+      currentConnections,
+      currentBookmarks,
+      roadmapPath
+    );
+  }, [pushHistory, getMdBasePath, getConnections, getBookmarks]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 内部辅助：同步内存状态 → G6 画布 → index.json
@@ -209,9 +241,9 @@ export function useNodeSave({
             roadmapPath,
           });
 
-          // 注意：pushHistory 必须在 refreshGraphAndIndex 之前，
+          // 注意：recordHistory 必须在 refreshGraphAndIndex 之前，
           // 因为撤销需要知道操作前的状态（currentData）
-          pushHistory(currentData, `删除节点「${nodeLabel}」`, deletedFiles);
+          recordHistory(currentData, `删除节点「${nodeLabel}」`, deletedFiles);
 
           const result = await refreshGraphAndIndex(newTree);
 
@@ -228,7 +260,7 @@ export function useNodeSave({
         }
       },
     });
-  }, [getMdBasePath, pushHistory, refreshGraphAndIndex]);
+  }, [getMdBasePath, pushHistory, refreshGraphAndIndex, recordHistory, getConnections, getBookmarks]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 保存节点（添加或编辑）
@@ -262,7 +294,7 @@ export function useNodeSave({
 
       if (editorMode === 'add' && parentNodeId) {
         // 先记录历史（操作前的完整树），再执行变更
-        pushHistory(rawData, `添加节点「${formData.label}」`);
+        recordHistory(rawData, `添加节点「${formData.label}」`);
 
         const newNode = createNodeFromFormData(formData, parentNodeId);
         newNodeId = newNode.id;
@@ -354,7 +386,7 @@ export function useNodeSave({
 
       if (editorMode === 'edit' && editingNode) {
         // 先记录历史，再执行变更
-        pushHistory(rawData, `编辑节点「${formData.label}」`);
+        recordHistory(rawData, `编辑节点「${formData.label}」`);
 
         newNodeId = editingNode.id;
         const isSubNode = editingNode.type === 'sub';
@@ -438,6 +470,7 @@ export function useNodeSave({
     rawData, editorMode, parentNodeId, editingNode, formData, subNodeMdPath,
     closePanel, pushHistory, getMdBasePath, getFullMdPath,
     hasBookmark, updateBookmarkNodeId, refreshGraphAndIndex, eventHandlerRef,
+    recordHistory, getConnections, getBookmarks,
   ]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -556,9 +589,9 @@ export function useNodeSave({
     }
 
     await refreshGraphAndIndex(newTree);
-    pushHistory(newTree, `AI 生成 ${addedCount} 个子节点`);
+    recordHistory(newTree, `AI 生成 ${addedCount} 个子节点`);
     message.success(`已添加 ${addedCount} 个节点${mdOperations.length > 0 ? `，创建 ${mdOperations.length} 个 MD 文件` : ''}`);
-  }, [rawData, getMdBasePath, pushHistory, refreshGraphAndIndex]);
+  }, [rawData, getMdBasePath, pushHistory, refreshGraphAndIndex, recordHistory, getConnections, getBookmarks]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 批量删除节点
@@ -580,7 +613,7 @@ export function useNodeSave({
       );
 
       // 先记录历史（含已删除文件内容供撤销恢复），再更新画布
-      pushHistory(rawData, `批量删除 ${nodeIds.length} 个节点`, deletedFiles);
+      recordHistory(rawData, `批量删除 ${nodeIds.length} 个节点`, deletedFiles);
 
       const result = await refreshGraphAndIndex(newTree);
 
@@ -596,7 +629,7 @@ export function useNodeSave({
       message.error('批量删除失败');
       console.error('批量删除失败:', error);
     }
-  }, [rawData, getMdBasePath, pushHistory, refreshGraphAndIndex]);
+  }, [rawData, getMdBasePath, pushHistory, refreshGraphAndIndex, recordHistory, getConnections, getBookmarks]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 节点排序
@@ -611,7 +644,7 @@ export function useNodeSave({
 
     try {
       // 先记录历史，再变更
-      pushHistory(rawData, '节点排序');
+      recordHistory(rawData, '节点排序');
 
       const newTree = reorderNodeChildren(rawData, parentId, newChildren);
       const result = await refreshGraphAndIndex(newTree);
@@ -628,7 +661,7 @@ export function useNodeSave({
       message.error('排序保存失败');
       console.error('排序保存失败:', error);
     }
-  }, [rawData, pushHistory, refreshGraphAndIndex]);
+  }, [rawData, pushHistory, refreshGraphAndIndex, recordHistory, getConnections, getBookmarks]);
 
   return {
     handleSaveNode,

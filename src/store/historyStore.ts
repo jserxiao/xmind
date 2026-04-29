@@ -3,6 +3,8 @@
  * 
  * 管理节点操作的撤销/恢复，包括：
  * - 节点增删改
+ * - 连线增删
+ * - 书签变更
  * - 文件持久化
  * - 键盘快捷键绑定
  */
@@ -12,6 +14,8 @@ import { persist } from 'zustand/middleware';
 import type { RoadmapNode } from '../data/roadmapData';
 import { saveIndexJson, writeFile } from '../utils/fileSystem';
 import { useRoadmapStore } from './roadmapStore';
+import { useConnectionStore, type NodeRelation } from './connectionStore';
+import { useBookmarkStore, type Bookmark } from './bookmarkStore';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -35,6 +39,12 @@ interface HistoryEntry {
   timestamp: number;
   /** 被删除的文件列表（用于撤销时恢复） */
   deletedFiles?: DeletedFileInfo[];
+  /** 连线数据快照（用于撤销/恢复连线） */
+  connections?: NodeRelation[];
+  /** 书签数据快照（用于撤销/恢复书签） */
+  bookmarks?: Bookmark[];
+  /** 当前思维导图 ID（用于恢复时定位） */
+  roadmapId?: string;
 }
 
 /** 历史管理器状态 */
@@ -51,7 +61,14 @@ interface HistoryStore {
   // ── 操作方法 ──
   
   /** 记录操作历史 */
-  pushHistory: (tree: RoadmapNode, description: string, deletedFiles?: DeletedFileInfo[]) => void;
+  pushHistory: (
+    tree: RoadmapNode, 
+    description: string, 
+    deletedFiles?: DeletedFileInfo[],
+    connections?: NodeRelation[],
+    bookmarks?: Bookmark[],
+    roadmapId?: string
+  ) => void;
   
   /** 撤销操作 */
   undo: () => Promise<RoadmapNode | null>;
@@ -96,7 +113,7 @@ export const useHistoryStore = create<HistoryStore>()(
       isProcessing: false,
 
   // 记录操作历史
-  pushHistory: (tree, description, deletedFiles) => {
+  pushHistory: (tree, description, deletedFiles, connections, bookmarks, roadmapId) => {
     set((state) => ({
       past: [
         ...state.past,
@@ -105,6 +122,10 @@ export const useHistoryStore = create<HistoryStore>()(
           description,
           timestamp: Date.now(),
           deletedFiles,
+          // 深拷贝连线和书签数据
+          connections: connections ? JSON.parse(JSON.stringify(connections)) : undefined,
+          bookmarks: bookmarks ? JSON.parse(JSON.stringify(bookmarks)) : undefined,
+          roadmapId,
         },
       ].slice(-state.maxHistory),
       // 记录新操作时清空 future 栈
@@ -144,8 +165,22 @@ export const useHistoryStore = create<HistoryStore>()(
         }
       }
 
-      // 持久化到文件
-      await saveIndexJson(roadmapPath, lastEntry.tree);
+      // 恢复连线数据到 store
+      if (lastEntry.connections !== undefined) {
+        const targetRoadmapId = lastEntry.roadmapId || roadmapPath;
+        useConnectionStore.getState().setConnections(targetRoadmapId, lastEntry.connections);
+        console.log('[HistoryStore] 恢复连线数据:', lastEntry.connections.length, '条');
+      }
+
+      // 恢复书签数据到 store
+      if (lastEntry.bookmarks !== undefined) {
+        const targetRoadmapId = lastEntry.roadmapId || roadmapPath;
+        useBookmarkStore.getState().setBookmarks(targetRoadmapId, lastEntry.bookmarks);
+        console.log('[HistoryStore] 恢复书签数据:', lastEntry.bookmarks.length, '个');
+      }
+
+      // 持久化到文件（包含连线和书签）
+      await saveIndexJson(roadmapPath, lastEntry.tree, lastEntry.connections, lastEntry.bookmarks);
 
       // 更新状态
       // 注意：撤销时，将历史状态放入 future 栈，重做时可以恢复
@@ -157,6 +192,9 @@ export const useHistoryStore = create<HistoryStore>()(
             description: lastEntry.description,
             timestamp: Date.now(),
             deletedFiles: lastEntry.deletedFiles,
+            connections: lastEntry.connections,
+            bookmarks: lastEntry.bookmarks,
+            roadmapId: lastEntry.roadmapId,
           },
           ...future,
         ].slice(0, get().maxHistory),
@@ -193,8 +231,22 @@ export const useHistoryStore = create<HistoryStore>()(
       // 注意：重做时不再重复删除文件，因为 nextEntry.tree 已经是不包含这些文件的状态
       // 只需要将状态恢复并持久化即可
 
-      // 持久化到文件
-      await saveIndexJson(roadmapPath, nextEntry.tree);
+      // 恢复连线数据到 store
+      if (nextEntry.connections !== undefined) {
+        const targetRoadmapId = nextEntry.roadmapId || roadmapPath;
+        useConnectionStore.getState().setConnections(targetRoadmapId, nextEntry.connections);
+        console.log('[HistoryStore] 重做时恢复连线数据:', nextEntry.connections.length, '条');
+      }
+
+      // 恢复书签数据到 store
+      if (nextEntry.bookmarks !== undefined) {
+        const targetRoadmapId = nextEntry.roadmapId || roadmapPath;
+        useBookmarkStore.getState().setBookmarks(targetRoadmapId, nextEntry.bookmarks);
+        console.log('[HistoryStore] 重做时恢复书签数据:', nextEntry.bookmarks.length, '个');
+      }
+
+      // 持久化到文件（包含连线和书签）
+      await saveIndexJson(roadmapPath, nextEntry.tree, nextEntry.connections, nextEntry.bookmarks);
 
       // 更新状态：将重做的操作移回 past 栈
       set({
@@ -205,6 +257,9 @@ export const useHistoryStore = create<HistoryStore>()(
             description: nextEntry.description.replace('重做: ', ''),
             timestamp: Date.now(),
             deletedFiles: nextEntry.deletedFiles,
+            connections: nextEntry.connections,
+            bookmarks: nextEntry.bookmarks,
+            roadmapId: nextEntry.roadmapId,
           },
         ].slice(-get().maxHistory),
         future: newFuture,
@@ -291,6 +346,9 @@ export const useHistoryStore = create<HistoryStore>()(
             description: entry.description,
             timestamp: entry.timestamp,
             deletedFiles: entry.deletedFiles,
+            connections: entry.connections,
+            bookmarks: entry.bookmarks,
+            roadmapId: entry.roadmapId,
           })),
           ...future,
         ];
@@ -307,8 +365,22 @@ export const useHistoryStore = create<HistoryStore>()(
           }
         }
 
-        // 持久化目标状态
-        await saveIndexJson(roadmapPath, targetTree);
+        // 恢复连线数据到 store
+        if (targetEntry.connections !== undefined) {
+          const targetRoadmapId = targetEntry.roadmapId || roadmapPath;
+          useConnectionStore.getState().setConnections(targetRoadmapId, targetEntry.connections);
+          console.log('[HistoryStore] 跳转时恢复连线数据:', targetEntry.connections.length, '条');
+        }
+
+        // 恢复书签数据到 store
+        if (targetEntry.bookmarks !== undefined) {
+          const targetRoadmapId = targetEntry.roadmapId || roadmapPath;
+          useBookmarkStore.getState().setBookmarks(targetRoadmapId, targetEntry.bookmarks);
+          console.log('[HistoryStore] 跳转时恢复书签数据:', targetEntry.bookmarks.length, '个');
+        }
+
+        // 持久化目标状态（包含连线和书签）
+        await saveIndexJson(roadmapPath, targetTree, targetEntry.connections, targetEntry.bookmarks);
 
         set({
           past: newPast,
@@ -341,6 +413,9 @@ export const useHistoryStore = create<HistoryStore>()(
             description: entry.description,
             timestamp: entry.timestamp,
             deletedFiles: entry.deletedFiles,
+            connections: entry.connections,
+            bookmarks: entry.bookmarks,
+            roadmapId: entry.roadmapId,
           })),
         ];
 
@@ -356,8 +431,22 @@ export const useHistoryStore = create<HistoryStore>()(
           }
         }
 
-        // 持久化目标状态
-        await saveIndexJson(roadmapPath, targetTree);
+        // 恢复连线数据到 store
+        if (targetEntry.connections !== undefined) {
+          const targetRoadmapId = targetEntry.roadmapId || roadmapPath;
+          useConnectionStore.getState().setConnections(targetRoadmapId, targetEntry.connections);
+          console.log('[HistoryStore] 跳转到未来时恢复连线数据:', targetEntry.connections.length, '条');
+        }
+
+        // 恢复书签数据到 store
+        if (targetEntry.bookmarks !== undefined) {
+          const targetRoadmapId = targetEntry.roadmapId || roadmapPath;
+          useBookmarkStore.getState().setBookmarks(targetRoadmapId, targetEntry.bookmarks);
+          console.log('[HistoryStore] 跳转到未来时恢复书签数据:', targetEntry.bookmarks.length, '个');
+        }
+
+        // 持久化目标状态（包含连线和书签）
+        await saveIndexJson(roadmapPath, targetTree, targetEntry.connections, targetEntry.bookmarks);
 
         set({
           past: newPast,

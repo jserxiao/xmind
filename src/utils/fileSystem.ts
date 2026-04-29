@@ -671,13 +671,25 @@ export async function readIndexJson(folderName: string): Promise<ApiResult & { d
 /**
  * 保存 index.json
  */
-export async function saveIndexJson(folderName: string, data: any): Promise<ApiResult> {
-  const result = await writeJsonFile(`${folderName}/index.json`, data);
+export async function saveIndexJson(
+  folderName: string, 
+  data: any, 
+  connections?: any[],
+  bookmarks?: any[]
+): Promise<ApiResult> {
+  // 将连线和书签数据合并到 data 对象中（如果提供）
+  const dataToSave = {
+    ...data,
+    connections: connections && connections.length > 0 ? connections : undefined,
+    bookmarks: bookmarks && bookmarks.length > 0 ? bookmarks : undefined,
+  };
+  
+  const result = await writeJsonFile(`${folderName}/index.json`, dataToSave);
   
   // 更新缓存
   if (result.success) {
     const cacheKey = createCacheKey('index', folderName);
-    indexJsonCache.set(cacheKey, data);
+    indexJsonCache.set(cacheKey, dataToSave);
   }
   
   return result;
