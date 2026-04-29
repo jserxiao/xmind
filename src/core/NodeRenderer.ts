@@ -119,7 +119,10 @@ function applyConnectionModeStyle(originalStyle: {
     };
   }
   
-  return originalStyle;
+  return {
+    ...originalStyle,
+    lineWidth: originalStyle.lineWidth ?? 1,
+  };
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 import type { AIConfig, AIGenerateRequest, AIGenerateResponse } from '../types/ai';
-import { buildGeneratePrompt, parseAIResponse, extractTokenUsage, buildEnhanceContentPrompt, parseEnhanceContentResponse } from '../utils/aiPrompts';
+import { buildGeneratePrompt, parseAIResponse, extractTokenUsage, buildEnhanceContentPrompt, parseEnhanceContentResponse, type AIResponse } from '../utils/aiPrompts';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // API 端点配置
@@ -147,7 +147,7 @@ export class AIService {
   /**
    * 调用 AI API
    */
-  private async callAI(prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callAI(prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { provider, baseUrl } = this.config;
 
     const url = baseUrl || API_ENDPOINTS[provider];
@@ -170,7 +170,7 @@ export class AIService {
   /**
    * 调用 AI API（用于完善内容，使用不同的系统提示）
    */
-  private async callAIEnhance(prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callAIEnhance(prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { provider, baseUrl } = this.config;
 
     const url = baseUrl || API_ENDPOINTS[provider];
@@ -193,7 +193,7 @@ export class AIService {
   /**
    * OpenAI 兼容 API 调用（用于完善内容）
    */
-  private async callOpenAICompatibleEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callOpenAICompatibleEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {
@@ -231,7 +231,7 @@ export class AIService {
   /**
    * Anthropic API 调用（用于完善内容）
    */
-  private async callAnthropicEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callAnthropicEnhance(url: string, prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {
@@ -267,7 +267,7 @@ export class AIService {
   /**
    * OpenAI 兼容 API 调用
    */
-  private async callOpenAICompatible(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callOpenAICompatible(url: string, prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {
@@ -305,7 +305,7 @@ export class AIService {
   /**
    * Anthropic API 调用
    */
-  private async callAnthropic(url: string, prompt: string, signal?: AbortSignal): Promise<unknown> {
+  private async callAnthropic(url: string, prompt: string, signal?: AbortSignal): Promise<AIResponse> {
     const { apiKey, model, maxTokens, temperature } = this.config;
 
     const response = await fetch(url, {

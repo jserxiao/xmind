@@ -7,17 +7,18 @@
 import type { RoadmapNode } from '../data/roadmapData';
 import type { NodeFormData } from '../store/nodeEditorStore';
 import { writeFile, readFile, deleteFile, writeJsonFile } from './fileSystem';
+import { escapeRegExp } from './common';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface ApiResult {
+export interface ApiResult<T = unknown> {
   success: boolean;
   message: string;
   path?: string;
   content?: string;
-  data?: any;
+  data?: T;
 }
 
 /** 删除节点操作的返回数据 */
@@ -35,35 +36,155 @@ export interface NodeDeleteContext {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 节点树遍历工具
+// 树遍历工具（统一抽象）
 // ═══════════════════════════════════════════════════════════════════════════════
 
+type TraverseCallback<T = void> = (node: RoadmapNode, parent: RoadmapNode | null, depth: number) => T | boolean;
+
 /**
- * 前序遍历获取所有节点列表
+ * 通用的树遍历函数
  * @param root 根节点
- * @returns 节点数组（前序遍历顺序）
+ * @param callback 回调函数，返回 true 可提前终止遍历
+ * @param mode 遍历模式：'pre'（前序）或 'post'（后序）
  */
-export function preorderTraversal(root: RoadmapNode): RoadmapNode[] {
-  const result: RoadmapNode[] = [];
-  
-  function traverse(node: RoadmapNode) {
-    result.push(node);
-    if (node.children) {
-      for (const child of node.children) {
-        traverse(child);
-      }
+export function traverseTree(
+  root: RoadmapNode,
+  callback: TraverseCallback,
+  mode: 'pre' | 'post' = 'pre'
+): void {
+  const walk = (node: RoadmapNode, parent: RoadmapNode | null, depth: number): boolean => {
+    if (mode === 'pre') {
+      if (callback(node, parent, depth) === true) return true;
     }
-  }
+    
+    for (const child of node.children || []) {
+      if (walk(child, node, depth + 1)) return true;
+    }
+    
+    if (mode === 'post') {
+      if (callback(node, parent, depth) === true) return true;
+    }
+    
+    return false;
+  };
   
-  traverse(root);
+  walk(root, null, 0);
+}
+
+/**
+ * 在树中查找节点
+ */
+export function findNodeInTree(root: RoadmapNode, nodeId: string): RoadmapNode | null {
+  let result: RoadmapNode | null = null;
+  
+  traverseTree(root, (node) => {
+    if (node.id === nodeId) {
+      result = node;
+      return true;
+    }
+    return false;
+  });
+  
   return result;
 }
 
 /**
+ * 根据节点 ID 列表查找多个节点
+ */
+export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNode[] {
+  const idSet = new Set(nodeIds);
+  const result: RoadmapNode[] = [];
+  
+  traverseTree(root, (node) => {
+    if (idSet.has(node.id)) {
+      result.push(node);
+    }
+  });
+  
+  return result;
+}
+
+/**
+ * 查找节点的父节点
+ */
+export function findParentNode(root: RoadmapNode, nodeId: string): RoadmapNode | null {
+  let result: RoadmapNode | null = null;
+  
+  traverseTree(root, (node, parent) => {
+    if (node.id === nodeId && parent) {
+      result = parent;
+      return true;
+    }
+    return false;
+  });
+  
+  return result;
+}
+
+/**
+ * 前序遍历获取所有节点列表
+ */
+export function preorderTraversal(root: RoadmapNode): RoadmapNode[] {
+  const result: RoadmapNode[] = [];
+  
+  traverseTree(root, (node) => {
+    result.push(node);
+  });
+  
+  return result;
+}
+
+/**
+ * 获取节点从根节点开始的路径（节点名称数组）
+ */
+export function getNodePath(nodeId: string, root: RoadmapNode): string[] {
+  const path: string[] = [];
+  
+  const walk = (node: RoadmapNode, target: string): boolean => {
+    if (node.id === target) {
+      path.push(node.label);
+      return true;
+    }
+    
+    for (const child of node.children || []) {
+      if (walk(child, target)) {
+        path.unshift(node.label);
+        return true;
+      }
+    }
+    
+    return false;
+  };
+  
+  walk(root, nodeId);
+  return path;
+}
+
+/**
+ * 查找 sub 节点的父节点（用于获取 mdPath）
+ */
+export function findParentWithMdPath(nodeId: string, root: RoadmapNode): RoadmapNode | null {
+  return findParentNode(root, nodeId);
+}
+
+/**
+ * 向上查找具有 mdPath 的祖先节点
+ */
+export function findAncestorMdPath(nodeId: string, root: RoadmapNode): string | null {
+  let currentId: string | null = nodeId;
+  
+  while (currentId) {
+    const parent = findParentWithMdPath(currentId, root);
+    if (!parent) return null;
+    if (parent.mdPath) return parent.mdPath;
+    currentId = parent.id;
+  }
+  
+  return null;
+}
+
+/**
  * 获取当前节点的上一个/下一个节点
- * @param currentNodeId 当前节点 ID
- * @param root 根节点
- * @returns { prev: 上一个节点 ID | null, next: 下一个节点 ID | null }
  */
 export function getPrevNextNode(
   currentNodeId: string,
@@ -82,103 +203,6 @@ export function getPrevNextNode(
   };
 }
 
-/**
- * 根据节点 ID 获取节点信息
- * @param nodeId 节点 ID
- * @param root 根节点
- * @returns 节点信息，如果没找到返回 null
- */
-export function getNodeById(nodeId: string, root: RoadmapNode): RoadmapNode | null {
-  return findNodeInTree(root, nodeId);
-}
-
-/**
- * 查找节点的父节点
- * @param nodeId 目标节点 ID
- * @param root 根节点
- * @returns 父节点，如果没有找到返回 null
- */
-export function findParentNode(root: RoadmapNode, nodeId: string): RoadmapNode | null {
-  if (root.children) {
-    for (const child of root.children) {
-      if (child.id === nodeId) return root;
-      const found = findParentNode(child, nodeId);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-/**
- * 查找 sub 节点的父节点（用于获取 mdPath）
- * @param nodeId 目标节点 ID
- * @param root 根节点
- * @returns 父节点，如果没有找到返回 null
- */
-export function findParentWithMdPath(nodeId: string, root: RoadmapNode): RoadmapNode | null {
-  // 递归查找父节点
-  const findParent = (current: RoadmapNode, targetId: string, parent: RoadmapNode | null): RoadmapNode | null => {
-    if (current.id === targetId) {
-      return parent;
-    }
-    if (current.children) {
-      for (const child of current.children) {
-        const found = findParent(child, targetId, current);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-  
-  return findParent(root, nodeId, null);
-}
-
-/**
- * 向上查找具有 mdPath 的祖先节点
- * @param nodeId 起始节点 ID
- * @param root 根节点
- * @returns 具有 mdPath 的祖先节点的 mdPath，如果没有找到返回 null
- */
-export function findAncestorMdPath(nodeId: string, root: RoadmapNode): string | null {
-  const findMdPath = (currentNodeId: string): string | null => {
-    const parent = findParentWithMdPath(currentNodeId, root);
-    if (!parent) return null;
-    if (parent.mdPath) return parent.mdPath;
-    return findMdPath(parent.id);
-  };
-  
-  return findMdPath(nodeId);
-}
-
-/**
- * 获取节点从根节点开始的路径（节点名称数组）
- * @param nodeId 目标节点 ID
- * @param root 根节点
- * @returns 从根节点到目标节点的名称路径数组
- */
-export function getNodePath(nodeId: string, root: RoadmapNode): string[] {
-  const path: string[] = [];
-  
-  const findPath = (current: RoadmapNode, targetId: string): boolean => {
-    if (current.id === targetId) {
-      path.push(current.label);
-      return true;
-    }
-    if (current.children) {
-      for (const child of current.children) {
-        if (findPath(child, targetId)) {
-          path.unshift(current.label);
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-  
-  findPath(root, nodeId);
-  return path;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // 节点操作
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -194,6 +218,13 @@ export function generateNodeId(label: string, parentId?: string): string {
 }
 
 /**
+ * 根据节点 ID 获取节点信息
+ */
+export function getNodeById(nodeId: string, root: RoadmapNode): RoadmapNode | null {
+  return findNodeInTree(root, nodeId);
+}
+
+/**
  * 深拷贝节点树
  */
 export function deepCloneNode(node: RoadmapNode): RoadmapNode {
@@ -201,32 +232,6 @@ export function deepCloneNode(node: RoadmapNode): RoadmapNode {
     ...node,
     children: node.children?.map(deepCloneNode),
   };
-}
-
-/**
- * 在树中查找节点
- */
-export function findNodeInTree(root: RoadmapNode, nodeId: string): RoadmapNode | null {
-  if (root.id === nodeId) return root;
-  if (root.children) {
-    for (const child of root.children) {
-      const found = findNodeInTree(child, nodeId);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-/**
- * 根据节点 ID 列表查找多个节点
- */
-export function findNodesByIds(root: RoadmapNode, nodeIds: string[]): RoadmapNode[] {
-  const result: RoadmapNode[] = [];
-  for (const nodeId of nodeIds) {
-    const node = findNodeInTree(root, nodeId);
-    if (node) result.push(node);
-  }
-  return result;
 }
 
 /**
@@ -268,21 +273,17 @@ export function updateNodeInTree(
 export function deleteNodeFromTree(root: RoadmapNode, nodeId: string): RoadmapNode {
   const clonedRoot = deepCloneNode(root);
   
-  function removeFromChildren(parent: RoadmapNode): boolean {
-    if (parent.children) {
-      const index = parent.children.findIndex((c) => c.id === nodeId);
+  traverseTree(clonedRoot, (node, parent) => {
+    if (node.id === nodeId && parent?.children) {
+      const index = parent.children.indexOf(node);
       if (index !== -1) {
         parent.children.splice(index, 1);
-        return true;
       }
-      for (const child of parent.children) {
-        if (removeFromChildren(child)) return true;
-      }
+      return true;
     }
     return false;
-  }
+  });
   
-  removeFromChildren(clonedRoot);
   return clonedRoot;
 }
 
@@ -367,10 +368,6 @@ export interface BookmarkData {
 
 /**
  * 更新 index.json 文件
- * @param folderName 思维导图文件夹名称
- * @param data 节点树数据
- * @param connections 连线数据（可选）
- * @param bookmarks 书签数据（可选）
  */
 export async function updateIndexJson(
   folderName: string, 
@@ -381,10 +378,8 @@ export async function updateIndexJson(
   // 将连线和书签数据合并到 root 节点中
   const dataToSave: RoadmapNode = {
     ...data,
-    // 只在 root 节点存储连线数据
-    connections: connections && connections.length > 0 ? connections : undefined,
-    // 只在 root 节点存储书签数据
-    bookmarks: bookmarks && bookmarks.length > 0 ? bookmarks : undefined,
+    connections: connections?.length ? connections : undefined,
+    bookmarks: bookmarks?.length ? bookmarks : undefined,
   };
   return writeJsonFile(`${folderName}/index.json`, dataToSave);
 }
@@ -410,11 +405,8 @@ export async function readIndexJson(folderName: string): Promise<ApiResult & { d
 
 /**
  * 保存 MD 文件内容
- * @param mdPath MD 文件路径（相对路径，可能含或不含 .md 后缀）
- * @param content 文件内容
  */
 export async function saveMdFile(mdPath: string, content: string): Promise<ApiResult> {
-  // 移除可能存在的 .md 后缀，避免双后缀问题
   const pathWithoutMd = mdPath.replace(/\.md$/, '');
   return writeFile(`${pathWithoutMd}.md`, content);
 }
@@ -423,15 +415,12 @@ export async function saveMdFile(mdPath: string, content: string): Promise<ApiRe
  * 读取 MD 文件内容
  */
 export async function readMdFile(mdPath: string): Promise<ApiResult & { content?: string }> {
-  // mdPath 可能已经包含 .md 后缀，也可能没有
   const fullPath = mdPath.endsWith('.md') ? mdPath : `${mdPath}.md`;
   return readFile(fullPath);
 }
 
 /**
  * 删除 MD 文件
- * @param mdPath MD 文件路径（相对路径，不含 .md 后缀）
- * @param roadmapPath 思维导图路径（可选）
  */
 export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promise<ApiResult> {
   const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
@@ -439,7 +428,7 @@ export async function deleteMdFile(mdPath: string, roadmapPath?: string): Promis
 }
 
 /**
- * 获取 MD 文件内容（从 localStorage 缓存）- 已废弃，使用 readMdFile 替代
+ * 获取 MD 文件内容（从 localStorage 缓存）- 已废弃
  * @deprecated
  */
 export function getMdFile(mdPath: string): string | null {
@@ -451,29 +440,36 @@ export function getMdFile(mdPath: string): string | null {
  * 创建默认的 MD 内容模板
  */
 export function createMdTemplate(title: string, description?: string): string {
-  return `# ${title}
-
-${description ? `> ${description}` : ''}
-
-## 概述
-
-<!-- 在这里编写内容 -->
-
-## 示例
-
-\`\`\`go
-// 代码示例
-\`\`\`
-
-## 注意事项
-
-- 
-- 
-
-## 参考资料
-
-- 
-`;
+  const lines = [
+    `# ${title}`,
+    '',
+    description ? `> ${description}` : '',
+    description ? '' : '',
+    '## 概述',
+    '',
+    '<!-- 在这里编写内容 -->',
+    '',
+    '## 示例',
+    '',
+    '```go',
+    '// 代码示例',
+    '```',
+    '',
+    '## 注意事项',
+    '',
+    '- ',
+    '- ',
+    '',
+    '## 参考资料',
+    '',
+    '- ',
+  ];
+  
+  return lines.filter((line, i, arr) => {
+    // 移除连续空行
+    if (line === '' && arr[i - 1] === '') return false;
+    return true;
+  }).join('\n');
 }
 
 /**
@@ -482,84 +478,57 @@ ${description ? `> ${description}` : ''}
 export function collectMdPathsFromNode(node: RoadmapNode): string[] {
   const result: string[] = [];
   
-  function traverse(n: RoadmapNode) {
+  traverseTree(node, (n) => {
     if (n.mdPath) {
       result.push(n.mdPath);
     }
-    if (n.children) {
-      n.children.forEach(traverse);
-    }
-  }
+  });
   
-  traverse(node);
+  return result;
+}
+
+/**
+ * 收集所有具有 mdPath 的节点
+ */
+export function collectNodesWithMdPath(root: RoadmapNode): Array<{ id: string; label: string; mdPath: string }> {
+  const result: Array<{ id: string; label: string; mdPath: string }> = [];
+  
+  traverseTree(root, (node) => {
+    if (node.mdPath) {
+      result.push({
+        id: node.id,
+        label: node.label,
+        mdPath: node.mdPath,
+      });
+    }
+  });
+  
   return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MD 章节操作（用于 sub 类型节点）
+// MD 章节操作
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * 从 MD 内容中提取指定章节的内容
- * @param mdContent MD 文件完整内容
- * @param sectionTitle 章节标题（不带 ## 前缀）
- * @returns 章节内容（不含标题行）
- */
-export function extractSectionContent(mdContent: string, sectionTitle: string): string {
-  const normalized = mdContent.replace(/\r\n?/g, '\n');
-  const lines = normalized.split('\n');
-  
-  let inTargetSection = false;
-  let content: string[] = [];
-  let targetLevel = 2; // ## 开头的标题级别
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
-    
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const title = headingMatch[2].trim();
-      
-      if (!inTargetSection) {
-        // 还没进入目标章节，检查是否匹配
-        if (title === sectionTitle) {
-          inTargetSection = true;
-          targetLevel = level;
-          continue; // 跳过章节标题本身
-        }
-      } else {
-        // 已经在目标章节内，检查是否遇到同级或更高级标题
-        if (level <= targetLevel) {
-          // 遇到同级或更高级标题，结束当前章节
-          break;
-        }
-      }
-    } else if (inTargetSection) {
-      content.push(line);
-    }
-  }
-  
-  return content.join('\n').trim();
+/** MD 章节解析结果 */
+interface SectionParseResult {
+  found: boolean;
+  startIndex: number;
+  endIndex: number;
+  targetLevel: number;
 }
 
 /**
- * 更新 MD 文件中指定章节的内容
- * @param mdContent MD 文件完整内容
- * @param sectionTitle 章节标题（不带 ## 前缀）
- * @param newContent 新的章节内容
- * @returns 更新后的完整 MD 内容
+ * 解析 MD 内容，找到指定章节
  */
-export function updateSectionContent(mdContent: string, sectionTitle: string, newContent: string): string {
-  const normalized = mdContent.replace(/\r\n?/g, '\n');
-  const lines = normalized.split('\n');
+function parseMdSection(mdContent: string, sectionTitle: string): SectionParseResult {
+  const lines = mdContent.replace(/\r\n?/g, '\n').split('\n');
   
   let inTargetSection = false;
   let targetLevel = 2;
   let startIndex = -1;
   let endIndex = lines.length;
   
-  // 找到章节的起始和结束位置
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
@@ -572,7 +541,7 @@ export function updateSectionContent(mdContent: string, sectionTitle: string, ne
         if (title === sectionTitle) {
           inTargetSection = true;
           targetLevel = level;
-          startIndex = i + 1; // 标题下一行开始
+          startIndex = i + 1;
         }
       } else {
         if (level <= targetLevel) {
@@ -583,17 +552,33 @@ export function updateSectionContent(mdContent: string, sectionTitle: string, ne
     }
   }
   
-  // 如果找到章节，替换内容
-  if (startIndex !== -1) {
+  return { found: startIndex !== -1, startIndex, endIndex, targetLevel };
+}
+
+/**
+ * 从 MD 内容中提取指定章节的内容
+ */
+export function extractSectionContent(mdContent: string, sectionTitle: string): string {
+  const lines = mdContent.replace(/\r\n?/g, '\n').split('\n');
+  const { found, startIndex, endIndex } = parseMdSection(mdContent, sectionTitle);
+  
+  if (!found) return '';
+  
+  return lines.slice(startIndex, endIndex).join('\n').trim();
+}
+
+/**
+ * 更新 MD 文件中指定章节的内容
+ */
+export function updateSectionContent(mdContent: string, sectionTitle: string, newContent: string): string {
+  const lines = mdContent.replace(/\r\n?/g, '\n').split('\n');
+  const { found, startIndex, endIndex } = parseMdSection(mdContent, sectionTitle);
+  
+  if (found) {
     const before = lines.slice(0, startIndex);
     const after = lines.slice(endIndex);
-    
-    // 处理新内容
     const newLines = newContent.trim().split('\n');
-    
-    // 重新组合
-    const result = [...before, ...newLines, ...after];
-    return result.join('\n');
+    return [...before, ...newLines, ...after].join('\n');
   }
   
   // 如果没找到章节，在文件末尾添加
@@ -602,27 +587,15 @@ export function updateSectionContent(mdContent: string, sectionTitle: string, ne
 
 /**
  * 更新 MD 文件中指定章节的标题
- * @param mdContent MD 文件完整内容
- * @param oldTitle 旧标题
- * @param newTitle 新标题
- * @returns 更新后的完整 MD 内容
  */
 export function updateSectionTitle(mdContent: string, oldTitle: string, newTitle: string): string {
-  const normalized = mdContent.replace(/\r\n?/g, '\n');
-  const lines = normalized.split('\n');
+  const lines = mdContent.replace(/\r\n?/g, '\n').split('\n');
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
-    
-    if (headingMatch) {
-      const level = headingMatch[1];
-      const title = headingMatch[2].trim();
-      
-      if (title === oldTitle) {
-        lines[i] = `${level} ${newTitle}`;
-        break;
-      }
+    const match = lines[i].match(/^(#{2,6})\s+(.+)$/);
+    if (match && match[2].trim() === oldTitle) {
+      lines[i] = `${match[1]} ${newTitle}`;
+      break;
     }
   }
   
@@ -631,51 +604,15 @@ export function updateSectionTitle(mdContent: string, oldTitle: string, newTitle
 
 /**
  * 删除 MD 文件中指定章节
- * @param mdContent MD 文件完整内容
- * @param sectionTitle 章节标题
- * @returns 更新后的完整 MD 内容
  */
 export function deleteSection(mdContent: string, sectionTitle: string): string {
-  const normalized = mdContent.replace(/\r\n?/g, '\n');
-  const lines = normalized.split('\n');
+  const lines = mdContent.replace(/\r\n?/g, '\n').split('\n');
+  const { found, startIndex, endIndex } = parseMdSection(mdContent, sectionTitle);
   
-  let inTargetSection = false;
-  let targetLevel = 2;
-  let deleteStart = -1;
-  let deleteEnd = lines.length;
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
-    
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const title = headingMatch[2].trim();
-      
-      if (!inTargetSection) {
-        if (title === sectionTitle) {
-          inTargetSection = true;
-          targetLevel = level;
-          deleteStart = i;
-        }
-      } else {
-        if (level <= targetLevel) {
-          deleteEnd = i;
-          break;
-        }
-      }
-    }
-  }
-  
-  if (deleteStart !== -1) {
-    const before = lines.slice(0, deleteStart);
-    const after = lines.slice(deleteEnd);
-    
-    // 移除章节前后的多余空行
-    let result = [...before, ...after].join('\n');
-    // 清理多余空行
-    result = result.replace(/\n{3,}/g, '\n\n');
-    return result;
+  if (found) {
+    const before = lines.slice(0, startIndex - 1); // 包含章节标题
+    const after = lines.slice(endIndex);
+    return [...before, ...after].join('\n').replace(/\n{3,}/g, '\n\n');
   }
   
   return mdContent;
@@ -683,9 +620,6 @@ export function deleteSection(mdContent: string, sectionTitle: string): string {
 
 /**
  * 从 MD 文件中删除指定章节
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀，可能含或不含 .md 后缀）
- * @param sectionTitle 章节标题
- * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  */
 export async function deleteSectionFromMdFile(
   mdPath: string,
@@ -693,24 +627,15 @@ export async function deleteSectionFromMdFile(
   roadmapPath?: string
 ): Promise<ApiResult> {
   try {
-    // 移除 mdPath 中可能存在的 .md 后缀，避免双后缀问题
     const cleanMdPath = mdPath.replace(/\.md$/, '');
-    
-    // 构建完整的 MD 文件路径（不含 .md 后缀）
     const fullPath = roadmapPath ? `${roadmapPath}/${cleanMdPath}` : cleanMdPath;
     
-    // 先获取 MD 文件内容
     const readResult = await readMdFile(fullPath);
     if (!readResult.success || !readResult.content) {
       return { success: false, message: `无法加载 MD 文件: ${cleanMdPath}` };
     }
     
-    let mdContent = readResult.content;
-    
-    // 删除章节
-    mdContent = deleteSection(mdContent, sectionTitle);
-    
-    // 保存文件（使用完整路径，saveMdFile 会自动添加 .md 后缀）
+    const mdContent = deleteSection(readResult.content, sectionTitle);
     return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `删除章节失败: ${error}` };
@@ -719,10 +644,6 @@ export async function deleteSectionFromMdFile(
 
 /**
  * 在 MD 文件中添加新章节
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀，可能含或不含 .md 后缀）
- * @param sectionTitle 章节标题
- * @param content 章节内容（可选）
- * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  */
 export async function addSectionToMdFile(
   mdPath: string,
@@ -731,13 +652,9 @@ export async function addSectionToMdFile(
   roadmapPath?: string
 ): Promise<ApiResult> {
   try {
-    // 移除 mdPath 中可能存在的 .md 后缀，避免双后缀问题
     const cleanMdPath = mdPath.replace(/\.md$/, '');
-    
-    // 构建完整的 MD 文件路径（不含 .md 后缀）
     const fullPath = roadmapPath ? `${roadmapPath}/${cleanMdPath}` : cleanMdPath;
     
-    // 先获取 MD 文件内容
     const readResult = await readMdFile(fullPath);
     if (!readResult.success || !readResult.content) {
       return { success: false, message: `无法加载 MD 文件: ${cleanMdPath}` };
@@ -748,19 +665,12 @@ export async function addSectionToMdFile(
     // 检查章节是否已存在
     const sectionPattern = new RegExp(`^#{2,6}\\s+${escapeRegExp(sectionTitle)}\\s*$`, 'm');
     if (sectionPattern.test(mdContent)) {
-      // 章节已存在，不需要添加
       return { success: true, message: `章节「${sectionTitle}」已存在` };
     }
     
-    // 在文件末尾添加新章节
     const defaultContent = content || '\n\n<!-- 在这里编写章节内容 -->\n';
-    const newSection = `\n\n## ${sectionTitle}${defaultContent}`;
+    mdContent = mdContent.replace(/\n{3,}$/, '\n') + `\n\n## ${sectionTitle}${defaultContent}`;
     
-    // 清理文件末尾的多余空行
-    mdContent = mdContent.replace(/\n{3,}$/, '\n');
-    mdContent += newSection;
-    
-    // 保存文件（使用完整路径，saveMdFile 会自动添加 .md 后缀）
     return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `添加章节失败: ${error}` };
@@ -768,20 +678,7 @@ export async function addSectionToMdFile(
 }
 
 /**
- * 转义正则表达式特殊字符
- */
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
  * 保存 sub 节点的章节内容
- * @param mdPath MD 文件路径（相对路径，不含思维导图前缀）
- * @param sectionTitle 章节标题
- * @param content 章节内容
- * @param isTitleUpdate 是否只是更新标题
- * @param oldTitle 旧标题（仅当 isTitleUpdate 为 true 时使用）
- * @param roadmapPath 思维导图路径（如 'go-learning-roadmap'）
  */
 export async function saveSubNodeSection(
   mdPath: string,
@@ -792,25 +689,18 @@ export async function saveSubNodeSection(
   roadmapPath?: string
 ): Promise<ApiResult> {
   try {
-    // 构建完整的 MD 文件路径
     const fullPath = roadmapPath ? `${roadmapPath}/${mdPath}` : mdPath;
     
-    // 先获取 MD 文件内容
     const readResult = await readMdFile(fullPath);
     if (!readResult.success || !readResult.content) {
       return { success: false, message: `无法加载 MD 文件: ${mdPath}` };
     }
     
     let mdContent = readResult.content;
+    mdContent = isTitleUpdate && oldTitle
+      ? updateSectionTitle(mdContent, oldTitle, sectionTitle)
+      : updateSectionContent(mdContent, sectionTitle, content);
     
-    // 更新内容或标题
-    if (isTitleUpdate && oldTitle) {
-      mdContent = updateSectionTitle(mdContent, oldTitle, sectionTitle);
-    } else {
-      mdContent = updateSectionContent(mdContent, sectionTitle, content);
-    }
-    
-    // 保存文件（使用完整路径）
     return await saveMdFile(fullPath, mdContent);
   } catch (error) {
     return { success: false, message: `保存失败: ${error}` };
@@ -821,106 +711,74 @@ export async function saveSubNodeSection(
 // MD 内容搜索
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * 收集所有具有 mdPath 的节点
- */
-export function collectNodesWithMdPath(root: RoadmapNode): Array<{ id: string; label: string; mdPath: string }> {
-  const result: Array<{ id: string; label: string; mdPath: string }> = [];
-  
-  function traverse(node: RoadmapNode) {
-    if (node.mdPath) {
-      result.push({
-        id: node.id,
-        label: node.label,
-        mdPath: node.mdPath,
-      });
-    }
-    if (node.children) {
-      node.children.forEach(traverse);
-    }
-  }
-  
-  traverse(root);
-  return result;
-}
-
-/**
- * 搜索结果项
- */
+/** 搜索结果项 */
 export interface MdSearchResult {
   nodeId: string;
   nodeLabel: string;
   mdPath: string;
-  matches: string[]; // 匹配的上下文片段
+  matches: string[];
+}
+
+/** 搜索配置 */
+interface SearchConfig {
+  /** 上下文长度（前后字符数） */
+  contextLength?: number;
+  /** 最大匹配数 */
+  maxMatches?: number;
+  /** 是否忽略大小写 */
+  ignoreCase?: boolean;
 }
 
 /**
  * 搜索 MD 文件内容
- * @param keyword 搜索关键词
- * @param nodesWithMdPath 具有 mdPath 的节点列表
- * @returns 匹配的搜索结果
  */
 export async function searchMdContent(
   keyword: string,
-  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>
+  nodesWithMdPath: Array<{ id: string; label: string; mdPath: string }>,
+  config: SearchConfig = {}
 ): Promise<MdSearchResult[]> {
+  const { contextLength = 30, maxMatches = 3, ignoreCase = true } = config;
+  
   if (!keyword.trim()) return [];
   
-  const lowerKeyword = keyword.toLowerCase().trim();
+  const searchStr = ignoreCase ? keyword.toLowerCase().trim() : keyword.trim();
   
-  // 并行搜索所有 MD 文件
   const searchPromises = nodesWithMdPath.map(async (node) => {
     try {
       const readResult = await readMdFile(node.mdPath);
       if (!readResult.success || !readResult.content) return null;
       
       const content = readResult.content;
-      const lowerContent = content.toLowerCase();
+      const searchContent = ignoreCase ? content.toLowerCase() : content;
       const matches: string[] = [];
       
-      // 搜索内容中的关键词
       let searchPos = 0;
-      while (true) {
-        const index = lowerContent.indexOf(lowerKeyword, searchPos);
+      while (matches.length < maxMatches) {
+        const index = searchContent.indexOf(searchStr, searchPos);
         if (index === -1) break;
         
-        // 提取匹配上下文（前后各 30 个字符）
-        const contextStart = Math.max(0, index - 30);
-        const contextEnd = Math.min(content.length, index + keyword.length + 30);
-        const context = content.slice(contextStart, contextEnd);
-        
-        // 清理上下文（移除换行和多余空格）
-        const cleanContext = context
+        const contextStart = Math.max(0, index - contextLength);
+        const contextEnd = Math.min(content.length, index + keyword.length + contextLength);
+        const context = content
+          .slice(contextStart, contextEnd)
           .replace(/\n/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
         
-        matches.push(cleanContext);
+        matches.push(context);
         searchPos = index + keyword.length;
-        
-        // 最多记录 3 个匹配
-        if (matches.length >= 3) break;
       }
       
-      if (matches.length > 0) {
-        return {
-          nodeId: node.id,
-          nodeLabel: node.label,
-          mdPath: node.mdPath,
-          matches,
-        };
-      }
-      
-      return null;
+      return matches.length > 0
+        ? { nodeId: node.id, nodeLabel: node.label, mdPath: node.mdPath, matches }
+        : null;
     } catch {
       return null;
     }
   });
   
-  const searchResults = await Promise.all(searchPromises);
-  
-  // 过滤掉 null 结果
-  return searchResults.filter((r): r is MdSearchResult => r !== null);
+  const results = await Promise.all(searchPromises);
+  return results.filter((r): r is MdSearchResult => r !== null);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -929,10 +787,6 @@ export async function searchMdContent(
 
 /**
  * 执行节点删除操作（包括处理相关 MD 文件）
- * 此函数封装了 sub 节点和普通节点的删除逻辑，供组件调用
- * 
- * @param context 删除上下文
- * @returns 删除结果，包含新的节点树和被删除的文件信息
  */
 export async function executeNodeDelete(
   context: NodeDeleteContext
@@ -946,7 +800,6 @@ export async function executeNodeDelete(
     const ancestorMdPath = findAncestorMdPath(node.id, rawData);
     
     if (ancestorMdPath) {
-      // 读取完整的 MD 文件内容（用于撤销时恢复）
       const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
       if (readResult.success && readResult.content) {
         deletedFiles.push({
@@ -955,14 +808,12 @@ export async function executeNodeDelete(
         });
       }
       
-      // 删除 MD 文件中的章节
       await deleteSectionFromMdFile(ancestorMdPath, node.label, roadmapPath);
     }
   } else {
     // 非 sub 节点：收集并删除相关 MD 文件
     const mdPathsToDelete = collectMdPathsFromNode(node);
     
-    // 读取并保存 MD 文件内容（用于撤销时恢复）
     for (const mdPath of mdPathsToDelete) {
       const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
       if (readResult.success && readResult.content) {
@@ -973,26 +824,18 @@ export async function executeNodeDelete(
       }
     }
     
-    // 删除 MD 文件
     for (const mdPath of mdPathsToDelete) {
       await deleteMdFile(mdPath, roadmapPath);
     }
   }
   
-  // 执行节点删除
   const newTree = deleteNodeFromTree(rawData, node.id);
   
   return { newTree, deletedFiles };
 }
 
 /**
- * 批量删除节点（包括处理相关 MD 文件）
- * 
- * @param nodeIds 要删除的节点 ID 列表
- * @param rawData 当前节点树
- * @param mdBasePath MD 文件基础路径
- * @param roadmapPath 思维导图路径
- * @returns 删除结果
+ * 批量删除节点
  */
 export async function executeBatchNodeDelete(
   nodeIds: string[],
@@ -1001,21 +844,17 @@ export async function executeBatchNodeDelete(
   roadmapPath: string
 ): Promise<DeleteNodeResult> {
   const deletedFiles: Array<{ path: string; content: string }> = [];
-  const processedMdPaths = new Set<string>(); // 避免重复处理同一个文件
+  const processedMdPaths = new Set<string>();
   
-  // 找到所有要删除的节点
   const nodesToDelete = findNodesByIds(rawData, nodeIds);
   
-  // 分别处理 sub 节点和普通节点
   for (const node of nodesToDelete) {
     if (node.type === 'sub') {
-      // sub 节点：删除 MD 文件中的章节
       const ancestorMdPath = findAncestorMdPath(node.id, rawData);
       
       if (ancestorMdPath && !processedMdPaths.has(ancestorMdPath)) {
         processedMdPaths.add(ancestorMdPath);
         
-        // 读取完整的 MD 文件内容（用于撤销时恢复）
         const readResult = await readMdFile(`${mdBasePath}/${ancestorMdPath}`);
         if (readResult.success && readResult.content) {
           deletedFiles.push({
@@ -1025,19 +864,16 @@ export async function executeBatchNodeDelete(
         }
       }
       
-      // 删除章节
       if (ancestorMdPath) {
         await deleteSectionFromMdFile(ancestorMdPath, node.label, roadmapPath);
       }
     } else {
-      // 非 sub 节点：收集要删除的 MD 文件路径
       const mdPaths = collectMdPathsFromNode(node);
       
       for (const mdPath of mdPaths) {
         if (!processedMdPaths.has(mdPath)) {
           processedMdPaths.add(mdPath);
           
-          // 读取并保存 MD 文件内容（用于撤销时恢复）
           const readResult = await readMdFile(`${mdBasePath}/${mdPath}`);
           if (readResult.success && readResult.content) {
             deletedFiles.push({
@@ -1048,14 +884,12 @@ export async function executeBatchNodeDelete(
         }
       }
       
-      // 删除 MD 文件
       for (const mdPath of mdPaths) {
         await deleteMdFile(mdPath, roadmapPath);
       }
     }
   }
   
-  // 批量删除节点
   const newTree = batchDeleteNodes(rawData, nodeIds);
   
   return { newTree, deletedFiles };

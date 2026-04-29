@@ -6,34 +6,16 @@
  */
 
 import { useCallback, useMemo } from 'react';
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 常量
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/** 加密算法 */
-const ALGORITHM = 'AES-GCM';
-
-/** 密钥长度（位） */
-const KEY_LENGTH = 256;
-
-/** 初始化向量长度（字节） */
-const IV_LENGTH = 12;
-
-/** 盐值长度（字节） */
-const SALT_LENGTH = 16;
-
-/** 迭代次数（用于密钥派生） */
-const ITERATIONS = 100000;
-
-/** 哈希算法 */
-const HASH_ALGORITHM = 'SHA-256';
-
-/** 存储前缀 */
-const STORAGE_PREFIX = 'secure_';
-
-/** 密钥派生用的固定种子（基于应用特征生成） */
-const APP_SEED = 'mindmap';
+import {
+  CRYPTO_ALGORITHM,
+  CRYPTO_KEY_LENGTH,
+  CRYPTO_IV_LENGTH,
+  CRYPTO_SALT_LENGTH,
+  CRYPTO_ITERATIONS,
+  CRYPTO_HASH_ALGORITHM,
+  SECURE_STORAGE_PREFIX,
+  CRYPTO_APP_SEED,
+} from '../constants';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 辅助函数
@@ -85,7 +67,7 @@ async function deriveKey(salt: Uint8Array): Promise<CryptoKey> {
   // 导入种子作为密钥材料
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    encodeText(APP_SEED),
+    encodeText(CRYPTO_APP_SEED),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
@@ -96,11 +78,11 @@ async function deriveKey(salt: Uint8Array): Promise<CryptoKey> {
     {
       name: 'PBKDF2',
       salt,
-      iterations: ITERATIONS,
-      hash: HASH_ALGORITHM,
+      iterations: CRYPTO_ITERATIONS,
+      hash: CRYPTO_HASH_ALGORITHM,
     },
     keyMaterial,
-    { name: ALGORITHM, length: KEY_LENGTH },
+    { name: CRYPTO_ALGORITHM, length: CRYPTO_KEY_LENGTH },
     false,
     ['encrypt', 'decrypt']
   );
@@ -113,15 +95,15 @@ async function deriveKey(salt: Uint8Array): Promise<CryptoKey> {
  */
 async function encrypt(plaintext: string): Promise<string> {
   // 生成随机盐值和 IV
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const salt = crypto.getRandomValues(new Uint8Array(CRYPTO_SALT_LENGTH));
+  const iv = crypto.getRandomValues(new Uint8Array(CRYPTO_IV_LENGTH));
 
   // 派生密钥
   const key = await deriveKey(salt);
 
   // 加密
   const encrypted = await crypto.subtle.encrypt(
-    { name: ALGORITHM, iv },
+    { name: CRYPTO_ALGORITHM, iv },
     key,
     encodeText(plaintext)
   );
@@ -146,16 +128,16 @@ async function decrypt(ciphertext: string): Promise<string> {
     const combined = new Uint8Array(base64ToArrayBuffer(ciphertext));
 
     // 提取盐值、IV 和密文
-    const salt = combined.slice(0, SALT_LENGTH);
-    const iv = combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-    const data = combined.slice(SALT_LENGTH + IV_LENGTH);
+    const salt = combined.slice(0, CRYPTO_SALT_LENGTH);
+    const iv = combined.slice(CRYPTO_SALT_LENGTH, CRYPTO_SALT_LENGTH + CRYPTO_IV_LENGTH);
+    const data = combined.slice(CRYPTO_SALT_LENGTH + CRYPTO_IV_LENGTH);
 
     // 派生密钥
     const key = await deriveKey(salt);
 
     // 解密
     const decrypted = await crypto.subtle.decrypt(
-      { name: ALGORITHM, iv },
+      { name: CRYPTO_ALGORITHM, iv },
       key,
       data
     );
@@ -259,7 +241,7 @@ export interface SecureStorage {
  * ```
  */
 export function useSecureStorage(options: SecureStorageOptions = {}): SecureStorage {
-  const { prefix = STORAGE_PREFIX } = options;
+  const { prefix = SECURE_STORAGE_PREFIX } = options;
 
   /**
    * 获取完整的存储键名
@@ -382,13 +364,13 @@ export function useSecureStorage(options: SecureStorageOptions = {}): SecureStor
  */
 export const secureStorage = {
   async setItem(key: string, value: string): Promise<void> {
-    const fullKey = `${STORAGE_PREFIX}${key}`;
+    const fullKey = `${SECURE_STORAGE_PREFIX}${key}`;
     const encrypted = await encrypt(value);
     localStorage.setItem(fullKey, encrypted);
   },
 
   async getItem(key: string): Promise<string | null> {
-    const fullKey = `${STORAGE_PREFIX}${key}`;
+    const fullKey = `${SECURE_STORAGE_PREFIX}${key}`;
     const encrypted = localStorage.getItem(fullKey);
     
     if (!encrypted) {
@@ -405,7 +387,7 @@ export const secureStorage = {
   },
 
   removeItem(key: string): void {
-    const fullKey = `${STORAGE_PREFIX}${key}`;
+    const fullKey = `${SECURE_STORAGE_PREFIX}${key}`;
     localStorage.removeItem(fullKey);
   },
 

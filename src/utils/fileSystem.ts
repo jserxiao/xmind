@@ -7,31 +7,91 @@
  * 优化特性：
  * - MD 文件内容缓存，避免重复读取
  * - index.json 缓存，提升加载速度
+ * - 统一错误处理
  */
 
 import type { RoadmapMeta } from '../store/roadmapStore';
+import type { RoadmapNode } from '../data/roadmapData';
+import type { NodeRelation } from '../store/connectionStore';
+import type { Bookmark } from '../store/bookmarkStore';
 import { mdContentCache, indexJsonCache, createCacheKey } from './cache';
+import { DB_NAME, DB_STORE_NAME, DB_HANDLE_KEY } from '../constants';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface ApiResult {
+export interface ApiResult<T = unknown> {
   success: boolean;
   message: string;
   path?: string;
+  data?: T;
+  content?: string;
+  handle?: FileSystemDirectoryHandle;
+  roadmaps?: RoadmapMeta[];
+  roadmap?: RoadmapMeta;
 }
 
-// 全局存储的目录句柄
+/** 带扩展属性的目录句柄接口 */
+interface FileSystemDirectoryHandleWithPermission extends FileSystemDirectoryHandle {
+  queryPermission(opts: { mode: string }): Promise<PermissionState>;
+  requestPermission(opts: { mode: string }): Promise<PermissionState>;
+}
+
+/** 目录迭代器值类型 */
+interface FileSystemDirectoryHandleValue {
+  kind: 'file' | 'directory';
+  name: string;
+}
+
+/** 目录迭代器 */
+interface FileSystemDirectoryHandleIterator {
+  values(): AsyncIterableIterator<FileSystemDirectoryHandleValue>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 错误处理
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 创建错误结果
+ */
+function errorResult(message: string): ApiResult {
+  return { success: false, message };
+}
+
+/**
+ * 创建成功结果
+ */
+function successResult<T>(message: string, data?: Partial<ApiResult<T>>): ApiResult<T> {
+  return { success: true, message, ...data } as ApiResult<T>;
+}
+
+/**
+ * 包装异步操作，统一错误处理
+ */
+async function withErrorHandling<T>(
+  operation: () => Promise<ApiResult<T>>,
+  errorMessage: string
+): Promise<ApiResult<T>> {
+  try {
+    return await operation();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResult(`${errorMessage}: ${message}`) as ApiResult<T>;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 全局状态
+// ═══════════════════════════════════════════════════════════════════════════════
+
 let directoryHandle: FileSystemDirectoryHandle | null = null;
-
-// IndexedDB 数据库名称和存储名称
-const DB_NAME = 'mindmap-fs';
-const STORE_NAME = 'handles';
-const HANDLE_KEY = 'directoryHandle';
-
-// 句柄初始化 Promise（用于等待异步恢复完成）
 let initPromise: Promise<void> | null = null;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IndexedDB 操作
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * 打开 IndexedDB 数据库
@@ -45,10 +105,30 @@ function openDB(): Promise<IDBDatabase> {
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
+      if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
+        db.createObjectStore(DB_STORE_NAME);
       }
     };
+  });
+}
+
+/**
+ * 执行 IndexedDB 事务
+ */
+async function executeDBTransaction<T>(
+  mode: IDBTransactionMode,
+  operation: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(DB_STORE_NAME, mode);
+    const store = transaction.objectStore(DB_STORE_NAME);
+    const request = operation(store);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    db.close();
   });
 }
 
@@ -57,17 +137,7 @@ function openDB(): Promise<IDBDatabase> {
  */
 async function saveHandleToIndexedDB(handle: FileSystemDirectoryHandle): Promise<void> {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(handle, HANDLE_KEY);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-      
-      db.close();
-    });
+    await executeDBTransaction('readwrite', store => store.put(handle, DB_HANDLE_KEY));
   } catch (error) {
     console.error('[fileSystem] 保存句柄到 IndexedDB 失败:', error);
   }
@@ -78,17 +148,7 @@ async function saveHandleToIndexedDB(handle: FileSystemDirectoryHandle): Promise
  */
 async function loadHandleFromIndexedDB(): Promise<FileSystemDirectoryHandle | null> {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(HANDLE_KEY);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result || null);
-      
-      db.close();
-    });
+    return await executeDBTransaction('readonly', store => store.get(DB_HANDLE_KEY));
   } catch (error) {
     console.error('[fileSystem] 从 IndexedDB 加载句柄失败:', error);
     return null;
@@ -100,34 +160,26 @@ async function loadHandleFromIndexedDB(): Promise<FileSystemDirectoryHandle | nu
  */
 async function removeHandleFromIndexedDB(): Promise<void> {
   try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(HANDLE_KEY);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-      
-      db.close();
-    });
+    await executeDBTransaction('readwrite', store => store.delete(DB_HANDLE_KEY));
   } catch (error) {
     console.error('[fileSystem] 从 IndexedDB 删除句柄失败:', error);
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 目录句柄验证
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * 验证目录句柄是否仍然有效
+ * 验证目录句柄权限
  */
-async function verifyDirectoryHandleInternal(handle: FileSystemDirectoryHandle): Promise<boolean> {
+async function verifyPermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   try {
-    // @ts-ignore - File System Access API
-    const permission = await handle.queryPermission({ mode: 'readwrite' });
-    if (permission === 'granted') {
-      return true;
-    }
-    // @ts-ignore - File System Access API
-    const requestResult = await handle.requestPermission({ mode: 'readwrite' });
+    const handleWithPermission = handle as FileSystemDirectoryHandleWithPermission;
+    const permission = await handleWithPermission.queryPermission({ mode: 'readwrite' });
+    if (permission === 'granted') return true;
+    
+    const requestResult = await handleWithPermission.requestPermission({ mode: 'readwrite' });
     return requestResult === 'granted';
   } catch {
     return false;
@@ -135,47 +187,41 @@ async function verifyDirectoryHandleInternal(handle: FileSystemDirectoryHandle):
 }
 
 /**
- * 初始化：从 IndexedDB 恢复句柄（用于 HMR 后恢复）
+ * 初始化：从 IndexedDB 恢复句柄
  */
 async function initHandleFromIndexedDB(): Promise<void> {
-  if (directoryHandle) return; // 已经有句柄了，不需要恢复
+  if (directoryHandle) return;
   
   try {
     const handle = await loadHandleFromIndexedDB();
-    if (handle) {
-      // 验证句柄是否仍然有效
-      const isValid = await verifyDirectoryHandleInternal(handle);
-      if (isValid) {
-        directoryHandle = handle;
-        console.log('[fileSystem] 从 IndexedDB 恢复句柄成功');
-      } else {
-        // 句柄无效，删除存储
-        await removeHandleFromIndexedDB();
-        console.log('[fileSystem] 句柄已失效，已清除存储');
-      }
+    if (handle && await verifyPermission(handle)) {
+      directoryHandle = handle;
+      console.log('[fileSystem] 从 IndexedDB 恢复句柄成功');
+    } else if (handle) {
+      await removeHandleFromIndexedDB();
+      console.log('[fileSystem] 句柄已失效，已清除存储');
     }
   } catch (error) {
     console.error('[fileSystem] 初始化句柄失败:', error);
   }
 }
 
-// 立即初始化（模块加载时执行）
+// 立即初始化
 initPromise = initHandleFromIndexedDB();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 公共 API
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * 等待目录句柄初始化完成
- * 用于确保在访问目录句柄前，IndexedDB 恢复操作已完成
  */
 export async function waitForDirectoryHandleInit(): Promise<void> {
   if (initPromise) {
     await initPromise;
-    initPromise = null; // 只等待一次
+    initPromise = null;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 目录选择与管理
-// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * 检查浏览器是否支持 File System Access API
@@ -186,43 +232,28 @@ export function isFileSystemSupported(): boolean {
 
 /**
  * 选择目录
- * @returns 目录句柄和名称
  */
 export async function selectDirectory(): Promise<ApiResult & { handle?: FileSystemDirectoryHandle }> {
-  try {
+  return withErrorHandling(async () => {
     if (!isFileSystemSupported()) {
-      return { success: false, message: '您的浏览器不支持文件系统访问，请使用 Chrome 或 Edge 浏览器' };
+      return errorResult('您的浏览器不支持文件系统访问，请使用 Chrome 或 Edge 浏览器');
     }
-
-    // @ts-ignore - File System Access API
-    const handle = await window.showDirectoryPicker({
-      mode: 'readwrite',
-    });
-
-    directoryHandle = handle;
     
-    // 保存到 IndexedDB，以便 HMR 后恢复
+    const handle = await (window as unknown as { showDirectoryPicker: (opts: { mode: string }) => Promise<FileSystemDirectoryHandle> })
+      .showDirectoryPicker({ mode: 'readwrite' });
+    
+    directoryHandle = handle;
     await saveHandleToIndexedDB(handle);
-
-    return {
-      success: true,
-      message: '目录已选择',
-      handle,
-    };
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      return { success: false, message: '用户取消了选择' };
-    }
-    return { success: false, message: `选择目录失败: ${err.message}` };
-  }
+    
+    return successResult('目录已选择', { handle });
+  }, '选择目录失败');
 }
 
 /**
- * 设置目录句柄（从存储中恢复）
+ * 设置目录句柄
  */
 export function setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
   directoryHandle = handle;
-  // 同时保存到 IndexedDB
   saveHandleToIndexedDB(handle);
 }
 
@@ -231,7 +262,6 @@ export function setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
  */
 export function clearDirectoryHandle(): void {
   directoryHandle = null;
-  // 从 IndexedDB 删除
   removeHandleFromIndexedDB();
 }
 
@@ -246,248 +276,11 @@ export function getDirectoryHandle(): FileSystemDirectoryHandle | null {
  * 验证目录句柄是否仍然有效
  */
 export async function verifyDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<boolean> {
-  try {
-    // @ts-ignore - File System Access API
-    const permission = await handle.queryPermission({ mode: 'readwrite' });
-    if (permission === 'granted') {
-      return true;
-    }
-    // @ts-ignore - File System Access API
-    const requestResult = await handle.requestPermission({ mode: 'readwrite' });
-    return requestResult === 'granted';
-  } catch {
-    return false;
-  }
+  return verifyPermission(handle);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 文件读取操作
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 读取文件内容（带缓存）
- * @param path 相对于根目录的文件路径
- * @param useCache 是否使用缓存，默认 true
- */
-export async function readFile(
-  path: string,
-  useCache: boolean = true
-): Promise<ApiResult & { content?: string }> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    // 检查缓存
-    const cacheKey = createCacheKey('file', path);
-    if (useCache) {
-      const cachedContent = mdContentCache.get(cacheKey);
-      if (cachedContent !== null) {
-        return { success: true, message: '文件读取成功（缓存）', content: cachedContent };
-      }
-    }
-
-    const fileHandle = await getFileHandle(directoryHandle, path);
-    const file = await fileHandle.getFile();
-    const content = await file.text();
-
-    // 存入缓存
-    if (useCache) {
-      mdContentCache.set(cacheKey, content);
-    }
-
-    return { success: true, message: '文件读取成功', content };
-  } catch (err: any) {
-    return { success: false, message: `读取文件失败: ${err.message}` };
-  }
-}
-
-/**
- * 使文件缓存失效
- * @param path 文件路径
- */
-export function invalidateFileCache(path: string): void {
-  const cacheKey = createCacheKey('file', path);
-  mdContentCache.delete(cacheKey);
-}
-
-/**
- * 读取 JSON 文件
- */
-export async function readJsonFile<T = any>(path: string): Promise<ApiResult & { data?: T }> {
-  const result = await readFile(path);
-  if (!result.success || !result.content) {
-    return { success: false, message: result.message };
-  }
-
-  try {
-    const data = JSON.parse(result.content);
-    return { success: true, message: 'JSON 解析成功', data };
-  } catch (err: any) {
-    return { success: false, message: `JSON 解析失败: ${err.message}` };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 文件写入操作
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 写入文件
- * @param path 相对于根目录的文件路径
- * @param content 文件内容
- */
-export async function writeFile(path: string, content: string): Promise<ApiResult> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    const fileHandle = await getFileHandle(directoryHandle, path, true);
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-
-    // 更新缓存
-    const cacheKey = createCacheKey('file', path);
-    mdContentCache.set(cacheKey, content);
-
-    return { success: true, message: '文件保存成功', path };
-  } catch (err: any) {
-    return { success: false, message: `保存文件失败: ${err.message}` };
-  }
-}
-
-/**
- * 写入 JSON 文件
- */
-export async function writeJsonFile(path: string, data: any): Promise<ApiResult> {
-  const content = JSON.stringify(data, null, 2);
-  return writeFile(path, content);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 文件删除操作
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 删除文件
- */
-export async function deleteFile(path: string): Promise<ApiResult> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    const { dirHandle, fileName } = await getParentDirectoryAndFileName(directoryHandle, path);
-    await dirHandle.removeEntry(fileName);
-
-    // 清除缓存
-    const cacheKey = createCacheKey('file', path);
-    mdContentCache.delete(cacheKey);
-
-    return { success: true, message: '文件已删除' };
-  } catch (err: any) {
-    return { success: false, message: `删除文件失败: ${err.message}` };
-  }
-}
-
-/**
- * 删除文件夹（递归）
- */
-export async function deleteDirectory(path: string): Promise<ApiResult> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    const { dirHandle, fileName } = await getParentDirectoryAndFileName(directoryHandle, path);
-    await dirHandle.removeEntry(fileName, { recursive: true });
-
-    return { success: true, message: '文件夹已删除' };
-  } catch (err: any) {
-    return { success: false, message: `删除文件夹失败: ${err.message}` };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 目录操作
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 创建文件夹
- */
-export async function createDirectory(path: string): Promise<ApiResult> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    await getDirectoryHandleByPath(directoryHandle, path, true);
-
-    return { success: true, message: '文件夹已创建', path };
-  } catch (err: any) {
-    return { success: false, message: `创建文件夹失败: ${err.message}` };
-  }
-}
-
-/**
- * 扫描目录下的所有子文件夹
- */
-export async function scanDirectories(): Promise<ApiResult & { roadmaps?: RoadmapMeta[] }> {
-  try {
-    if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
-    }
-
-    const roadmaps: RoadmapMeta[] = [];
-
-    // @ts-ignore - File System Access API
-    for await (const entry of directoryHandle.values()) {
-      if (entry.kind === 'directory') {
-        // 检查是否有 index.json
-        try {
-          const indexPath = `${entry.name}/index.json`;
-          const result = await readJsonFile<any>(indexPath);
-          
-          if (result.success && result.data) {
-            roadmaps.push({
-              id: entry.name,
-              name: result.data.label || entry.name,
-              path: entry.name,
-              description: result.data.description || `${entry.name} 思维导图`,
-              icon: result.data.icon || '📚',
-              color: result.data.color || '#1890ff',
-            });
-          }
-        } catch {
-          // 忽略无法读取的文件夹
-        }
-      }
-    }
-
-    return { success: true, message: '扫描完成', roadmaps };
-  } catch (err: any) {
-    return { success: false, message: `扫描失败: ${err.message}` };
-  }
-}
-
-/**
- * 检查文件夹是否存在
- */
-export async function directoryExists(path: string): Promise<boolean> {
-  try {
-    if (!directoryHandle) return false;
-    
-    const handle = await getDirectoryHandleByPath(directoryHandle, path, false);
-    return handle !== null;
-  } catch {
-    return false;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 辅助函数
+// 文件路径解析
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -561,6 +354,209 @@ async function getParentDirectoryAndFileName(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 文件读取操作
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 读取文件内容（带缓存）
+ */
+export async function readFile(
+  path: string,
+  useCache: boolean = true
+): Promise<ApiResult & { content?: string }> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    const cacheKey = createCacheKey('file', path);
+    
+    if (useCache) {
+      const cachedContent = mdContentCache.get(cacheKey);
+      if (cachedContent !== null) {
+        return successResult('文件读取成功（缓存）', { content: cachedContent });
+      }
+    }
+
+    const fileHandle = await getFileHandle(directoryHandle, path);
+    const file = await fileHandle.getFile();
+    const content = await file.text();
+
+    if (useCache) {
+      mdContentCache.set(cacheKey, content);
+    }
+
+    return successResult('文件读取成功', { content });
+  }, '读取文件失败');
+}
+
+/**
+ * 使文件缓存失效
+ */
+export function invalidateFileCache(path: string): void {
+  const cacheKey = createCacheKey('file', path);
+  mdContentCache.delete(cacheKey);
+}
+
+/**
+ * 读取 JSON 文件
+ */
+export async function readJsonFile<T = unknown>(path: string): Promise<ApiResult<T>> {
+  const result = await readFile(path);
+  if (!result.success || !result.content) {
+    return { success: false, message: result.message };
+  }
+
+  try {
+    const data = JSON.parse(result.content) as T;
+    return { success: true, message: 'JSON 解析成功', data };
+  } catch (err) {
+    return { success: false, message: `JSON 解析失败: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 文件写入操作
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 写入文件
+ */
+export async function writeFile(path: string, content: string): Promise<ApiResult> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    const fileHandle = await getFileHandle(directoryHandle, path, true);
+    const writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+
+    const cacheKey = createCacheKey('file', path);
+    mdContentCache.set(cacheKey, content);
+
+    return successResult('文件保存成功', { path });
+  }, '保存文件失败');
+}
+
+/**
+ * 写入 JSON 文件
+ */
+export async function writeJsonFile<T = unknown>(path: string, data: T): Promise<ApiResult> {
+  const content = JSON.stringify(data, null, 2);
+  return writeFile(path, content);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 文件删除操作
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 删除文件
+ */
+export async function deleteFile(path: string): Promise<ApiResult> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    const { dirHandle, fileName } = await getParentDirectoryAndFileName(directoryHandle, path);
+    await dirHandle.removeEntry(fileName);
+
+    const cacheKey = createCacheKey('file', path);
+    mdContentCache.delete(cacheKey);
+
+    return successResult('文件已删除');
+  }, '删除文件失败');
+}
+
+/**
+ * 删除文件夹（递归）
+ */
+export async function deleteDirectory(path: string): Promise<ApiResult> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    const { dirHandle, fileName } = await getParentDirectoryAndFileName(directoryHandle, path);
+    await dirHandle.removeEntry(fileName, { recursive: true });
+
+    return successResult('文件夹已删除');
+  }, '删除文件夹失败');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 目录操作
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 创建文件夹
+ */
+export async function createDirectory(path: string): Promise<ApiResult> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    await getDirectoryHandleByPath(directoryHandle, path, true);
+
+    return successResult('文件夹已创建', { path });
+  }, '创建文件夹失败');
+}
+
+/**
+ * 检查文件夹是否存在
+ */
+export async function directoryExists(path: string): Promise<boolean> {
+  try {
+    if (!directoryHandle) return false;
+    const handle = await getDirectoryHandleByPath(directoryHandle, path, false);
+    return handle !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 扫描目录下的所有子文件夹
+ */
+export async function scanDirectories(): Promise<ApiResult & { roadmaps?: RoadmapMeta[] }> {
+  return withErrorHandling(async () => {
+    if (!directoryHandle) {
+      return errorResult('请先选择工作目录');
+    }
+
+    const roadmaps: RoadmapMeta[] = [];
+
+    for await (const entry of (directoryHandle as unknown as FileSystemDirectoryHandleIterator).values()) {
+      if (entry.kind !== 'directory') continue;
+      
+      try {
+        const indexPath = `${entry.name}/index.json`;
+        const result = await readJsonFile<RoadmapMeta & { label?: string; description?: string; icon?: string; color?: string }>(indexPath);
+        
+        if (result.success && result.data) {
+          roadmaps.push({
+            id: entry.name,
+            name: result.data.label || entry.name,
+            path: entry.name,
+            description: result.data.description || `${entry.name} 思维导图`,
+            icon: result.data.icon || '📚',
+            color: result.data.color || '#1890ff',
+          });
+        }
+      } catch {
+        // 忽略无法读取的文件夹
+      }
+    }
+
+    return { success: true, message: '扫描完成', roadmaps };
+  }, '扫描失败');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // 思维导图操作
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -574,21 +570,18 @@ export async function createRoadmap(options: {
   icon?: string;
   color?: string;
 }): Promise<ApiResult & { roadmap?: RoadmapMeta }> {
-  try {
+  return withErrorHandling(async () => {
     if (!directoryHandle) {
-      return { success: false, message: '请先选择工作目录' };
+      return errorResult('请先选择工作目录');
     }
 
-    // 检查文件夹是否已存在
     const exists = await directoryExists(options.folderName);
     if (exists) {
-      return { success: false, message: '该文件夹已存在' };
+      return errorResult('该文件夹已存在');
     }
 
-    // 创建文件夹
     await createDirectory(options.folderName);
 
-    // 创建 index.json
     const indexData = {
       id: options.folderName,
       label: options.name || options.folderName,
@@ -596,7 +589,7 @@ export async function createRoadmap(options: {
       description: options.description || `${options.name || options.folderName} 思维导图`,
       icon: options.icon || '📚',
       color: options.color || '#1890ff',
-      children: []
+      children: [],
     };
 
     await writeJsonFile(`${options.folderName}/index.json`, indexData);
@@ -611,11 +604,9 @@ export async function createRoadmap(options: {
         description: indexData.description,
         icon: indexData.icon,
         color: indexData.color,
-      }
+      },
     };
-  } catch (err: any) {
-    return { success: false, message: `创建失败: ${err.message}` };
-  }
+  }, '创建失败');
 }
 
 /**
@@ -642,25 +633,23 @@ export async function saveMdFile(mdPath: string, content: string): Promise<ApiRe
 /**
  * 删除 MD 文件
  */
-export async function deleteMdFile(mdPath: string): Promise<ApiResult> {
+export async function deleteMdFileByPath(mdPath: string): Promise<ApiResult> {
   return deleteFile(`${mdPath}.md`);
 }
 
 /**
  * 读取 index.json（带缓存）
  */
-export async function readIndexJson(folderName: string): Promise<ApiResult & { data?: any }> {
+export async function readIndexJson(folderName: string): Promise<ApiResult<RoadmapNode>> {
   const cacheKey = createCacheKey('index', folderName);
   
-  // 检查缓存
   const cached = indexJsonCache.get(cacheKey);
   if (cached !== null) {
-    return { success: true, message: '读取成功（缓存）', data: cached };
+    return successResult('读取成功（缓存）', { data: cached });
   }
   
-  const result = await readJsonFile(`${folderName}/index.json`);
+  const result = await readJsonFile<RoadmapNode>(`${folderName}/index.json`);
   
-  // 存入缓存
   if (result.success && result.data) {
     indexJsonCache.set(cacheKey, result.data);
   }
@@ -672,21 +661,19 @@ export async function readIndexJson(folderName: string): Promise<ApiResult & { d
  * 保存 index.json
  */
 export async function saveIndexJson(
-  folderName: string, 
-  data: any, 
-  connections?: any[],
-  bookmarks?: any[]
+  folderName: string,
+  data: RoadmapNode,
+  connections?: NodeRelation[],
+  bookmarks?: Bookmark[]
 ): Promise<ApiResult> {
-  // 将连线和书签数据合并到 data 对象中（如果提供）
-  const dataToSave = {
+  const dataToSave: RoadmapNode = {
     ...data,
-    connections: connections && connections.length > 0 ? connections : undefined,
-    bookmarks: bookmarks && bookmarks.length > 0 ? bookmarks : undefined,
+    connections: connections?.length ? connections : undefined,
+    bookmarks: bookmarks?.length ? bookmarks : undefined,
   };
   
   const result = await writeJsonFile(`${folderName}/index.json`, dataToSave);
   
-  // 更新缓存
   if (result.success) {
     const cacheKey = createCacheKey('index', folderName);
     indexJsonCache.set(cacheKey, dataToSave);

@@ -5,14 +5,30 @@
  * - 节点懒加载（按层级加载）
  * - 虚拟渲染（只渲染可视区域节点）
  * - 性能监控
- * - 防抖节流工具
+ * 
+ * 注意：防抖节流等通用函数请使用 common.ts 中的实现
  */
 
 import type { RoadmapNode } from '../data/roadmapData';
+import { deepClone } from './common';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/** 带内存信息的 Performance 接口（Chrome 扩展） */
+interface PerformanceWithMemory extends Performance {
+  memory?: {
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+    jsHeapSizeLimit: number;
+  };
+}
+
+/** 带开发标记的窗口接口 */
+interface WindowWithDev extends Window {
+  __DEV__?: boolean;
+}
 
 export interface LazyLoadOptions {
   /** 初始加载深度，默认 2 */
@@ -21,29 +37,6 @@ export interface LazyLoadOptions {
   expandDepth?: number;
   /** 最大加载深度，默认 10 */
   maxDepth?: number;
-}
-
-export interface VirtualRenderOptions {
-  /** 视口宽度 */
-  viewportWidth: number;
-  /** 视口高度 */
-  viewportHeight: number;
-  /** 当前缩放比例 */
-  zoom: number;
-  /** 当前视口中心 X */
-  centerX: number;
-  /** 当前视口中心 Y */
-  centerY: number;
-  /** 缓冲区边距（像素） */
-  bufferMargin?: number;
-}
-
-export interface NodeBounds {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 export interface PerformanceMetrics {
@@ -60,19 +53,13 @@ export interface PerformanceMetrics {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 节点懒加载
+// 节点树操作
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * 按深度截断节点树（懒加载）
- * @param root 根节点
- * @param depth 截断深度
- * @returns 截断后的节点树
  */
-export function truncateNodeTree(
-  root: RoadmapNode,
-  depth: number
-): RoadmapNode {
+export function truncateNodeTree(root: RoadmapNode, depth: number): RoadmapNode {
   if (depth <= 0) {
     return { ...root, children: undefined };
   }
@@ -85,47 +72,51 @@ export function truncateNodeTree(
 
 /**
  * 计算节点树的深度
- * @param node 节点
- * @returns 深度
  */
 export function getNodeDepth(node: RoadmapNode): number {
-  if (!node.children || node.children.length === 0) {
-    return 1;
-  }
+  if (!node.children?.length) return 1;
   return 1 + Math.max(...node.children.map(getNodeDepth));
 }
 
 /**
  * 统计节点总数
- * @param node 节点树
- * @returns 节点总数
  */
 export function countNodes(node: RoadmapNode): number {
   let count = 1;
-  if (node.children) {
-    for (const child of node.children) {
-      count += countNodes(child);
-    }
-  }
+  node.children?.forEach(child => {
+    count += countNodes(child);
+  });
   return count;
 }
 
 /**
+ * 节点树扁平化（用于虚拟渲染）
+ */
+export function flattenNodeTree(
+  node: RoadmapNode,
+  depth: number = 0,
+  parent: RoadmapNode | null = null
+): Array<{ node: RoadmapNode; depth: number; parent: RoadmapNode | null }> {
+  const result = [{ node, depth, parent }];
+
+  node.children?.forEach(child => {
+    result.push(...flattenNodeTree(child, depth + 1, node));
+  });
+
+  return result;
+}
+
+/**
  * 按层级展开节点（用于懒加载更多层级）
- * @param root 完整的节点树
- * @param currentTruncated 当前的截断树
- * @param nodeId 要展开的节点 ID
- * @param expandDepth 展开的深度
- * @returns 新的截断树
  */
 export function expandNodeByDepth(
-  root: RoadmapNode,
+  fullTree: RoadmapNode,
   currentTruncated: RoadmapNode,
   nodeId: string,
   expandDepth: number = 1
 ): RoadmapNode {
   // 找到完整树中的节点
-  const fullNode = findNodeById(root, nodeId);
+  const fullNode = findNodeById(fullTree, nodeId);
   if (!fullNode) return currentTruncated;
 
   // 深拷贝当前截断树
@@ -143,45 +134,17 @@ export function expandNodeByDepth(
 }
 
 /**
- * 节点树扁平化（用于虚拟渲染）
- * @param node 节点树
- * @param depth 当前深度
- * @param parent 父节点
- * @returns 扁平化的节点列表
+ * 在树中查找节点
  */
-export function flattenNodeTree(
-  node: RoadmapNode,
-  depth: number = 0,
-  parent: RoadmapNode | null = null
-): Array<{ node: RoadmapNode; depth: number; parent: RoadmapNode | null }> {
-  const result = [{ node, depth, parent }];
-
-  if (node.children) {
-    for (const child of node.children) {
-      result.push(...flattenNodeTree(child, depth + 1, node));
-    }
-  }
-
-  return result;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 辅助函数
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function findNodeById(root: RoadmapNode, id: string): RoadmapNode | null {
+export function findNodeById(root: RoadmapNode, id: string): RoadmapNode | null {
   if (root.id === id) return root;
-  if (root.children) {
-    for (const child of root.children) {
-      const found = findNodeById(child, id);
-      if (found) return found;
-    }
+  
+  for (const child of root.children || []) {
+    const found = findNodeById(child, id);
+    if (found) return found;
   }
+  
   return null;
-}
-
-function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -196,19 +159,14 @@ export class PerformanceMonitor {
   private maxRecords: number = 100;
   private startTime: number = 0;
 
-  /**
-   * 开始计时
-   */
+  /** 开始计时 */
   startTiming(): void {
     this.startTime = performance.now();
   }
 
-  /**
-   * 结束计时并记录
-   */
+  /** 结束计时并记录 */
   endTiming(totalNodes: number, renderedNodes: number): PerformanceMetrics {
-    const endTime = performance.now();
-    const renderTime = endTime - this.startTime;
+    const renderTime = performance.now() - this.startTime;
 
     const metrics: PerformanceMetrics = {
       totalNodes,
@@ -218,8 +176,9 @@ export class PerformanceMonitor {
     };
 
     // 尝试获取内存使用（Chrome 支持）
-    if ((performance as any).memory) {
-      metrics.memoryUsage = (performance as any).memory.usedJSHeapSize / 1024 / 1024;
+    const memory = (performance as PerformanceWithMemory).memory;
+    if (memory) {
+      metrics.memoryUsage = memory.usedJSHeapSize / 1024 / 1024;
     }
 
     this.metrics.push(metrics);
@@ -232,33 +191,24 @@ export class PerformanceMonitor {
     return metrics;
   }
 
-  /**
-   * 获取平均渲染时间
-   */
+  /** 获取平均渲染时间 */
   getAverageRenderTime(): number {
     if (this.metrics.length === 0) return 0;
     const total = this.metrics.reduce((sum, m) => sum + m.renderTime, 0);
     return total / this.metrics.length;
   }
 
-  /**
-   * 获取最近 N 次的性能数据
-   */
+  /** 获取最近 N 次的性能数据 */
   getRecentMetrics(count: number = 10): PerformanceMetrics[] {
     return this.metrics.slice(-count);
   }
 
-  /**
-   * 检查性能是否健康
-   */
+  /** 检查性能是否健康 */
   isHealthy(): boolean {
-    const avgTime = this.getAverageRenderTime();
-    return avgTime < 100; // 平均渲染时间小于 100ms 视为健康
+    return this.getAverageRenderTime() < 100; // 平均渲染时间小于 100ms 视为健康
   }
 
-  /**
-   * 导出性能报告
-   */
+  /** 导出性能报告 */
   exportReport(): string {
     return JSON.stringify({
       summary: {
@@ -269,119 +219,57 @@ export class PerformanceMonitor {
       details: this.metrics,
     }, null, 2);
   }
+
+  /** 清空记录 */
+  clear(): void {
+    this.metrics = [];
+  }
 }
 
 // 全局性能监控实例
 export const performanceMonitor = new PerformanceMonitor();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 防抖和节流
+// 性能测量工具
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 防抖函数
- * @param fn 要防抖的函数
- * @param delay 延迟时间（毫秒）
+ * 测量函数执行时间
  */
-export function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  return function (this: any, ...args: Parameters<T>) {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      fn.apply(this, args);
-      timeoutId = null;
-    }, delay);
-  };
-}
-
-/**
- * 节流函数
- * @param fn 要节流的函数
- * @param limit 时间限制（毫秒）
- */
-export function throttle<T extends (...args: any[]) => any>(
-  fn: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle = false;
-
-  return function (this: any, ...args: Parameters<T>) {
-    if (!inThrottle) {
-      fn.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => {
-        inThrottle = false;
-      }, limit);
-    }
-  };
-}
-
-/**
- * 请求动画帧节流
- * @param fn 要节流的函数
- */
-export function rafThrottle<T extends (...args: any[]) => any>(
-  fn: T
-): (...args: Parameters<T>) => void {
-  let rafId: number | null = null;
-
-  return function (this: any, ...args: Parameters<T>) {
-    if (rafId === null) {
-      rafId = requestAnimationFrame(() => {
-        fn.apply(this, args);
-        rafId = null;
-      });
-    }
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// 批量处理
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * 分批处理数组（避免阻塞主线程）
- * @param items 要处理的数组
- * @param processor 处理函数
- * @param batchSize 每批处理数量
- * @returns Promise
- */
-export async function processBatch<T, R>(
-  items: T[],
-  processor: (item: T, index: number) => R,
-  batchSize: number = 50
-): Promise<R[]> {
-  const results: R[] = [];
-
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = items.slice(i, i + batchSize);
-    const batchResults = batch.map((item, j) => processor(item, i + j));
-    results.push(...batchResults);
-
-    // 让出主线程
-    if (i + batchSize < items.length) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
+export async function measureTime<T>(
+  name: string,
+  fn: () => T | Promise<T>
+): Promise<{ result: T; duration: number }> {
+  const start = performance.now();
+  const result = await fn();
+  const duration = performance.now() - start;
+  
+  // 仅在开发环境下输出日志
+  if (typeof window !== 'undefined' && (window as WindowWithDev).__DEV__) {
+    console.log(`[perf] ${name}: ${duration.toFixed(2)}ms`);
   }
-
-  return results;
+  
+  return { result, duration };
 }
 
 /**
- * 空闲时处理（使用 requestIdleCallback）
- * @param fn 要处理的函数
- * @param timeout 超时时间
+ * 标记性能点
  */
-export function runWhenIdle(fn: () => void, timeout: number = 2000): void {
-  if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(fn, { timeout });
-  } else {
-    setTimeout(fn, 1);
+export function markPerformance(name: string): void {
+  if (typeof performance !== 'undefined' && performance.mark) {
+    performance.mark(name);
+  }
+}
+
+/**
+ * 测量两个标记之间的时间
+ */
+export function measurePerformance(name: string, startMark: string, endMark: string): void {
+  if (typeof performance !== 'undefined' && performance.measure) {
+    try {
+      performance.measure(name, startMark, endMark);
+    } catch {
+      // 忽略不存在的标记
+    }
   }
 }

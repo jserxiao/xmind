@@ -194,7 +194,7 @@ function getSiblingTypeHint(existingChildren?: Array<{ label: string; type: stri
 /**
  * 解析 AI 响应
  */
-export function parseAIResponse(response: unknown): GeneratedNode[] {
+export function parseAIResponse(response: AIResponse): GeneratedNode[] {
   try {
     // 提取内容字符串
     let content: string;
@@ -208,11 +208,8 @@ export function parseAIResponse(response: unknown): GeneratedNode[] {
       content = response.content[0].text;
     }
     // 直接字符串
-    else if (typeof response === 'string') {
-      content = response;
-    }
     else {
-      throw new Error('无法识别的响应格式');
+      content = response;
     }
 
     // 提取 JSON 部分
@@ -249,27 +246,6 @@ export function parseAIResponse(response: unknown): GeneratedNode[] {
   }
 }
 
-/**
- * 判断是否为 OpenAI 响应格式
- */
-function isOpenAIResponse(response: any): response is OpenAIResponse {
-  return (
-    response &&
-    Array.isArray(response.choices) &&
-    response.choices[0]?.message?.content
-  );
-}
-
-/**
- * 判断是否为 Anthropic 响应格式
- */
-function isAnthropicResponse(response: any): response is AnthropicResponse {
-  return (
-    response &&
-    Array.isArray(response.content) &&
-    response.content[0]?.text
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -296,6 +272,29 @@ interface AnthropicResponse {
     input_tokens: number;
     output_tokens: number;
   };
+}
+
+/** AI API 响应的联合类型 */
+export type AIResponse = OpenAIResponse | AnthropicResponse | string;
+
+/** 类型守卫：判断是否为 OpenAI 响应格式 */
+function isOpenAIResponse(response: unknown): response is OpenAIResponse {
+  return (
+    response !== null &&
+    typeof response === 'object' &&
+    Array.isArray((response as OpenAIResponse).choices) &&
+    !!(response as OpenAIResponse).choices[0]?.message?.content
+  );
+}
+
+/** 类型守卫：判断是否为 Anthropic 响应格式 */
+function isAnthropicResponse(response: unknown): response is AnthropicResponse {
+  return (
+    response !== null &&
+    typeof response === 'object' &&
+    Array.isArray((response as AnthropicResponse).content) &&
+    typeof (response as AnthropicResponse).content[0]?.text === 'string'
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -358,7 +357,7 @@ ${currentContent || '（当前内容为空）'}
 /**
  * 解析完善内容的 AI 响应
  */
-export function parseEnhanceContentResponse(response: unknown): string {
+export function parseEnhanceContentResponse(response: AIResponse): string {
   try {
     let content: string;
     
@@ -371,11 +370,8 @@ export function parseEnhanceContentResponse(response: unknown): string {
       content = response.content[0].text;
     }
     // 直接字符串
-    else if (typeof response === 'string') {
-      content = response;
-    }
     else {
-      throw new Error('无法识别的响应格式');
+      content = response;
     }
 
     // 清理可能的 markdown 代码块标记
@@ -399,30 +395,28 @@ export function parseEnhanceContentResponse(response: unknown): string {
 /**
  * 从响应中提取 Token 使用量
  */
-export function extractTokenUsage(response: unknown): {
+export function extractTokenUsage(response: AIResponse): {
   prompt: number;
   completion: number;
   total: number;
 } | null {
-  if (!response || typeof response !== 'object') return null;
-
-  const r = response as any;
+  if (typeof response === 'string') return null;
 
   // OpenAI 格式
-  if (r.usage?.prompt_tokens !== undefined) {
+  if (isOpenAIResponse(response) && response.usage) {
     return {
-      prompt: r.usage.prompt_tokens,
-      completion: r.usage.completion_tokens || 0,
-      total: r.usage.total_tokens || r.usage.prompt_tokens + (r.usage.completion_tokens || 0),
+      prompt: response.usage.prompt_tokens,
+      completion: response.usage.completion_tokens || 0,
+      total: response.usage.total_tokens,
     };
   }
 
   // Anthropic 格式
-  if (r.usage?.input_tokens !== undefined) {
+  if (isAnthropicResponse(response) && response.usage) {
     return {
-      prompt: r.usage.input_tokens,
-      completion: r.usage.output_tokens || 0,
-      total: r.usage.input_tokens + (r.usage.output_tokens || 0),
+      prompt: response.usage.input_tokens,
+      completion: response.usage.output_tokens || 0,
+      total: response.usage.input_tokens + (response.usage.output_tokens || 0),
     };
   }
 
