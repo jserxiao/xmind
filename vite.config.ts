@@ -37,14 +37,15 @@ export default defineConfig({
             return 'g6';
           }
           
-          // Markdown 相关（包括语法高亮器及其依赖）
+          // Markdown 编辑器（含 @uiw/react-md-editor 及其依赖）
           if (id.includes('node_modules/@uiw/react-md-editor/') || 
+              id.includes('node_modules/@uiw/react-markdown-preview/') || 
               id.includes('node_modules/react-markdown/') || 
-              id.includes('node_modules/react-syntax-highlighter/') || 
-              id.includes('node_modules/remark-gfm/') || 
-              id.includes('node_modules/marked/') ||
-              id.includes('node_modules/refractor/') ||
-              id.includes('node_modules/prismjs/') ||
+              id.includes('node_modules/rehype-') || 
+              id.includes('node_modules/remark-') || 
+              id.includes('node_modules/unified/') || 
+              id.includes('node_modules/mdast-') || 
+              id.includes('node_modules/micromark/') || 
               id.includes('node_modules/parse-numeric-range/') ||
               id.includes('node_modules/boolbase/') ||
               id.includes('node_modules/css-what/') ||
@@ -68,15 +69,15 @@ export default defineConfig({
             return 'zustand';
           }
           
-          // 工具库
-          if (id.includes('node_modules/jszip/')) {
-            return 'utils';
+          // Markdown 解析器（marked - 仅知识详情页使用）
+          if (id.includes('node_modules/marked/')) {
+            return 'marked-parser';
           }
         },
       },
     },
-    // 启用 CSS 代码分割
-    cssCodeSplit: true,
+    // 生产环境关闭 CSS 分割以减少 HTTP 请求（适合非 HTTP/2 部署）
+    cssCodeSplit: false,
     // 启用源映射（生产环境可关闭以减小体积）
     sourcemap: false,
     // 压缩选项
@@ -100,13 +101,6 @@ export default defineConfig({
       'zustand',
       // 强制预构建 CommonJS 模块
       '@uiw/react-md-editor',
-      'react-markdown',
-      'react-syntax-highlighter',
-      'refractor',
-      'parse-numeric-range',
-      'boolbase',
-      'css-what',
-      'nth-check',
     ],
     esbuildOptions: {
       // 修复 CommonJS 模块的 ESM 兼容性问题

@@ -27,17 +27,16 @@ interface HistoryPanelProps {
 }
 
 const HistoryPanel: React.FC<HistoryPanelProps> = ({ onJumpToHistory }) => {
-  const { 
-    past, 
-    future, 
-    undo, 
-    redo,
-    clearHistory,
-    canUndo,
-    canRedo,
-    isProcessing,
-    jumpToHistory: jumpToHistoryStore
-  } = useHistoryStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const past = useHistoryStore((state) => state.past);
+  const future = useHistoryStore((state) => state.future);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+  const clearHistory = useHistoryStore((state) => state.clearHistory);
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
+  const isProcessing = useHistoryStore((state) => state.isProcessing);
+  const jumpToHistoryStore = useHistoryStore((state) => state.jumpToHistory);
 
   const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
 

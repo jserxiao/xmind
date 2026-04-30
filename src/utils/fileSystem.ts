@@ -90,18 +90,65 @@ let directoryHandle: FileSystemDirectoryHandle | null = null;
 let initPromise: Promise<void> | null = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// IndexedDB 操作
+// IndexedDB 操作（单例连接池）
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** 单例数据库实例 */
+let dbInstance: IDBDatabase | null = null;
+
+/** 数据库打开的 Promise（防止并发打开） */
+let dbOpenPromise: Promise<IDBDatabase> | null = null;
+
 /**
- * 打开 IndexedDB 数据库
+ * 获取 IndexedDB 数据库连接（单例模式）
+ *
+ * 优化：复用数据库连接，避免每次操作都 openDB() → db.close()
+ * 高频 IO（如快速连续保存 index.json）下，连接建立/关闭开销显著降低
  */
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+function getDB(): Promise<IDBDatabase> {
+  // 如果已有可用连接，直接返回
+  // 注意：IDBDatabase 没有标准的 closed 属性，使用 try-catch 判断
+  if (dbInstance) {
+    try {
+      // 尝试访问 objectStoreNames 来验证连接是否仍然有效
+      if (dbInstance.objectStoreNames.contains(DB_STORE_NAME)) {
+        return Promise.resolve(dbInstance);
+      }
+    } catch {
+      dbInstance = null;
+    }
+  }
+  
+  // 如果正在打开中，复用同一个 Promise
+  if (dbOpenPromise) {
+    return dbOpenPromise;
+  }
+  
+  dbOpenPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
     
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbOpenPromise = null;
+      reject(request.error);
+    };
+    
+    request.onsuccess = () => {
+      dbInstance = request.result;
+      dbOpenPromise = null;
+      
+      // 连接意外关闭时自动清空缓存
+      dbInstance.onclose = () => {
+        dbInstance = null;
+      };
+      
+      // 版本变更时关闭并清空
+      dbInstance.onversionchange = () => {
+        dbInstance?.close();
+        dbInstance = null;
+      };
+      
+      resolve(dbInstance);
+    };
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -110,16 +157,20 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
   });
+  
+  return dbOpenPromise;
 }
 
 /**
  * 执行 IndexedDB 事务
+ *
+ * 优化：复用单例连接，不再每次操作后关闭连接
  */
 async function executeDBTransaction<T>(
   mode: IDBTransactionMode,
   operation: (store: IDBObjectStore) => IDBRequest<T>
 ): Promise<T> {
-  const db = await openDB();
+  const db = await getDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(DB_STORE_NAME, mode);
     const store = transaction.objectStore(DB_STORE_NAME);
@@ -127,8 +178,6 @@ async function executeDBTransaction<T>(
     
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    
-    db.close();
   });
 }
 

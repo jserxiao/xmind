@@ -26,7 +26,10 @@ interface AIConfigPanelProps {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const AIConfigPanel: React.FC<AIConfigPanelProps> = ({ visible, onClose }) => {
-  const { config, setConfig, clearConfig } = useAIStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const config = useAIStore((state) => state.config);
+  const setConfig = useAIStore((state) => state.setConfig);
+  const clearConfig = useAIStore((state) => state.clearConfig);
   const [form] = Form.useForm();
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);

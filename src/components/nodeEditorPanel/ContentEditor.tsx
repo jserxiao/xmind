@@ -35,9 +35,15 @@ interface ContentEditorProps {
  * 提供 Markdown 编辑、模板应用、样式片段插入等功能
  */
 const ContentEditor: React.FC<ContentEditorProps> = ({ rawData }) => {
-  const { formData, setMdContent, editingNode, parentNodeId, mode } = useNodeEditorStore();
-  const { config, isConfigured } = useAIStore();
-  const { currentRoadmap } = useRoadmapStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const formData = useNodeEditorStore((state) => state.formData);
+  const setMdContent = useNodeEditorStore((state) => state.setMdContent);
+  const editingNode = useNodeEditorStore((state) => state.editingNode);
+  const parentNodeId = useNodeEditorStore((state) => state.parentNodeId);
+  const mode = useNodeEditorStore((state) => state.mode);
+  const config = useAIStore((state) => state.config);
+  const isConfigured = useAIStore((state) => state.isConfigured);
+  const currentRoadmap = useRoadmapStore((state) => state.currentRoadmap);
   const [isEnhancing, setIsEnhancing] = useState(false);
   
   // 差异对比弹窗状态

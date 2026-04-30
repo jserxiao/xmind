@@ -103,8 +103,8 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
   const getFullMdPath = useRoadmapStore((state) => state.getFullMdPath);
 
-  // 节点编辑器 Store（getter 函数避免每次渲染重新创建闭包）
-  const { isOpen: isEditorOpen } = useNodeEditorStore();
+  // 节点编辑器 Store — 使用精细 selector 避免全量订阅触发重渲染
+  const isEditorOpen = useNodeEditorStore((state) => state.isOpen);
   const openAddPanel = useNodeEditorStore((state) => state.openAddPanel);
   const openEditPanel = useNodeEditorStore((state) => state.openEditPanel);
 
@@ -151,10 +151,10 @@ const RoadmapGraph: React.FC<RoadmapGraphProps> = ({ onNodeClick }) => {
   const currentBookmarksList = useMemo(() => JSON.parse(bookmarksJson), [bookmarksJson]);
 
   // 当前思维导图的书签数组（用于导航）
-  const bookmarkList = useBookmarkStore((state) => state.bookmarks);
+  // 直接从 JSON 序列化的 bookmarksJson 派生书签列表，避免订阅整个 bookmarks 对象
   const bookmarks = useMemo(() => {
-    return bookmarkList[currentRoadmapId || ''] || [];
-  }, [bookmarkList, currentRoadmapId]);
+    return currentBookmarksList || [];
+  }, [currentBookmarksList]);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 书签 ID 集合同步到画布

@@ -48,7 +48,13 @@ const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
   onClose,
   onApply,
 }) => {
-  const { config, isConfigured, isGenerating, setGenerating, setError, setTokenUsage } = useAIStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const config = useAIStore((state) => state.config);
+  const isConfigured = useAIStore((state) => state.isConfigured);
+  const isGenerating = useAIStore((state) => state.isGenerating);
+  const setGenerating = useAIStore((state) => state.setGenerating);
+  const setError = useAIStore((state) => state.setError);
+  const setTokenUsage = useAIStore((state) => state.setTokenUsage);
   
   const [count, setCount] = useState<number | 'auto'>(3);
   const [userPrompt, setUserPrompt] = useState('');

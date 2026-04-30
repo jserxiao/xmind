@@ -750,8 +750,11 @@ export class GraphManager {
   /** 当前渲染的连线数据（用于更新位置） */
   private currentConnections: NodeRelation[] = [];
 
-  /** 删除图标回调映射 */
-  private deleteIconCallbacks: Map<string, () => void> = new Map();
+  /** 事件委托：SVG 容器上的全局 click 监听器 */
+  private connectionClickHandler: ((e: MouseEvent) => void) | null = null;
+
+  /** rAF 节流：更新连线位置的 pending frame ID */
+  private connectionUpdateRafId: number | null = null;
 
   /** 当前 roadmapId */
   private currentRoadmapId: string | null = null;
@@ -777,6 +780,11 @@ export class GraphManager {
 
   /**
    * 渲染自定义连线
+   *
+   * 性能优化：
+   * - 事件委托：SVG 容器挂载一个全局 click 监听，通过 data-connection-id 识别目标
+   * - 避免为每条连线单独绑定/解绑事件监听器，减少 GC 压力
+   *
    * @param connections 连线数据数组
    */
   renderConnectionLines(connections: NodeRelation[]): void {
@@ -802,6 +810,20 @@ export class GraphManager {
       z-index: 0;
     `;
 
+    // ── 事件委托：在 SVG 容器上挂载全局 click 监听 ──
+    this.connectionClickHandler = (e: MouseEvent) => {
+      const target = (e.target as Element).closest('[data-connection-delete]');
+      if (target) {
+        e.stopPropagation();
+        e.preventDefault();
+        const connId = (target as Element).getAttribute('data-connection-delete');
+        if (connId) {
+          this.handleDeleteConnection(connId);
+        }
+      }
+    };
+    this.connectionLinesContainer.addEventListener('click', this.connectionClickHandler);
+
     // 渲染每条连线
     connections.forEach((conn) => {
       const sourceCenter = this.getNodeCenter(conn.sourceId);
@@ -816,7 +838,7 @@ export class GraphManager {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('data-connection-id', conn.id);
 
-        // 创建直线（使用 line 元素替代贝塞尔曲线）
+        // 创建直线
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', String(sourcePoint.x));
         line.setAttribute('y1', String(sourcePoint.y));
@@ -826,8 +848,6 @@ export class GraphManager {
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-linecap', 'round');
         line.setAttribute('opacity', '0.8');
-        
-        // 添加虚线效果
         line.setAttribute('stroke-dasharray', '5,5');
         
         group.appendChild(line);
@@ -847,9 +867,11 @@ export class GraphManager {
 
         // 创建删除图标容器（可点击）
         const deleteIconGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        // 使用 data-connection-delete 属性标记删除图标，用于事件委托识别
+        deleteIconGroup.setAttribute('data-connection-delete', conn.id);
         deleteIconGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
         deleteIconGroup.style.cursor = 'pointer';
-        deleteIconGroup.style.pointerEvents = 'auto'; // 允许点击事件
+        deleteIconGroup.style.pointerEvents = 'auto';
 
         // 创建背景圆
         const deleteBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -868,20 +890,6 @@ export class GraphManager {
         deleteIconGroup.appendChild(deleteX);
 
         group.appendChild(deleteIconGroup);
-
-        // 添加点击事件监听器
-        const handleDeleteClick = (e: Event) => {
-          e.stopPropagation();
-          e.preventDefault();
-          this.handleDeleteConnection(conn.id);
-        };
-        
-        deleteIconGroup.addEventListener('click', handleDeleteClick);
-        
-        // 保存回调引用以便清理
-        this.deleteIconCallbacks.set(conn.id, () => {
-          deleteIconGroup.removeEventListener('click', handleDeleteClick);
-        });
 
         this.connectionLinesContainer!.appendChild(group);
 
@@ -919,11 +927,21 @@ export class GraphManager {
 
   /**
    * 清除自定义连线
+   *
+   * 优化：只需移除一个全局事件委托监听器，而非每条连线的单独监听器
    */
   clearConnectionLines(): void {
-    // 清理所有事件监听器
-    this.deleteIconCallbacks.forEach((cleanup) => cleanup());
-    this.deleteIconCallbacks.clear();
+    // 取消 pending rAF
+    if (this.connectionUpdateRafId !== null) {
+      cancelAnimationFrame(this.connectionUpdateRafId);
+      this.connectionUpdateRafId = null;
+    }
+    
+    // 移除事件委托监听器
+    if (this.connectionClickHandler && this.connectionLinesContainer) {
+      this.connectionLinesContainer.removeEventListener('click', this.connectionClickHandler);
+    }
+    this.connectionClickHandler = null;
     
     if (this.connectionLinesContainer) {
       this.container.removeChild(this.connectionLinesContainer);
@@ -934,7 +952,10 @@ export class GraphManager {
 
   /**
    * 更新连线位置（缩放/平移后调用）
-   * 重新渲染所有连线以匹配新的视图位置
+   *
+   * 性能优化：
+   * - 元素复用：只更新 <line> 的 x1/y1/x2/y2、<circle> 的 cx/cy、<g> 的 transform，不重建 DOM
+   * - rAF 节流：避免每帧都触发更新，确保一帧内只执行一次
    */
   updateConnectionLinesPosition(): void {
     if (!this.graph || this.destroyed || this.currentConnections.length === 0) return;
@@ -943,8 +964,57 @@ export class GraphManager {
     const connectionMode = useConnectionStore.getState().connectionMode;
     if (connectionMode === 'idle') return;
     
-    // 重新渲染连线
-    this.renderConnectionLines(this.currentConnections);
+    // rAF 节流：如果已有 pending frame，跳过
+    if (this.connectionUpdateRafId !== null) return;
+    
+    this.connectionUpdateRafId = requestAnimationFrame(() => {
+      this.connectionUpdateRafId = null;
+      this.doUpdateConnectionLinesPosition();
+    });
+  }
+
+  /**
+   * 实际执行连线位置更新（元素复用，不重建 DOM）
+   */
+  private doUpdateConnectionLinesPosition(): void {
+    if (!this.graph || this.destroyed || !this.connectionLinesContainer) return;
+
+    this.currentConnections.forEach((conn) => {
+      const sourceCenter = this.getNodeCenter(conn.sourceId);
+      const targetCenter = this.getNodeCenter(conn.targetId);
+      if (!sourceCenter || !targetCenter) return;
+
+      const sourcePoint = this.graph!.getCanvasByPoint(sourceCenter.x, sourceCenter.y);
+      const targetPoint = this.graph!.getCanvasByPoint(targetCenter.x, targetCenter.y);
+
+      // 通过 data-connection-id 查找对应的 group
+      const group = this.connectionLinesContainer!.querySelector(`[data-connection-id="${conn.id}"]`);
+      if (!group) return;
+
+      // 更新 line 的坐标属性（元素复用，不重建 DOM）
+      const line = group.querySelector('line');
+      if (line) {
+        line.setAttribute('x1', String(sourcePoint.x));
+        line.setAttribute('y1', String(sourcePoint.y));
+        line.setAttribute('x2', String(targetPoint.x));
+        line.setAttribute('y2', String(targetPoint.y));
+      }
+
+      // 更新圆点位置
+      const circle = group.querySelector('circle');
+      if (circle) {
+        circle.setAttribute('cx', String(targetPoint.x));
+        circle.setAttribute('cy', String(targetPoint.y));
+      }
+
+      // 更新删除图标位置
+      const deleteGroup = group.querySelector('[data-connection-delete]');
+      if (deleteGroup) {
+        const midX = (sourcePoint.x + targetPoint.x) / 2;
+        const midY = (sourcePoint.y + targetPoint.y) / 2;
+        deleteGroup.setAttribute('transform', `translate(${midX}, ${midY})`);
+      }
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────────

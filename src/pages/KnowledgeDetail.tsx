@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { marked } from 'marked';
 import { useRoadmapStore } from '../store/roadmapStore';
 import { readFile } from '../utils/fileSystem';
 import styles from '../styles/KnowledgeDetail.module.css';
@@ -39,6 +38,9 @@ const KnowledgeDetail: React.FC = () => {
       }
       
       try {
+        // 动态导入 marked 解析器（仅在访问知识详情页时加载）
+        const { marked } = await import('marked');
+        
         // 构建 MD 文件路径，确保有 .md 后缀
         const mdPath = path.endsWith('.md') ? path : `${path}.md`;
         const fullPath = `${mdBasePath}/${mdPath}`;

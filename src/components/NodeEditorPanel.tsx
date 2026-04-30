@@ -29,15 +29,14 @@ interface NodeEditorPanelProps {
 }
 
 const NodeEditorPanel: React.FC<NodeEditorPanelProps> = ({ onSave, rawData }) => {
-  const {
-    isOpen,
-    mode,
-    parentNodeId,
-    editingNode,
-    formData,
-    closePanel,
-    isLoadingMd,
-  } = useNodeEditorStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const isOpen = useNodeEditorStore((state) => state.isOpen);
+  const mode = useNodeEditorStore((state) => state.mode);
+  const parentNodeId = useNodeEditorStore((state) => state.parentNodeId);
+  const editingNode = useNodeEditorStore((state) => state.editingNode);
+  const formData = useNodeEditorStore((state) => state.formData);
+  const closePanel = useNodeEditorStore((state) => state.closePanel);
+  const isLoadingMd = useNodeEditorStore((state) => state.isLoadingMd);
 
   // 本地状态
   const [activeTab, setActiveTab] = useState<'basic' | 'content'>('basic');

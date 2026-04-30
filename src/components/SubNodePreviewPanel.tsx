@@ -4,14 +4,19 @@
  * 用于预览 sub 类型节点对应的 Markdown 内容片段
  */
 
-import { useState, useEffect, useRef } from 'react';
-import MDEditor from '@uiw/react-md-editor';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Spin, message } from 'antd';
 import { readFile } from '../utils/fileSystem';
 import { extractSectionContent } from '../utils/nodeUtils';
 import { EMOJI, FullscreenIcon, ExitFullscreenIcon, CloseIcon } from '../constants/icons';
 import overlayStyles from '../styles/NodeEditorPanel.module.css';
 import styles from '../styles/SubNodePreviewPanel.module.css';
+
+// 动态导入 MDEditor.Markdown（nohighlight 变体，跳过语法高亮依赖以减小包体积）
+// 仅在用户打开预览面板时加载
+const LazyMarkdownPreview = lazy(() =>
+  import('@uiw/react-md-editor/nohighlight').then(mod => ({ default: mod.default.Markdown }))
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 类型定义
@@ -238,10 +243,12 @@ const SubNodePreviewPanel: React.FC<SubNodePreviewPanelProps> = ({
               <span>{error}</span>
             </div>
           ) : (
-            <MDEditor.Markdown
-              source={content || '*暂无内容*'}
-              style={{ backgroundColor: 'transparent' }}
-            />
+            <Suspense fallback={<div className={styles.previewLoading}><Spin tip="正在加载预览..." /></div>}>
+              <LazyMarkdownPreview
+                source={content || '*暂无内容*'}
+                style={{ backgroundColor: 'transparent' }}
+              />
+            </Suspense>
           )}
         </div>
 

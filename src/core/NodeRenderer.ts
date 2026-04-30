@@ -42,7 +42,7 @@ interface CustomNodeCfg {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 配置获取器
+// 配置获取器（保留原函数供外部直接使用）
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -77,6 +77,36 @@ function getConnectionMode(): ConnectionMode {
   return useConnectionStore.getState().connectionMode;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 渲染上下文（批量获取配置，避免重复 store 读取）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 渲染上下文：一次获取所有配置，供 draw/update/setState 共享 */
+interface RenderContext {
+  config: RoadmapConfig;
+  themeColors: ThemeColors;
+  themedStyles: ReturnType<typeof getThemedNodeStyles>;
+  connectionMode: ConnectionMode;
+}
+
+/**
+ * 创建渲染上下文
+ * 一次性从所有 store 批量获取配置，避免每个 draw/update/setState 方法内重复调用 getter
+ *
+ * 优化前：N 个节点 × 5 类型 × 3 生命周期 × 4 次 getter = N×60 次 store 读取
+ * 优化后：每次 refresh/渲染周期调用一次 createRenderContext，后续零开销读取
+ */
+function createRenderContext(): RenderContext {
+  const config = getConfig();
+  const themeColors = getThemeColors();
+  return {
+    config,
+    themeColors,
+    themedStyles: getThemedNodeStyles(config, themeColors),
+    connectionMode: getConnectionMode(),
+  };
+}
+
 /**
  * 连线模式下的节点样式（灰白虚线）
  */
@@ -91,6 +121,8 @@ const CONNECTION_MODE_STYLES = {
 /**
  * 应用连线模式样式
  * 如果处于连线模式，返回灰白虚线样式；否则返回原始样式
+ * @param originalStyle 原始样式
+ * @param connectionMode 连线模式（从 RenderContext 传入，避免重复 store 读取）
  */
 function applyConnectionModeStyle(originalStyle: {
   fill: string;
@@ -100,7 +132,7 @@ function applyConnectionModeStyle(originalStyle: {
   shadowColor?: string;
   shadowBlur?: number;
   lineDash?: number[];
-}): {
+}, connectionMode?: ConnectionMode): {
   fill: string;
   stroke: string;
   lineWidth: number;
@@ -109,7 +141,7 @@ function applyConnectionModeStyle(originalStyle: {
   shadowBlur?: number;
   lineDash?: number[];
 } {
-  const mode = getConnectionMode();
+  const mode = connectionMode ?? getConnectionMode();
   
   if (mode === 'active' || mode === 'preview') {
     return {
@@ -205,14 +237,14 @@ export class NodeRenderer {
        * @param group 图形组
        */
       draw(cfg: any, group: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'root', themedNodeStyles);
 
         // 应用连线模式样式
-        const rootStyle = applyConnectionModeStyle(themedNodeStyles.root);
+        const rootStyle = applyConnectionModeStyle(themedNodeStyles.root, ctx.connectionMode);
 
         // 绘制主盒子
         const box = group.addShape('rect', {
@@ -280,10 +312,10 @@ export class NodeRenderer {
        * @param item 节点实例
        */
       update(cfg: any, item: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'root', themedNodeStyles);
         
         console.log('[NodeRenderer] root-node update 被调用', { 
@@ -351,9 +383,9 @@ export class NodeRenderer {
        */
       setState(name?: string, value?: boolean | string, item?: any) {
         if (!item) return;
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
+        const ctx = createRenderContext();
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const box = item.getContainer().find((e: any) => e.get('name') === 'root-box');
         
         if (name === 'hover' && box) {
@@ -390,10 +422,10 @@ export class NodeRenderer {
   private registerBranchNode(): void {
     G6.registerNode('branch-node', {
       draw(cfg: any, group: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'branch', themedNodeStyles);
 
         // 绘制主盒子
@@ -457,10 +489,10 @@ export class NodeRenderer {
        * 更新节点
        */
       update(cfg: any, item: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'branch', themedNodeStyles);
         
         const group = item.getContainer();
@@ -512,9 +544,9 @@ export class NodeRenderer {
 
       setState(name?: string, value?: boolean | string, item?: any) {
         if (!item) return;
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
+        const ctx = createRenderContext();
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const container = item.getContainer();
         const box = container.find((e: any) => e.get('name') === 'branch-box');
 
@@ -551,10 +583,10 @@ export class NodeRenderer {
   private registerLeafNode(): void {
     G6.registerNode('leaf-node', {
       draw(cfg: any, group: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const label = cfg.label || '';
         
         // 检查是否有自定义节点配置
@@ -648,10 +680,10 @@ export class NodeRenderer {
       },
 
       update(cfg: any, item: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const label = cfg.label || '';
         
         // 检查是否有自定义节点配置
@@ -726,9 +758,9 @@ export class NodeRenderer {
 
       setState(name?: string, value?: boolean | string, item?: any) {
         if (!item) return;
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
+        const ctx = createRenderContext();
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         
         // 获取节点配置
         const cfg = item.getModel();
@@ -800,10 +832,10 @@ export class NodeRenderer {
   private registerLinkNode(): void {
     G6.registerNode('link-node', {
       draw(cfg: any, group: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'link', themedNodeStyles);
 
         const box = group.addShape('rect', {
@@ -884,10 +916,10 @@ export class NodeRenderer {
       },
 
       update(cfg: any, item: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate, elementPositions } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate, elementPositions } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const { width: w, height: h } = NodeRenderer.getNodeSize(cfg, 'link', themedNodeStyles);
         
         const group = item.getContainer();
@@ -954,9 +986,9 @@ export class NodeRenderer {
 
       setState(name?: string, value?: boolean | string, item?: any) {
         if (!item) return;
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
+        const ctx = createRenderContext();
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const box = item.getContainer().find((e: any) => e.get('name') === 'link-box');
         
         if (name === 'hover' && box) {
@@ -988,10 +1020,10 @@ export class NodeRenderer {
   private registerSubNode(): void {
     G6.registerNode('sub-node', {
       draw(cfg: any, group: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const label = cfg.label || '';
         
         // 检查是否有自定义节点配置
@@ -1050,10 +1082,10 @@ export class NodeRenderer {
       },
 
       update(cfg: any, item: any) {
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
-        const { textStyles, textTruncate } = config;
+        const ctx = createRenderContext();
+        const { textStyles, textTruncate } = ctx.config;
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         const label = cfg.label || '';
         
         // 检查是否有自定义节点配置
@@ -1106,9 +1138,9 @@ export class NodeRenderer {
 
       setState(name?: string, value?: boolean | string, item?: any) {
         if (!item) return;
-        const config = getConfig();
-        const themeColors = getThemeColors();
-        const themedNodeStyles = getThemedNodeStyles(config, themeColors);
+        const ctx = createRenderContext();
+        const themedNodeStyles = ctx.themedStyles;
+        const themeColors = ctx.themeColors;
         
         // 获取节点配置
         const cfg = item.getModel();

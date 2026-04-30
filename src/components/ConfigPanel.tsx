@@ -169,14 +169,13 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   
   // ── Store ──
-  const {
-    panelExpanded,
-    togglePanel,
-    getCurrentConfig,
-    updateLayout,
-    updateZoom,
-    resetCurrentConfig,
-  } = useConfigStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const panelExpanded = useConfigStore((state) => state.panelExpanded);
+  const togglePanel = useConfigStore((state) => state.togglePanel);
+  const getCurrentConfig = useConfigStore((state) => state.getCurrentConfig);
+  const updateLayout = useConfigStore((state) => state.updateLayout);
+  const updateZoom = useConfigStore((state) => state.updateZoom);
+  const resetCurrentConfig = useConfigStore((state) => state.resetCurrentConfig);
   
   // 书签 Store
   const currentRoadmapId = useBookmarkStore((state) => state.currentRoadmapId);

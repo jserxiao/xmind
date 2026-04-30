@@ -31,13 +31,12 @@ interface ShortcutConfigModalProps {
  * 快捷键配置弹窗组件
  */
 const ShortcutConfigModal: React.FC<ShortcutConfigModalProps> = ({ open, onClose }) => {
-  const { 
-    shortcuts, 
-    updateShortcut, 
-    toggleShortcut, 
-    resetShortcuts, 
-    checkConflict 
-  } = useShortcutStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const shortcuts = useShortcutStore((state) => state.shortcuts);
+  const updateShortcut = useShortcutStore((state) => state.updateShortcut);
+  const toggleShortcut = useShortcutStore((state) => state.toggleShortcut);
+  const resetShortcuts = useShortcutStore((state) => state.resetShortcuts);
+  const checkConflict = useShortcutStore((state) => state.checkConflict);
   
   const [editingAction, setEditingAction] = useState<ShortcutAction | null>(null);
   const [tempKey, setTempKey] = useState<string>('');

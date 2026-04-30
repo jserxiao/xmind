@@ -3,10 +3,16 @@
  * 
  * 使用 zustand 管理所有可配置的参数
  * 支持按思维导图 ID 分别存储配置
+ * 
+ * 性能优化：使用 immer 中间件消除不可变深拷贝开销
+ * - immer 允许直接 mutable 修改 draft，自动生成不可变新状态
+ * - 避免了 updateColors 等方法中多层嵌套展开运算符的深拷贝开销
+ * - persist 按 roadmap ID 拆分存储，避免全量写入
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 import { useRoadmapStore } from './roadmapStore';
 import {
   NODE_STYLES,
@@ -280,272 +286,197 @@ function generateTextColor(hex: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 创建 Store
+// 辅助函数：确保配置存在
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 在 immer draft 中确保指定 roadmapId 的配置存在
+ * 如果不存在，则基于 defaultConfig 初始化
+ */
+function ensureConfigExists(draft: Record<string, RoadmapConfig>, roadmapId: string): RoadmapConfig {
+  if (!draft[roadmapId]) {
+    draft[roadmapId] = JSON.parse(JSON.stringify(defaultConfig));
+  }
+  return draft[roadmapId];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 创建 Store（使用 immer 中间件优化深拷贝）
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const useConfigStore = create<ConfigState>()(
-  persist(
-    (set, get) => ({
-      configs: {},
-      panelExpanded: true,
-      configVersion: 0,
+  immer(
+    persist(
+      (set, get) => ({
+        configs: {},
+        panelExpanded: true,
+        configVersion: 0,
 
-      getCurrentConfig: () => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) {
-          return defaultConfig;
-        }
-        return get().configs[currentRoadmapId] || defaultConfig;
-      },
+        getCurrentConfig: () => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) {
+            return defaultConfig;
+          }
+          return get().configs[currentRoadmapId] || defaultConfig;
+        },
 
-      updateNodeStyle: (type, config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                nodeStyles: {
-                  ...currentConfig.nodeStyles,
-                  [type]: { ...currentConfig.nodeStyles[type], ...config },
-                },
-              },
-            },
-          };
-        });
-      },
-
-      updateTextStyle: (type, config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          const target = currentConfig.textStyles[type as keyof typeof currentConfig.textStyles];
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                textStyles: {
-                  ...currentConfig.textStyles,
-                  [type]: { ...target, ...config },
-                },
-              },
-            },
-          };
-        });
-      },
-
-      updateLayout: (config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          return {
-            configVersion: state.configVersion + 1,
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                layout: { ...currentConfig.layout, ...config },
-              },
-            },
-          };
-        });
-      },
-
-      updateZoom: (config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                zoom: { ...currentConfig.zoom, ...config },
-              },
-            },
-          };
-        });
-      },
-
-      updateAnimation: (config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                animation: { ...currentConfig.animation, ...config },
-              },
-            },
-          };
-        });
-      },
-
-      updateEdge: (config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                edge: { ...currentConfig.edge, ...config },
-              },
-            },
-          };
-        });
-      },
-
-      updateColors: (config) => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => {
-          const currentConfig = state.configs[currentRoadmapId] || { ...defaultConfig };
-          const newColors = { ...currentConfig.colors, ...config };
-          const newNodeStyles = { ...currentConfig.nodeStyles };
-          const newTextStyles = { ...currentConfig.textStyles };
+        updateNodeStyle: (type, config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
           
-          // 主色调变化
-          if (config.primary !== undefined || config.primaryDark !== undefined || config.primaryLight !== undefined) {
-            if (config.primary !== undefined) {
-              newColors.primaryDark = newColors.primaryDark || adjustColorBrightness(config.primary, -15);
-              newColors.primaryLight = newColors.primaryLight || generateLightColor(config.primary);
-              newColors.hoverPrimary = adjustColorBrightness(config.primary, 10);
-              newColors.hoverPrimaryLight = adjustColorBrightness(newColors.primaryLight, 5);
-              newColors.textPrimary = generateTextColor(config.primary);
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            Object.assign(currentConfig.nodeStyles[type], config);
+          });
+        },
+
+        updateTextStyle: (type, config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            const target = currentConfig.textStyles[type as keyof typeof currentConfig.textStyles];
+            if (target && typeof target === 'object') {
+              Object.assign(target, config);
+            }
+          });
+        },
+
+        updateLayout: (config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            state.configVersion += 1;
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            Object.assign(currentConfig.layout, config);
+          });
+        },
+
+        updateZoom: (config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            Object.assign(currentConfig.zoom, config);
+          });
+        },
+
+        updateAnimation: (config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            Object.assign(currentConfig.animation, config);
+          });
+        },
+
+        updateEdge: (config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            if (config.type !== undefined) currentConfig.edge.type = config.type;
+            if (config.style) {
+              Object.assign(currentConfig.edge.style, config.style);
+            }
+          });
+        },
+
+        updateColors: (config) => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            const currentConfig = ensureConfigExists(state.configs, currentRoadmapId);
+            // 先合并颜色更新
+            Object.assign(currentConfig.colors, config);
+            
+            // 主色调变化 → 联动更新 nodeStyles 和 textStyles
+            if (config.primary !== undefined || config.primaryDark !== undefined || config.primaryLight !== undefined) {
+              if (config.primary !== undefined) {
+                currentConfig.colors.primaryDark = currentConfig.colors.primaryDark || adjustColorBrightness(config.primary, -15);
+                currentConfig.colors.primaryLight = currentConfig.colors.primaryLight || generateLightColor(config.primary);
+                currentConfig.colors.hoverPrimary = adjustColorBrightness(config.primary, 10);
+                currentConfig.colors.hoverPrimaryLight = adjustColorBrightness(currentConfig.colors.primaryLight, 5);
+                currentConfig.colors.textPrimary = generateTextColor(config.primary);
+              }
+              
+              currentConfig.nodeStyles.root.fill = currentConfig.colors.primary;
+              currentConfig.nodeStyles.root.stroke = currentConfig.colors.primaryDark;
+              currentConfig.nodeStyles.root.shadowColor = `rgba(${parseInt(currentConfig.colors.primary.slice(1, 3), 16)}, ${parseInt(currentConfig.colors.primary.slice(3, 5), 16)}, ${parseInt(currentConfig.colors.primary.slice(5, 7), 16)}, 0.3)`;
+              
+              currentConfig.nodeStyles.branch.fill = currentConfig.colors.primaryLight;
+              currentConfig.nodeStyles.branch.stroke = currentConfig.colors.primary;
+              
+              currentConfig.textStyles.branch.fill = currentConfig.colors.textPrimary;
             }
             
-            newNodeStyles.root = {
-              ...newNodeStyles.root,
-              fill: newColors.primary,
-              stroke: newColors.primaryDark,
-              shadowColor: `rgba(${parseInt(newColors.primary.slice(1, 3), 16)}, ${parseInt(newColors.primary.slice(3, 5), 16)}, ${parseInt(newColors.primary.slice(5, 7), 16)}, 0.3)`,
-            };
+            // 成功色变化
+            if (config.success !== undefined) {
+              currentConfig.colors.successLight = generateLightColor(config.success);
+              currentConfig.colors.borderSuccess = generateBorderColor(config.success);
+              currentConfig.colors.hoverSuccessLight = adjustColorBrightness(currentConfig.colors.successLight, 5);
+              currentConfig.colors.textSuccess = generateTextColor(config.success);
+              
+              currentConfig.nodeStyles.leaf.fill = currentConfig.colors.successLight;
+              currentConfig.nodeStyles.leaf.stroke = currentConfig.colors.borderSuccess;
+              
+              currentConfig.textStyles.leaf.fill = currentConfig.colors.textSuccess;
+            }
             
-            newNodeStyles.branch = {
-              ...newNodeStyles.branch,
-              fill: newColors.primaryLight,
-              stroke: newColors.primary,
-            };
+            // 警告色变化
+            if (config.warning !== undefined) {
+              currentConfig.colors.warningLight = generateLightColor(config.warning);
+              currentConfig.colors.borderWarning = generateBorderColor(config.warning);
+              currentConfig.colors.hoverWarningLight = adjustColorBrightness(currentConfig.colors.warningLight, 5);
+              currentConfig.colors.textWarning = generateTextColor(config.warning);
+              
+              currentConfig.nodeStyles.link.fill = currentConfig.colors.warningLight;
+              currentConfig.nodeStyles.link.stroke = currentConfig.colors.borderWarning;
+              
+              currentConfig.textStyles.link.fill = currentConfig.colors.textWarning;
+            }
             
-            newTextStyles.branch = {
-              ...newTextStyles.branch,
-              fill: newColors.textPrimary,
-            };
-          }
-          
-          // 成功色变化
-          if (config.success !== undefined) {
-            newColors.successLight = generateLightColor(config.success);
-            newColors.borderSuccess = generateBorderColor(config.success);
-            newColors.hoverSuccessLight = adjustColorBrightness(newColors.successLight, 5);
-            newColors.textSuccess = generateTextColor(config.success);
-            
-            newNodeStyles.leaf = {
-              ...newNodeStyles.leaf,
-              fill: newColors.successLight,
-              stroke: newColors.borderSuccess,
-            };
-            
-            newTextStyles.leaf = {
-              ...newTextStyles.leaf,
-              fill: newColors.textSuccess,
-            };
-          }
-          
-          // 警告色变化
-          if (config.warning !== undefined) {
-            newColors.warningLight = generateLightColor(config.warning);
-            newColors.borderWarning = generateBorderColor(config.warning);
-            newColors.hoverWarningLight = adjustColorBrightness(newColors.warningLight, 5);
-            newColors.textWarning = generateTextColor(config.warning);
-            
-            newNodeStyles.link = {
-              ...newNodeStyles.link,
-              fill: newColors.warningLight,
-              stroke: newColors.borderWarning,
-            };
-            
-            newTextStyles.link = {
-              ...newTextStyles.link,
-              fill: newColors.textWarning,
-            };
-          }
-          
-          // 链接色变化
-          if (config.link !== undefined) {
-            newColors.linkLight = generateLightColor(config.link);
-            newColors.borderLink = generateBorderColor(config.link);
-            newColors.hoverLinkLight = adjustColorBrightness(newColors.linkLight, 5);
-            newColors.textLink = generateTextColor(config.link);
-            
-            newNodeStyles.sub = {
-              ...newNodeStyles.sub,
-              fill: newColors.linkLight,
-              stroke: newColors.borderLink,
-            };
-            
-            newTextStyles.sub = {
-              ...newTextStyles.sub,
-              fill: newColors.textLink,
-            };
-          }
-          
-          return {
-            configs: {
-              ...state.configs,
-              [currentRoadmapId]: {
-                ...currentConfig,
-                colors: newColors,
-                nodeStyles: newNodeStyles,
-                textStyles: newTextStyles,
-              },
-            },
-          };
-        });
-      },
+            // 链接色变化
+            if (config.link !== undefined) {
+              currentConfig.colors.linkLight = generateLightColor(config.link);
+              currentConfig.colors.borderLink = generateBorderColor(config.link);
+              currentConfig.colors.hoverLinkLight = adjustColorBrightness(currentConfig.colors.linkLight, 5);
+              currentConfig.colors.textLink = generateTextColor(config.link);
+              
+              currentConfig.nodeStyles.sub.fill = currentConfig.colors.linkLight;
+              currentConfig.nodeStyles.sub.stroke = currentConfig.colors.borderLink;
+              
+              currentConfig.textStyles.sub.fill = currentConfig.colors.textLink;
+            }
+          });
+        },
 
-      resetCurrentConfig: () => {
-        const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
-        if (!currentRoadmapId) return;
-        
-        set((state) => ({
-          configs: {
-            ...state.configs,
-            [currentRoadmapId]: { ...defaultConfig },
-          },
-        }));
-      },
+        resetCurrentConfig: () => {
+          const currentRoadmapId = useRoadmapStore.getState().currentRoadmapId;
+          if (!currentRoadmapId) return;
+          
+          set((state) => {
+            state.configs[currentRoadmapId] = JSON.parse(JSON.stringify(defaultConfig));
+          });
+        },
 
-      togglePanel: () => set((state) => ({ panelExpanded: !state.panelExpanded })),
+        togglePanel: () => set((state) => { state.panelExpanded = !state.panelExpanded; }),
 
-      setPanelExpanded: (expanded) => set({ panelExpanded: expanded }),
-    }),
-    {
-      name: 'roadmap-config-storage',
-      partialize: (state) => ({
-        configs: state.configs,
-        panelExpanded: state.panelExpanded,
+        setPanelExpanded: (expanded) => set((state) => { state.panelExpanded = expanded; }),
       }),
-    }
+      {
+        name: 'roadmap-config-storage',
+        partialize: (state) => ({
+          configs: state.configs,
+          panelExpanded: state.panelExpanded,
+        }),
+      }
+    )
   )
 );

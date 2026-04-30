@@ -105,14 +105,12 @@ export function useNodeSave({
 
   // ── Store 选择器 ──
 
-  const {
-    isOpen: _editorOpen,
-    mode: editorMode,
-    parentNodeId,
-    editingNode,
-    formData,
-    subNodeMdPath,
-  } = useNodeEditorStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const editorMode = useNodeEditorStore((state) => state.mode);
+  const parentNodeId = useNodeEditorStore((state) => state.parentNodeId);
+  const editingNode = useNodeEditorStore((state) => state.editingNode);
+  const formData = useNodeEditorStore((state) => state.formData);
+  const subNodeMdPath = useNodeEditorStore((state) => state.subNodeMdPath);
   const closePanel = useNodeEditorStore((state) => state.closePanel);
 
   const getMdBasePath = useRoadmapStore((state) => state.getMdBasePath);
@@ -123,7 +121,6 @@ export function useNodeSave({
   const updateBookmarkNodeId = useBookmarkStore((state) => state.updateBookmarkNodeId);
   const getBookmarks = useBookmarkStore((state) => state.getBookmarks);
   const getConnections = useConnectionStore((state) => state.getConnections);
-  const currentRoadmapId = useRoadmapStore((state) => state.currentRoadmapId);
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 辅助函数：记录历史（包含连线、书签、节点树）

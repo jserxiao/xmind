@@ -20,7 +20,10 @@ const { TextArea } = Input;
  * 包含标题、类型、图标、描述等字段
  */
 const BasicInfoForm: React.FC = () => {
-  const { formData, updateFormData, setMdContent } = useNodeEditorStore();
+  // 使用精细 selector 避免全量订阅触发重渲染
+  const formData = useNodeEditorStore((state) => state.formData);
+  const updateFormData = useNodeEditorStore((state) => state.updateFormData);
+  const setMdContent = useNodeEditorStore((state) => state.setMdContent);
   const [showCustomNodeModal, setShowCustomNodeModal] = useState(false);
   const customNodesRecord = useCustomNodeStore((state) => state.customNodes);
   const customNodes = Object.values(customNodesRecord);
